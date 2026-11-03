@@ -38744,7 +38744,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "49.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "49.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -39630,6 +39630,115 @@ function q49Journal(onglet = "main") {
 `;
   document.head.appendChild(st);
 })();
+
+/* =====================================================================
+   v49 — p102 : les restes
+   - Passeur de Ma Ville dans chaque monde (marche pour toutes les graines)
+   - Vœu Shenron « débloquer un personnage »
+   - garde-fous de collision (ne jamais rester coincé dans un mur ou dans l'eau à pied)
+   ===================================================================== */
+const P102 = { err: [] };
+function p102Err(k, e) { if (P102.err.length < 20) P102.err.push(k + ": " + (e && e.message || e)); }
+/* ---------- 1) Passeur ---------- */
+try {
+  Q49_LK.passeur = q49L("passeur", "#f0c8a0", "#3a2a1a", "#2a6ab0", "#5a3a1a", { chapeau: "#e8c050", barbe: 1 });
+  Object.assign(Q49_PNJ, {
+    passeur1: { w: 1, nom: "Passeur Tomo", L: "passeur", a: ["dep", -50, 20], ligne: "Je connais tous les raccourcis !", pas: 1 },
+    passeurV: { w: 1, nom: "Passeur Tomo", L: "passeur", a: ["maville", 0, 0], ligne: "Bienvenue à Ma Ville !", pas: 1, ville: 1 },
+    passeur2: { w: 2, nom: "Passeur Tomo", L: "passeur", a: ["dep", 90, -60], ligne: "Même en mer, je trouve le chemin !", pas: 1, radeau: 1 },
+    passeur3: { w: 3, nom: "Passeur Tomo", L: "passeur", a: ["bourg", -70, 10], ligne: "Un petit voyage ?", pas: 1 },
+    passeur4: { w: 4, nom: "Passeur Tomo", L: "passeur", a: ["porte", 70, -20], ligne: "Le chemin de Ma Ville est long… je t'y emmène !", pas: 1 },
+    passeur5: { w: 5, nom: "Passeur Tomo", L: "passeur", a: ["liones", 70, 20], ligne: "Le Boar Hat attendra !", pas: 1 }
+  });
+  const an = q49Ancre;
+  q49Ancre = function (w, k) {
+    if (w === 1 && k === "maville") { try { if (typeof p96Ici === "function" && p96Ici()) { const C = p96C(); return { x: C.x + 70, y: C.y + 110 }; } } catch (_) { } return null; }
+    return an.apply(this, arguments);
+  };
+  const pa = q49Parler;
+  q49Parler = function (k) {
+    const N = Q49_PNJ[k]; if (!N || !N.pas) return pa.apply(this, arguments);
+    const b = N.ville ? [["pv:dep", "🏠 Retour au point de départ"], ["x", "Rester ici"]] : [["pv:ville", "🏰 Aller à Ma Ville"], ["x", "Pas maintenant"]];
+    q49Dialogue(N.nom, N.ligne + (N.ville ? " Je peux te ramener au point de départ." : " Je t'emmène à Ma Ville en un clin d'œil, d'où que tu sois."), b, "🧭 PASSEUR");
+  };
+  const cl = q49Clic;
+  q49Clic = function (a) {
+    const [k, v] = a.split(":"); if (k !== "pv") return cl.apply(this, arguments);
+    q49Fermer(); setTimeout(() => p102Aller(v), 60);
+  };
+  const px = p98PoisExtra;
+  p98PoisExtra = function () { const L = px.apply(this, arguments) || []; for (const o of L) if (/^q49passeur/.test(o.id || "")) { o.ico = "🧭"; o.ty = "lieu"; o.desc = o.id === "q49passeurV" ? "Retour au départ" : "Voyage rapide vers Ma Ville"; o.p = 6; } return L; };
+} catch (e) { p102Err("passeur", e); }
+function p102Libre() { try { return jeu && jeu.scene === sceneMonde && !AV.cine && !jeu.transition && !jeu.pause; } catch (_) { return false; } }
+function p102Aller(v) {
+  const w = AV.monde || 1;
+  if (w !== 1) { try { p94Voyage(1); } catch (e) { p102Err("voy", e); return; } accAttendre(() => (AV.monde || 1) === 1 && p102Libre(), () => p102Aller(v), 25000); return; }
+  if (AV.nav) { try { p45AuQuai(() => p102Aller(v)); } catch (e) { p102Err("quai", e); } return; }
+  let cible = null;
+  try {
+    if (v === "ville") { if (typeof p96Ici === "function" && p96Ici()) { const C = p96C(); cible = q49Spot(C.x, C.y + 60, 300); } }
+    else { const d = q49Ancre(1, "dep"); cible = d && q49Spot(d.x, d.y + 20, 300); }
+  } catch (e) { p102Err("cible", e); }
+  if (!cible) { messageInfo("Le passeur ne trouve pas le chemin ici… Essaie depuis le point de départ."); return; }
+  try { son.jouer("porte"); } catch (_) { }
+  lancerTransition(() => {
+    perso.x = cible.x; perso.y = cible.y; perso.lv = null; perso.dir = "bas"; camera.x = cible.x; camera.y = cible.y - 10; try { camera.limiter(); } catch (_) { }
+    try { viderFaune(); } catch (_) { } try { placerSuiveur(); } catch (_) { } try { majBoutonsAventure(); } catch (_) { }
+    messageInfo(v === "ville" ? "🏰 Bienvenue à Ma Ville !" : "🏠 De retour au point de départ.");
+  }, null, 0.7);
+}
+/* ---------- 2) Shenron : débloquer un personnage ---------- */
+function p102Verrouilles() {
+  const L = [];
+  try { for (const P of PERSOS_EN_PLUS) if (!TBS.persos[P.id]) L.push(P); } catch (_) { }
+  try { for (const P of P2) if (!TBS.persos[P.id]) L.push(P); } catch (_) { }
+  return L;
+}
+try {
+  const pv = exPanneauVoeu;
+  exPanneauVoeu = function () {
+    const r = pv.apply(this, arguments);
+    try { const P = document.getElementById("panneau"), L = p102Verrouilles(); if (P && !P.querySelector('[data-action=exVoeu][data-id="5"]')) {
+      const last = [...P.querySelectorAll('[data-action=exVoeu]')].pop();
+      const h = L.length ? `<button data-action="exVoeu" data-id="5" class="large">👤 Débloquer un personnage (${L.length} encore verrouillé${L.length > 1 ? "s" : ""})</button>` : `<button class="large" disabled>👤 Tous les personnages sont déjà débloqués</button>`;
+      if (last) last.insertAdjacentHTML("afterend", h); } } catch (e) { p102Err("voeuP", e); }
+    return r;
+  };
+  const ev = exVoeu;
+  exVoeu = function (id) {
+    const C = AV.cine;
+    if (id === 5 && C && C.type === "shenron" && !C.voeu) {
+      const L = p102Verrouilles(); if (!L.length) return;
+      const P = L[Math.floor(Math.random() * L.length)];
+      C.voeu = 5; C.tV = C.t; try { EX.stats.voeux++; } catch (_) { }
+      try { TBS.persos[P.id] = Date.now(); } catch (_) { }
+      try { if (typeof P2 !== "undefined" && P2.includes(P) && typeof p2Don === "function") p2Don(P); } catch (_) { }
+      try { tbAnnonce.push(P); } catch (_) { }
+      try { son.jouer("fanfare"); } catch (_) { } try { sauvegarder(false); } catch (_) { }
+      const Pn = document.getElementById("panneau"); if (Pn) Pn.hidden = true; jeu.pause = false;
+      setTimeout(() => { try { messageInfo("🐉 Vœu exaucé : " + P.nom + " est débloqué ! Choisis-le dans l'écran des personnages."); } catch (_) { } }, 2500);
+      return;
+    }
+    return ev.apply(this, arguments);
+  };
+} catch (e) { p102Err("shenron", e); }
+/* ---------- 3) garde-fou collisions : si le héros à pied se retrouve dans un mur ou dans l'eau, on le remet sur le dernier sol sûr ---------- */
+const P102C = { sur: null, t: 0, bloque: 0, n: 0 };
+setInterval(() => { try { if (!document.hidden) p102Collisions(0.25); } catch (e) { p102Err("col", e); } }, 250);
+function p102Collisions(dt) {
+  if (!jeu || jeu.scene !== sceneMonde || AV.nav || AV.cine || jeu.transition || AV.nuageActif || AV.vol || perso.vol || perso.saut || (typeof PK !== "undefined" && (PK.surf || PK.combat))) { P102C.bloque = 0; return; }
+  P102C.t += dt; if (P102C.t < 0.25) return; P102C.t = 0;
+  let ok = true; try { ok = perso.libre(perso.x, perso.y); } catch (_) { return; }
+  if (ok) { P102C.sur = { x: perso.x, y: perso.y, m: jeu.monde }; P102C.bloque = 0; return; }
+  P102C.bloque++;
+  if (P102C.bloque >= 6) {   // coincé depuis ~1,5 s
+    P102C.bloque = 0; let p = P102C.sur && P102C.sur.m === jeu.monde ? P102C.sur : null;
+    if (!p || Math.hypot(p.x - perso.x, p.y - perso.y) > 400) p = q49Spot(perso.x, perso.y, 300);
+    if (p) { perso.x = p.x; perso.y = p.y; P102C.n++; }
+  }
+}
+/* garde anti-récursion (q49Poi -> p98Pois -> PNJ -> q49Ancre -> q49Poi) */
+try { const qp = q49Poi; let dans = 0; q49Poi = function () { if (dans) return null; dans = 1; try { return qp.apply(this, arguments); } finally { dans = 0; } }; } catch (e) { p102Err("poi", e); }
 
 
 /* ===== fin du module aventure ===== */

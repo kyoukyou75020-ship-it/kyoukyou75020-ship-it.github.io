@@ -1,5 +1,5 @@
-/* Mondes Ouverts — service worker (version 49.1) */
-const VERSION = "49.1";
+/* Mondes Ouverts — service worker (version 49.2) */
+const VERSION = "49.2";
 const CACHE = "mondes-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-180.png"];
 self.addEventListener("install", e => {
