@@ -29710,6 +29710,10 @@ function e3Morceau(cx, cy, lod) {
   const L = new Int8Array((n + 2) * (n + 2)), id = (i, j) => (j + 1) * (n + 2) + i + 1;
   for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) { const tx = tx0 + i, ty = ty0 + j; L[id(i, j)] = tx < 0 || ty < 0 || tx >= T || ty >= T ? NIV.PROFOND : m.niveauA(tx + 0.5, ty + 0.5); }
   const g = new G3Geo(), w = new G3Geo(), terre = [0.55, 0.4, 0.26];
+  /* v51.4 : transitions herbe/terre adoucies (couleur par sommet = moyenne des tuiles voisines) */
+  const SOFT = (AV.monde === 5 || AV.monde === 4) && !lod, CB = SOFT ? new Array((n + 2) * (n + 2)) : null;
+  if (SOFT) for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) { const l2 = L[id(i, j)], tx = tx0 + i, ty = ty0 + j; CB[id(i, j)] = l2 > NIV.EAU && tx >= 0 && ty >= 0 && tx < T && ty < T ? e3CoulSol(m, tx, ty, l2, T) : null; }
+  const coin = (i, j, own) => { let r = 0, gg = 0, b = 0, c = 0; for (const [di, dj] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const q = CB[id(i + di, j + dj)]; if (q && Math.abs(L[id(i + di, j + dj)] - L[id(i, j)]) < 1.5) { r += q[0]; gg += q[1]; b += q[2]; c++; } } return c ? [r / c * 0.75 + own[0] * 0.25, gg / c * 0.75 + own[1] * 0.25, b / c * 0.75 + own[2] * 0.25] : own; };
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const l = L[id(i, j)], tx = tx0 + i, ty = ty0 + j, X0 = tx * S, Z0 = ty * S, X1 = X0 + S, Z1 = Z0 + S;
     const vT = L[id(i - 1, j)] > NIV.EAU || L[id(i + 1, j)] > NIV.EAU || L[id(i, j - 1)] > NIV.EAU || L[id(i, j + 1)] > NIV.EAU;
@@ -29721,7 +29725,11 @@ function e3Morceau(cx, cy, lod) {
     const base = e3CoulSol(m, tx, ty, l, T), hv = p40H(tx, ty), k = 0.95 + hv * 0.1;
     const c1 = e3Sombre(base, k), c2 = e3Sombre(base, k * (0.96 + p40H(ty, tx) * 0.07));
     const A = [X0, e3Vy(X0, Z0, l), Z0], B = [X1, e3Vy(X1, Z0, l), Z0], C = [X1, e3Vy(X1, Z1, l), Z1], D = [X0, e3Vy(X0, Z1, l), Z1];
-    if ((tx + ty) & 1) { e3T(g, A, B, C, c1); e3T(g, A, C, D, c2); } else { e3T(g, A, B, D, c1); e3T(g, B, C, D, c2); }
+    if (SOFT && l === NIV.HERBE) {
+      const kk = k, cA = e3Sombre(coin(i, j, base), kk), cB = e3Sombre(coin(i + 1, j, base), kk), cC = e3Sombre(coin(i + 1, j + 1, base), kk), cD = e3Sombre(coin(i, j + 1, base), kk);
+      const tv = (P, Q, R, cp, cq, cr) => { const ux = Q[0] - P[0], uy = Q[1] - P[1], uz = Q[2] - P[2], vx = R[0] - P[0], vy = R[1] - P[1], vz = R[2] - P[2]; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const ln = Math.hypot(nx, ny, nz) || 1; nx /= ln; ny /= ln; nz /= ln; if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; } for (const [p, c] of [[P, cp], [Q, cq], [R, cr]]) g.v.push(p[0], p[1], p[2], nx, ny, nz, c[0], c[1], c[2]); };
+      if ((tx + ty) & 1) { tv(A, B, C, cA, cB, cC); tv(A, C, D, cA, cC, cD); } else { tv(A, B, D, cA, cB, cD); tv(B, C, D, cB, cC, cD); }
+    } else if ((tx + ty) & 1) { e3T(g, A, B, C, c1); e3T(g, A, C, D, c2); } else { e3T(g, A, B, D, c1); e3T(g, B, C, D, c2); }
     const cote = l === NIV.HERBE ? terre : e3Sombre(base, 0.74);
     const face = (l2, a, b, nn) => { if (n3Haut(l2) >= n3Haut(l)) return; const cc = n3Haut(l) - n3Haut(l2) > 8 ? e3Sombre(cote, 0.9) : cote; g.q([a[0], e3Vy(a[0], a[1], l2), a[1]], [b[0], e3Vy(b[0], b[1], l2), b[1]], [b[0], e3Vy(b[0], b[1], l), b[1]], [a[0], e3Vy(a[0], a[1], l), a[1]], nn, cc); };
     face(L[id(i, j + 1)], [X0, Z1], [X1, Z1], [0, 0, 1]); face(L[id(i, j - 1)], [X1, Z0], [X0, Z0], [0, 0, -1]);
@@ -33108,10 +33116,13 @@ function br40Boar() {
   const H = g3RGB, g = new G3Geo(), l = new G3Geo(), ROSE = H("#f6a8bc"), CL = H("#ffd0dc"), FO = H("#d27a98"), sab = H("#4a343c");
   for (const [lx, lz] of [[-40, -14], [32, -14], [-40, 14], [32, 14]]) { g.cyl(lx, 3, lz, 7.6, 8.4, 30, 10, lz < 0 ? FO : ROSE); g.cyl(lx, 0, lz, 8.6, 8.6, 4.5, 10, sab); }
   g.sph(-4, 54, 0, 64, 30, 32, 16, ROSE); g.sph(-14, 66, 0, 42, 14, 24, 12, CL); g.sph(-4, 42, 0, 56, 18, 28, 12, FO);
-  g.sph(60, 52, 0, 21, 20, 20, 12, ROSE); g.sph(56, 60, 0, 12, 8, 14, 8, CL);
-  g.sph(80, 48, 0, 6, 8.5, 9, 10, H("#ff9ab4")); g.sph(83, 49, 0, 3.4, 6, 6.6, 8, H("#ffb8cc"));
-  for (const s of [-1, 1]) { g.box(86, 47, s * 3.2, 1, 3, 2, H("#8a3a52")); g.box(72, 55, s * 12.4, 5, 6, 3.4, H("#ffffff")); g.box(73.6, 55.6, s * 13.2, 3, 4.4, 2.6, H("#1a1014")); g.box(74.6, 58, s * 13.6, 1.2, 1.2, 2.6, H("#ffffff")); g.box(71, 62.4, s * 12, 7, 1.4, 4, H("#8a3a52")); g.sph(70, 47, s * 15, 4, 2.6, 2, 6, H("#ff9ab4")); }
-  g.box(78, 40, 0, 10, 1, 8, H("#8a3a52"));
+  /* v51.4 : la tête est un maillage à part (pivot au cou en 44,52) pour pouvoir tourner/hocher */
+  const hd = new G3Geo(), X = 44, Y = 52;
+  hd.sph(60 - X, 52 - Y, 0, 21, 20, 20, 12, ROSE); hd.sph(56 - X, 60 - Y, 0, 12, 8, 14, 8, CL);
+  hd.sph(80 - X, 48 - Y, 0, 6, 8.5, 9, 10, H("#ff9ab4")); hd.sph(83 - X, 49 - Y, 0, 3.4, 6, 6.6, 8, H("#ffb8cc"));
+  for (const s of [-1, 1]) { hd.box(86 - X, 47 - Y, s * 3.2, 1, 3, 2, H("#8a3a52")); hd.box(72 - X, 55 - Y, s * 12.4, 5, 6, 3.4, H("#ffffff")); hd.box(73.6 - X, 55.6 - Y, s * 13.2, 3, 4.4, 2.6, H("#1a1014")); hd.box(74.6 - X, 58 - Y, s * 13.6, 1.2, 1.2, 2.6, H("#ffffff")); hd.box(71 - X, 62.4 - Y, s * 12, 7, 1.4, 4, H("#8a3a52")); hd.sph(70 - X, 47 - Y, s * 15, 4, 2.6, 2, 6, H("#ff9ab4")); }
+  hd.box(78 - X, 40 - Y, 0, 10, 1, 8, H("#8a3a52"));
+  g.sph(44, 50, 0, 16, 17, 19, 10, ROSE); // cou (comble le pivot)
   // selle + taverne
   g.box(-6, 80, 0, 92, 6, 52, H("#8a2a2a")); g.box(-6, 80, 0, 92.6, 1.6, 52.6, H("#d8a030")); g.box(-6, 85, 0, 92.6, 1.2, 52.6, H("#d8a030"));
   const bois = H("#cf9f64"), boisF = H("#7a5430"), poutre = H("#6a4424");
@@ -33135,17 +33146,27 @@ function br40Boar() {
   for (const s of [-1, 1]) for (let i = 0; i < 10; i++) { const u = i / 10, u2 = (i + 1) / 10; e3T(g, [-74 + u * 24, 2 + u * 76, 20 - u * 6 + s * 7], [-74 + u2 * 24, 2 + u2 * 76, 20 - u2 * 6 + s * 7], [-74 + u2 * 24 + 1, 2 + u2 * 76, 20 - u2 * 6 + s * 7], H("#8a5a2a")); }
   const q = new G3Geo(); q.sph(-3, 0, 0, 4, 4, 4, 6, ROSE); q.sph(-7, 4, 0, 3.4, 3.4, 3.4, 6, ROSE); q.sph(-6, 8, 0, 2.6, 2.6, 2.6, 6, FO);
   const o = new G3Geo(); e3T(o, [0, 0, -7], [0, 0, 7], [2, 18, 0], ROSE); e3T(o, [1, 1, -5], [1, 1, 5], [3, 14, 0], H("#e07a9a")); e3T(o, [-1, 0, -7], [-1, 0, 7], [1, 18, 0], FO);
-  return (BR40.boar = { g: g.build(), l: l.build(), q: q.build(), o: o.build() });
+  return (BR40.boar = { g: g.build(), l: l.build(), q: q.build(), o: o.build(), hd: hd.build() });
 }
 function br40DrawBoar(A, I) {
   const G = typeof boarIci === "function" ? boarIci() : null; if (!G || jeu.scene !== sceneMonde) return;
   if (Math.abs(G.x - E3.cx) > 520 || Math.abs(G.y - E3.cz) > 520) return;
-  const B = br40Boar(), t = AV.temps, h = e3Sol(G.x, G.y - 12), zc = G.y - 12, resp = Math.sin(t * 1.5), M = M4.trs(G.x, h + resp * 0.8, zc, 0, 0, 0, 1, 1 + resp * 0.006, 1);
-  if (SH3.on && Math.hypot(G.x - E3.cx, zc - E3.cz) < SH3.R + 120) SH3.rec.push(B.g, M);
-  g3Mesh(B.g, M); g3Mesh(B.l, M, { e: Math.min(1, 0.35 + (A.nu || 0) * 0.9) });
-  g3Mesh(B.q, M4.trs(G.x - 68, h + 58 + resp * 0.8, zc, Math.sin(t * 3.4) * 0.5, 0, 0.3, 1, 1, 1));
+  const B = br40Boar(), t = AV.temps, h = e3Sol(G.x, G.y - 12), zc = G.y - 12, resp = Math.sin(t * 1.5);
+  /* v51.4 : respiration bien visible, tête qui regarde Meliodas / renifle, queue en tire-bouchon vivante */
+  const M = M4.trs(G.x, h + 0.6 + resp * 2.2, zc, 0, 0, 0, 1 + resp * 0.012, 1 + resp * 0.022, 1 + resp * 0.016);
+  const S = BR40.ani || (BR40.ani = { yaw: 0, nod: 0 });
+  let yc = Math.sin(t * 0.43) * 0.25 + Math.sin(t * 1.13) * 0.08;
+  try { const dx = perso.x - (G.x + 60), dz = perso.y - zc, d = Math.hypot(dx, dz); if (d < 260 && dx > -40) yc = Math.max(-0.55, Math.min(0.55, -Math.atan2(dz, Math.max(20, dx)))); } catch (_) { }
+  const sn = (t % 5.2) < 1.1 ? Math.sin((t % 5.2) / 1.1 * 6.283 * 3) * 0.06 : 0;
+  S.yaw += (yc - S.yaw) * 0.06; S.nod = -0.06 + Math.sin(t * 0.9) * 0.05 + sn + resp * 0.025;
+  const MH = M4.mul(M, M4.trs(44, 52, 0, S.yaw, 0, S.nod + Math.sin(t * 0.7) * 0.0, 1, 1, 1));
+  if (SH3.on && Math.hypot(G.x - E3.cx, zc - E3.cz) < SH3.R + 120) { SH3.rec.push(B.g, M); SH3.rec.push(B.hd, MH); }
+  g3Mesh(B.g, M); g3Mesh(B.hd, MH); g3Mesh(B.l, M, { e: Math.min(1, 0.35 + (A.nu || 0) * 0.9) });
+  const wag = Math.sin(t * 5.5) * 0.55 + Math.sin(t * 2.1) * 0.25;
+  g3Mesh(B.q, M4.mul(M, M4.trs(-68, 58, 0, wag, 0, 0.3 + Math.sin(t * 3.3) * 0.25, 1, 1, 1)));
   const flick = (t % 4.3) < 0.35 ? Math.sin((t % 4.3) / 0.35 * 3.14) * 0.7 : 0;
-  for (const s of [-1, 1]) g3Mesh(B.o, M4.trs(G.x + 56, h + 68 + resp * 0.8, zc + s * 12, s * (0.35 + Math.sin(t * 2.2) * 0.07 + flick), 0, -0.2, 1, 1, 1));
+  for (const s of [-1, 1]) g3Mesh(B.o, M4.mul(MH, M4.trs(12, 16, s * 12, s * (0.35 + Math.sin(t * 2.2) * 0.07 + flick * (s > 0 ? 1 : 0.4)), 0, -0.2 + Math.sin(t * 1.7 + s) * 0.06, 1, 1, 1)));
+  if (sn && Math.random() < 0.25) { const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw); g3Part(G.x + 44 + cy * 42, h + 50, zc - sy * 42, 2 + Math.random() * 2, 10, 0, 1.2, 3, "#f0e8e0", { add: false, g: -2, fr: 0.5 }); }
   if (Math.random() < 0.08) g3Part(G.x + 18, h + 148, zc - 8, 4 + Math.random() * 4, 14, 0, 2.2, 4, "#e8e8e8", { add: false, g: -4, fr: 0.3 });
 }
 E3X[1] = function (U, A, Pl, I, TR, gy, now, dt) { br40DrawBoar(A, I); };
@@ -38969,7 +38990,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "51.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "51.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40731,6 +40752,81 @@ function p107Cell(key) {
     } catch (e) { p107Err("rendu", e); }
     return r;
   };
+})();
+
+/* ===== v51.4 — Britannia : buissons solides pour Meliodas, taverne du Boar Hat plus riche ===== */
+const P108 = { err: [] };
+/* --- buissons de Britannia : on ne les traverse plus (petite boîte au pied, saut par-dessus possible) --- */
+(() => {
+  try {
+    const bq = MondeBritannia.prototype.bloque;
+    MondeBritannia.prototype.bloque = function (px, py) {
+      if (bq.call(this, px, py)) return true;
+      if (typeof P76 !== "undefined" && P76.air) return false;
+      const S = CONFIG.TUILE, tx = Math.floor(px / S), ty = Math.floor(py / S);
+      if (this.decorPose(tx, ty) !== DECOR.BUISSON) return false;
+      const u = px - tx * S, v = py - ty * S;
+      return u >= 3 && u <= 12 && v >= 8 && v <= 15;
+    };
+  } catch (e) { P108.err.push("bq:" + e.message); }
+})();
+/* --- intérieur du Boar Hat --- */
+function p108Taverne(sc) {
+  const W = sc.largeur, H = sc.hauteur, P = sc.P;
+  const M = (w, h, f) => { const c = nouveauCanvas(w, h), g = c.getContext("2d"); f(pinceau(g), g); return knOutline(c); };
+  // grand tapis rouge à bordure dorée sous les tables + petit tapis devant le comptoir
+  const tapis = (x0, y0, w, h, c1, c2, c3) => { P.r(x0, y0, w, h, c3); P.r(x0 + 2, y0 + 2, w - 4, h - 4, c1); P.r(x0 + 5, y0 + 5, w - 10, h - 10, c2); P.r(x0 + 8, y0 + 8, w - 16, h - 16, c1);
+    for (let x = x0 + 12; x < x0 + w - 12; x += 16) { P.r(x, y0 + h / 2 - 2, 6, 4, c3); P.r(x + 2, y0 + h / 2 - 4, 2, 8, c3); }
+    for (let x = x0; x < x0 + w; x += 4) { P.r(x, y0 - 2, 2, 2, c3); P.r(x, y0 + h, 2, 2, c3); } };
+  tapis(78, 116, 200, 46, "#8a2430", "#a83a3a", "#e0b040");
+  tapis(30, 108, 136, 18, "#2a4a7a", "#3a5a8a", "#d8c070");
+  // mur : poutres, fenêtres éclairées, jambons et tresses d'ail, écusson
+  for (const wx of [176, 96]) { P.r(wx, 14, 18, 22, "#3a2010"); P.r(wx + 2, 16, 14, 18, "#f0d070"); P.r(wx + 8, 16, 2, 18, "#3a2010"); P.r(wx + 2, 24, 14, 2, "#3a2010"); P.r(wx - 2, 36, 22, 3, "#5a3418"); }
+  for (const hx of [214, 226]) { P.r(hx, 8, 1, 6, "#3a2a1a"); P.ell(hx, 20, 4, 7, "#b8603a"); P.r(hx - 1, 26, 3, 3, "#f0e0c0"); }
+  for (let i = 0; i < 5; i++) P.ell(238, 12 + i * 5, 3, 3, "#f0ead8");
+  P.r(0, 46, W, 3, "#5a3418"); P.r(0, 56, W, 2, "#3a2010");
+  // objets en volume
+  const feu = [0, 1].map(f => M(40, 38, P => {
+    P.r(0, 0, 40, 38, "#6a6a72"); for (let y = 0; y < 38; y += 6) for (let x = (y / 6 & 1) * 5; x < 40; x += 10) P.r(x, y, 9, 5, (x + y) % 3 ? "#8a8a92" : "#7a7a84");
+    P.r(-1, 0, 42, 4, "#5a3418"); P.r(8, 14, 24, 24, "#1a0e0a"); P.r(10, 30, 20, 4, "#5a3010"); P.r(12, 32, 16, 2, "#3a2008");
+    P.ell(20, 27 - f, 8, 7 + f, "#e8601a"); P.ell(20 - f * 2, 28, 5, 5, "#f8a020"); P.ell(19 + f, 30, 3, 3 - f, "#fff070"); P.r(6, 36, 28, 2, "#3a3a40");
+    P.r(4, 4, 6, 6, "#c0a060"); P.r(30, 4, 6, 6, "#c0a060"); P.ell(20, 7, 5, 3, "#d0d0d8");
+  }));
+  sc.ajouter(feu[0], 186, 24, 62, [186, 56, 226, 64], { anime: t => feu[Math.floor(t * 7) & 1] });
+  sc.feu = { x: 206, y: 58 };
+  const banniere = M(12, 34, P => { P.r(5, 0, 2, 34, "#5a3418"); P.r(0, 2, 12, 2, "#d8a030"); P.r(1, 4, 10, 20, "#a82a2a"); P.r(1, 24, 3, 4, "#a82a2a"); P.r(8, 24, 3, 4, "#a82a2a"); P.ell(6, 13, 3, 3, "#f6a8bc"); P.r(5, 9, 2, 2, "#f6a8bc"); P.r(3, 21, 6, 1, "#e0b040"); });
+  for (const bx of [172, 230]) sc.ajouter(banniere, bx, 28, 62);
+  const plante = M(14, 22, P => { P.r(3, 14, 8, 8, "#a8583a"); P.r(2, 14, 10, 2, "#c86a44"); P.ell(7, 9, 6, 5, "#3a8a3a"); P.ell(4, 6, 3, 4, "#4aa04a"); P.ell(10, 5, 3, 4, "#2a7a32"); P.ell(7, 3, 2, 3, "#5ab85a"); });
+  for (const [x, y] of [[300, 104], [26, 178], [320, 182], [160, 60]]) sc.ajouter(plante, x, y, y + 22, [x + 3, y + 18, x + 11, y + 22]);
+  const rack = M(44, 28, P => { P.r(0, 0, 3, 28, "#4a2a14"); P.r(41, 0, 3, 28, "#4a2a14"); P.r(0, 13, 44, 2, "#4a2a14"); P.r(0, 26, 44, 2, "#4a2a14");
+    for (const [x, y] of [[3, 1], [23, 1], [13, 14], [33, 14], [3, 14]]) { P.ell(x + 9 - (x > 30 ? 4 : 0), y + 6, 6, 6, "#8a5a2a"); P.ell(x + 9 - (x > 30 ? 4 : 0), y + 6, 3, 3, "#6a3a1a"); P.r(x + 8 - (x > 30 ? 4 : 0), y + 5, 2, 2, "#c8b070"); } });
+  sc.ajouter(rack, 298, 62, 92, [298, 84, 342, 92]);
+  const caisses = M(26, 26, P => { P.r(0, 10, 14, 16, "#a87a3e"); P.r(0, 10, 14, 2, "#c8985a"); P.r(1, 12, 1, 14, "#6a4424"); P.r(12, 12, 1, 14, "#6a4424"); P.r(12, 14, 14, 12, "#9a6a34"); P.r(12, 14, 14, 2, "#c08a4a"); P.r(3, 2, 10, 9, "#b88a4a"); P.r(3, 2, 10, 2, "#d8a868"); P.ell(19, 10, 5, 4, "#d8c8a0"); P.r(18, 6, 2, 2, "#a89870"); });
+  sc.ajouter(caisses, 304, 128, 154, [304, 146, 330, 154]);
+  const ardoise = M(18, 26, P => { P.r(2, 18, 2, 8, "#5a3418"); P.r(14, 18, 2, 8, "#5a3418"); P.r(0, 0, 18, 20, "#6a4424"); P.r(2, 2, 14, 16, "#2a2e2a"); for (let i = 0; i < 4; i++) P.r(4, 5 + i * 3, 6 + (i * 5) % 6, 1, "#e8e8e0"); P.r(11, 5, 3, 3, "#f0c040"); });
+  sc.ajouter(ardoise, 214, 176, 202, [216, 198, 230, 202]);
+  const sac = M(16, 14, P => { P.ell(8, 8, 7, 6, "#c8b080"); P.r(6, 1, 4, 3, "#a89060"); P.r(5, 3, 6, 1, "#6a5030"); P.ell(6, 7, 2, 2, "#d8c090"); });
+  for (const [x, y] of [[40, 186], [54, 190], [292, 156]]) sc.ajouter(sac, x, y, y + 14);
+  const tab = M(12, 14, P => { P.r(0, 0, 12, 4, "#a8703a"); P.r(1, 0, 10, 1, "#d8a060"); P.r(2, 4, 2, 10, "#5a3418"); P.r(8, 4, 2, 10, "#5a3418"); P.r(2, 10, 8, 1, "#5a3418"); });
+  for (const x of [40, 70, 100, 130, 156]) sc.ajouter(tab, x, 110, 124);
+  // tables : nappes, assiettes, chopes, bougies, pain
+  const tableR = [0, 1, 2].map(v => M(40, 28, P => { P.r(0, 2, 40, 6, "#a8703a"); P.r(0, 2, 40, 1, "#d8a060"); P.r(4, 8, 4, 20, "#7a4a2a"); P.r(32, 8, 4, 20, "#7a4a2a"); P.r(10, 2, 20, 3, ["#e8e0d0", "#c8d8e8", "#e8d0d0"][v]);
+    P.ell(8, 2, 4, 1, "#f0f0f0"); P.ell(8, 1, 2, 1, "#c86a3a"); P.ell(31, 2, 4, 1, "#f0f0f0"); P.ell(31, 1, 2, 1, v ? "#8ab040" : "#d0a040");
+    P.r(15, -3, 5, 5, "#e8d8b0"); P.r(20, -2, 2, 3, "#e8d8b0"); P.r(15, -3, 5, 1, "#ffffff"); P.r(24, -4, 2, 6, "#f0e8d0"); P.r(24, -6, 2, 2, "#ffd040"); if (v !== 1) P.ell(12, 0, 3, 2, "#c88a40"); }));
+  let k = 0; for (const ob of sc.objets) if (ob.img && ob.img.width === 40 && ob.img.height === 26 && ob.y === 126) { ob.img = tableR[k++ % 3]; ob.y = 124; }
+  sc.lampes = (sc.lampes || []).concat([[110, 52], [300, 52]]);
+  sc.construireNav(); sc.creerPlan();
+}
+(() => {
+  try {
+    const Base = SceneBoarHat;
+    SceneBoarHat = class extends Base { constructor() { super(); try { p108Taverne(this); } catch (e) { P108.err.push("tav:" + e.message); } } };
+    const maj = Base.prototype.mettreAJour;
+    Base.prototype.mettreAJour = function (dt) {
+      maj.call(this, dt);
+      try { const F = this.feu; if (F && typeof g3Part === "function" && typeof E3 !== "undefined" && E3.sc && Math.random() < 0.3) g3Part(F.x + (Math.random() - 0.5) * 10, 8, F.y, 1.5 + Math.random() * 1.5, 12, 0, 1.4, 6, Math.random() < 0.5 ? "#ffb040" : "#ff7020", { add: true, g: -3, fr: 0.4 }); } catch (_) { }
+    };
+  } catch (e) { P108.err.push("cls:" + e.message); }
 })();
 
 
