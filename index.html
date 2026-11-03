@@ -19335,17 +19335,20 @@ function g3Prog(vs, fs) {
 const G3_VS_MESH = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC;
 uniform mat4 uM; uniform mat4 uVP; uniform vec3 uL; uniform vec3 uAmb; uniform vec3 uSun; uniform vec4 uTint; uniform vec3 uCam; uniform vec2 uFog; uniform float uE;
 uniform vec2 uWind; uniform mat4 uLVP; uniform float uShOn;
-varying vec3 vC; varying float vF; varying vec3 vS; varying vec4 vL; varying float vD;
+varying vec3 vC; varying float vF; varying vec3 vS; varying vec4 vL; varying float vD; varying vec3 vGx;
 void main(){ vec3 col = aC; float sw = 0.0;
  if (col.r > 4.0) { float u = col.r - 8.0; float q = floor(u); col.r = u - q; sw = (q + 1.0) * 0.25; }
  vec4 w = uM*vec4(aP,1.0);
  if (sw > 0.0) { w.x += sin(uWind.x*1.9 + w.x*0.07 + w.z*0.05)*uWind.y*sw + sin(uWind.x*0.7 + w.z*0.03)*uWind.y*0.5*sw; w.z += cos(uWind.x*1.5 + w.z*0.06 - w.x*0.04)*uWind.y*0.6*sw; }
  gl_Position = uVP*w; vec3 n = normalize(mat3(uM)*aN);
- float d = max(dot(n, uL), 0.0); vec3 c = col*(uAmb + uSun*d); c = mix(c, col, uE); c = mix(c, uTint.rgb, uTint.a); vC = c;
+ float d = max(dot(n, uL), 0.0); vGx = vec3(w.x, w.z, n.y);
+ if (n.y > 0.92) { float gh = fract(sin(dot(floor(w.xz*0.07), vec2(12.9898,78.233)))*43758.5453); col *= 0.91 + 0.16*gh; }
+ vec3 hemi = uAmb*mix(vec3(0.8,0.76,0.74), vec3(1.04,1.05,1.12), n.y*0.5+0.5);
+ vec3 c = col*(hemi + uSun*d*vec3(1.07,1.0,0.88)); c = mix(c, col, uE); c = mix(c, uTint.rgb, uTint.a); vC = c;
  vS = col*uSun*d*(1.0-uE)*(1.0-uTint.a); vD = d;
  if (uShOn > 0.5) vL = uLVP*w; else vL = vec4(0.0);
  vF = clamp((length(w.xyz - uCam) - uFog.x)/(uFog.y - uFog.x), 0.0, 1.0); }`;
-const G3_FS_MESH = `uniform vec3 uFogC; uniform float uA; uniform sampler2D uSh; uniform float uShOn; uniform vec2 uShT; varying vec3 vC; varying float vF; varying vec3 vS; varying vec4 vL; varying float vD;
+const G3_FS_MESH = `uniform vec3 uFogC; uniform float uA; uniform sampler2D uSh; uniform float uShOn; uniform vec2 uShT; varying vec3 vC; varying float vF; varying vec3 vS; varying vec4 vL; varying float vD; varying vec3 vGx;
 float shDec(vec4 c){ return dot(c, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0)); }
 float shAt(vec3 p, float b){ return step(p.z - b, shDec(texture2D(uSh, p.xy))); }
 void main(){ vec3 c = vC;
@@ -19353,6 +19356,7 @@ void main(){ vec3 c = vC;
   if (e < 0.5 && p.z < 1.0) { float b = uShT.y*(1.0 + 2.5*(1.0 - vD)); float t = uShT.x;
    float s = shAt(p, b)*0.28 + shAt(p + vec3(t, 0.0, 0.0), b)*0.18 + shAt(p - vec3(t, 0.0, 0.0), b)*0.18 + shAt(p + vec3(0.0, t, 0.0), b)*0.18 + shAt(p - vec3(0.0, t, 0.0), b)*0.18;
    s = mix(1.0, s, 1.0 - smoothstep(0.36, 0.5, e)); float k = 1.0 - s; c = c*(1.0 - 0.3*k) - vS*k*0.7; } }
+ 
  c = floor(c*24.0+0.5)/24.0; gl_FragColor = vec4(mix(c, uFogC, vF*vF), uA); }`;
 const G3_VS_PT = `attribute vec3 aP; attribute vec4 aC; attribute float aS; uniform mat4 uVP; uniform float uPx; varying vec4 vC;
 void main(){ gl_Position = uVP*vec4(aP,1.0); gl_PointSize = clamp(aS*uPx/gl_Position.w, 1.0, 20.0); vC = aC; }`;
@@ -38902,7 +38906,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "50.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "50.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40328,6 +40332,16 @@ setInterval(() => {
     else if (PARAMS.zoomBtn || document.getElementById("p104zp")) p104ZoomBtns();
   } catch (_) { }
 }, 400);
+
+/* v50 étape 4 : vignette chaude en exploration 3D (calque CSS, coût quasi nul) */
+function p104Vignette() {
+  let V = document.getElementById("p104vg");
+  const on = !(typeof AV !== "undefined" && AV.cine) && p104Z3D() && !document.body.classList.contains("accueil") && !document.body.classList.contains("p99") && !PARAMS.eco && PARAMS.vignette !== false;
+  if (!V) { if (!on) return; const st = document.createElement("style"); st.textContent = "#p104vg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 72% at 50% 46%,rgba(0,0,0,0) 58%,rgba(40,16,0,.34) 100%)}"; document.head.appendChild(st);
+    V = document.createElement("div"); V.id = "p104vg"; const E = document.getElementById("ecran"); (E && E.parentNode === document.body ? E : document.body.firstChild).after ? (E || document.body.firstChild).after(V) : document.body.appendChild(V); }
+  if (V.hidden === on) V.hidden = !on;
+}
+setInterval(() => { try { p104Vignette(); } catch (_) { } }, 500);
 
 
 /* ===== fin du module aventure ===== */
