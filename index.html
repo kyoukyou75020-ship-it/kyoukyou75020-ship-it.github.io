@@ -3184,12 +3184,12 @@ const NOMS_CAT = { tenue: "Tenue", baton: "Bâton", tete: "Tête", pieds: "Pieds
 const prog = { argent: 50, niveau: 1, xp: 0, inv: {}, possede: ["kimono"], tenue: "kimono", equip: { baton: null, tete: null, pieds: null, poignets: null } };
 const xpPour = n => 30 + n * 30;
 const multDegats = () => 1 + 0.08 * (prog.niveau - 1);
-const bonusBaton = () => prog.equip.baton ? OBJETS[prog.equip.baton].degats : 0;
+const bonusBaton = () => (prog.equip.baton ? OBJETS[prog.equip.baton].degats : 0) + 2 * (typeof p103Forge === "function" ? p103Forge() : 0);
 const bonusVitesse = () => 1 + (prog.equip.pieds ? OBJETS[prog.equip.pieds].vitesse : 0);
 // recalcule PV/KI max selon le niveau et l'équipement
 function appliquerStats() {
   const rp = perso.pv / perso.pvMax;
-  perso.pvMax = 100 + (prog.niveau - 1) * 10 + (prog.equip.poignets ? OBJETS[prog.equip.poignets].pv : 0);
+  perso.pvMax = 100 + (prog.niveau - 1) * 10 + (prog.equip.poignets ? OBJETS[prog.equip.poignets].pv : 0) + 8 * (typeof p103Forge === "function" ? p103Forge() : 0);
   perso.kiMax = 100 + (prog.niveau - 1) * 5;
   perso.pv = Math.min(perso.pvMax, Math.max(1, Math.round(rp * perso.pvMax))); perso.pvAff = perso.pv;
   perso.ki = Math.min(perso.kiMax, perso.ki);
@@ -38744,7 +38744,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "49.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "49.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -39739,6 +39739,123 @@ function p102Collisions(dt) {
 }
 /* garde anti-récursion (q49Poi -> p98Pois -> PNJ -> q49Ancre -> q49Poi) */
 try { const qp = q49Poi; let dans = 0; q49Poi = function () { if (dans) return null; dans = 1; try { return qp.apply(this, arguments); } finally { dans = 0; } }; } catch (e) { p102Err("poi", e); }
+
+/* =====================================================================
+   v49 — p103 : les oublis — marchand ambulant, événements jour/nuit, mini-jeu du bonneteau
+   (tout en HTML : aucun coût pour les fps)
+   ===================================================================== */
+const P103 = { err: [] };
+function p103Err(k, e) { if (P103.err.length < 20) P103.err.push(k + ": " + (e && e.message || e)); }
+function p103S() { const S = q49S(); return S.mc || (S.mc = { nuit: "", jeu: "", nj: 0, gains: 0, achats: 0 }); }
+function p103Nuit() { try { return cycleSombre(cycleHeure()) > 0.5; } catch (_) { return false; } }
+function p103Jour() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function p103NuitId() { return "n" + (p103S().nc || 0); }
+setInterval(() => { try { if (typeof sceneMonde === "undefined" || jeu.scene !== sceneMonde) return; const n = p103Nuit(); if (n && !P103.was) p103S().nc = (p103S().nc || 0) + 1; P103.was = n; } catch (_) { } }, 2000);
+const P103_ART = ["potion", "ki", "senzu"];
+try {
+  Q49_LK.marchand = q49L("marchand", "#e8b890", "#6a3a1a", "#c8902a", "#4a2a5a", { chapeau: "#8a2ac8" });
+  Object.assign(Q49_PNJ, {
+    mc1: { w: 1, nom: "Marchande Bulma-ya", L: "marchand", a: ["dep", 60, 30], mc: 1 },
+    mc2: { w: 2, nom: "Marchand des mers Bon-Bon", L: "marchand", a: ["dep", -90, 60], mc: 1 },
+    mc3: { w: 3, nom: "Marchand Ambulant Pokécolporteur", L: "marchand", a: ["bourg", 70, 40], mc: 1 },
+    mc4: { w: 4, nom: "Colporteur Tonton Ichi", L: "marchand", a: ["porte", -70, 30], mc: 1 },
+    mc5: { w: 5, nom: "Marchande Elaine-tte", L: "marchand", a: ["liones", -70, 30], mc: 1 }
+  });
+  const pa = q49Parler;
+  q49Parler = function (k) { const N = Q49_PNJ[k]; if (N && N.mc) return p103Ouvrir(k); return pa.apply(this, arguments); };
+  const cl = q49Clic;
+  q49Clic = function (a) { const p = a.split(":"); if (p[0] === "mc") return p103Clic(p[1], p[2], p[3]); return cl.apply(this, arguments); };
+  const px = p98PoisExtra;
+  p98PoisExtra = function () { const L = px.apply(this, arguments) || []; for (const o of L) if (/^q49mc/.test(o.id || "")) { o.ico = "🛒"; o.ty = "lieu"; o.desc = "Marchand ambulant · bonneteau"; o.p = 6; } return L; };
+} catch (e) { p103Err("init", e); }
+function p103Prix(id) { const O = OBJETS[id]; return Math.max(1, Math.round(O.prix * (p103Nuit() ? 0.5 : 1))); }
+function p103Ouvrir(k, msg) {
+  const N = Q49_PNJ[k], S = p103S(), nuit = p103Nuit(), z = prog.argent || 0;
+  const ev = nuit ? `🌙 <b>Événement de nuit</b> : tout est à <b>-50 %</b> et une étoile filante t'attend une fois par nuit !` : `☀️ <b>Événement de jour</b> : le bonneteau rapporte <b>x3</b> au lieu de x2 jusqu'au soir.`;
+  const art = P103_ART.map(id => { const O = OBJETS[id], p = p103Prix(id); return `<button data-q49="mc:${k}:a:${id}" ${z < p ? "disabled" : ""}>${q49Html(O.nom)} — ${p} Z <small>(${prog.inv[id] || 0} au sac)</small></button>`; }).join("");
+  const reste = 5 - (S.jeu === p103Jour() ? S.nj : 0);
+  const etoile = nuit && S.nuit !== p103NuitId() ? `<button data-q49="mc:${k}:e">🌠 Attraper l'étoile filante</button>` : "";
+  const h = `<div class="q49sur">🛒 MARCHAND AMBULANT</div><div class="titre">${q49Html(N.nom)}</div>
+  <div class="ligne q49dit">${msg ? q49Html(msg) : "Approche, approche ! Des soins pour la route, et un petit jeu pour les audacieux…"}</div>
+  <div class="ligne">${ev}</div><div class="ligne">💰 Tu as <b>${z}</b> Z</div>
+  <div class="q49bt">${art}${etoile}<button data-q49="mc:${k}:b" ${reste <= 0 || z < 20 ? "disabled" : ""}>🎲 Bonneteau — 20 Z (${Math.max(0, reste)} parties restantes aujourd'hui)</button><button data-q49="x">Au revoir</button></div>`;
+  try { son.jouer("clic"); } catch (_) { }
+  ouvrirPanneauAv(h);
+}
+function p103Clic(k, act, v) {
+  const S = p103S();
+  try {
+    if (act === "a") {
+      const O = OBJETS[v], p = p103Prix(v); if (!O) return;
+      if ((prog.argent || 0) < p) return p103Ouvrir(k, "Il te manque " + (p - prog.argent) + " Z, l'ami !");
+      if ((prog.inv[v] || 0) >= 99) return p103Ouvrir(k, "Ton sac est plein pour cet objet.");
+      prog.argent -= p; prog.inv[v] = (prog.inv[v] || 0) + 1; S.achats++; try { son.jouer("orbe"); } catch (_) { } sauvegarder(false);
+      return p103Ouvrir(k, O.nom + " ajouté(e) au sac ! Merci pour l'achat.");
+    }
+    if (act === "e") {
+      if (!p103Nuit() || S.nuit === p103NuitId()) return p103Ouvrir(k);
+      S.nuit = p103NuitId(); const z = 40 + Math.floor(Math.random() * 60); q49Gain(60, z); try { son.jouer("fanfare"); } catch (_) { } sauvegarder(false);
+      try { q49Toast("🌠 Étoile filante !", "+60 XP · +" + z + " Z", "Reviens une autre nuit…"); } catch (_) { }
+      return p103Ouvrir(k, "Fais un vœu… Tu gagnes 60 XP et " + z + " Z !");
+    }
+    if (act === "b") return p103Bonneteau(k);
+    if (act === "g") return p103Choix(k, +v);
+  } catch (e) { p103Err("clic", e); }
+}
+/* ---------- bonneteau : 3 gobelets, une perle ---------- */
+function p103Bonneteau(k) {
+  const S = p103S(); if (S.jeu !== p103Jour()) { S.jeu = p103Jour(); S.nj = 0; }
+  if (S.nj >= 5 || (prog.argent || 0) < 20) return p103Ouvrir(k, "Plus de parties pour aujourd'hui !");
+  prog.argent -= 20; S.nj++; P103.perle = Math.floor(Math.random() * 3);
+  const h = `<div class="q49sur">🎲 BONNETEAU</div><div class="titre">Où est la perle ?</div>
+  <div class="ligne q49dit">Regarde bien… les gobelets tournent… et voilà ! Choisis-en un.</div>
+  <div class="p103gob">${[0, 1, 2].map(i => `<button data-q49="mc:${k}:g:${i}" style="animation-delay:${i * 0.12}s">🥤</button>`).join("")}</div>`;
+  try { son.jouer("clic"); } catch (_) { }
+  ouvrirPanneauAv(h);
+}
+function p103Choix(k, i) {
+  const S = p103S(), ok = i === P103.perle, mult = p103Nuit() ? 2 : 3, gain = ok ? 20 * mult : 0;
+  if (ok) { prog.argent = (prog.argent || 0) + gain; S.gains += gain; try { son.jouer("fanfare"); } catch (_) { } } else { try { son.jouer("touche"); } catch (_) { } }
+  sauvegarder(false);
+  p103Ouvrir(k, ok ? "🎉 Bravo ! La perle était là ! Tu gagnes " + gain + " Z." : "Raté ! La perle était sous le gobelet " + (P103.perle + 1) + ". Retente ta chance !");
+}
+try { const st = document.createElement("style"); st.textContent = `.p103gob{display:flex;gap:14px;justify-content:center;margin:14px 0}.p103gob button{font-size:44px;width:84px;height:84px;border-radius:50%;animation:p103s .5s ease-in-out 3 alternate}@keyframes p103s{from{transform:translateX(-14px)}to{transform:translateX(14px)}}`; document.head.appendChild(st); } catch (_) { }
+/* ---------- forge : améliorer l'équipement (5 niveaux : +2 dégâts, +8 PV max chacun) ---------- */
+function p103Forge() { try { return Math.min(5, (q49S().mc && q49S().mc.forge) | 0); } catch (_) { return 0; } }
+function p103PrixForge() { return 150 * (p103Forge() + 1); }
+/* ---------- récompense de connexion quotidienne (série de 7 jours) ---------- */
+const P103_JOURS = [[30, 0, ""], [40, 0, "potion"], [60, 0, ""], [80, 0, "ki"], [100, 0, ""], [120, 0, "potion"], [200, 0, "senzu"]];
+function p103Connexion() {
+  try {
+    if (!jeu || jeu.scene !== sceneMonde || AV.cine || jeu.transition) return false;
+    const S = p103S(), j = p103Jour(); if (S.cx === j) return true;
+    const hier = new Date(Date.now() - 864e5), h = hier.getFullYear() + "-" + (hier.getMonth() + 1) + "-" + hier.getDate();
+    S.serie = S.cx === h ? ((S.serie || 0) % 7) + 1 : 1; S.cx = j;
+    const [z, , obj] = P103_JOURS[S.serie - 1];
+    prog.argent = Math.min(999999, (prog.argent || 0) + z); if (obj) prog.inv[obj] = Math.min(99, (prog.inv[obj] || 0) + 1);
+    try { sauvegarder(false); } catch (_) { }
+    try { q49Toast("🎁 Récompense du jour " + S.serie + "/7", "+" + z + " Z" + (obj ? " · " + OBJETS[obj].nom : ""), "Reviens demain pour la suite de ta série !"); } catch (_) { }
+    return true;
+  } catch (e) { p103Err("cx", e); return true; }
+}
+(() => { let n = 0; const t = setInterval(() => { if (p103Connexion() || ++n > 200) clearInterval(t); }, 3000); })();
+try {
+  const o = p103Ouvrir;
+  p103Ouvrir = function (k, msg) {
+    o.apply(this, arguments);
+    try { const P = document.querySelector("#panneau .q49bt"), f = p103Forge(), p = p103PrixForge(); if (P) P.insertAdjacentHTML("afterbegin", f >= 5 ? `<button disabled>🔨 Forge : équipement au maximum (niv. 5)</button>` :
+      `<button data-q49="mc:${k}:f" ${(prog.argent || 0) < p ? "disabled" : ""}>🔨 Forge niv. ${f} → ${f + 1} : +2 dégâts, +8 PV max — ${p} Z</button>`);
+      const S = p103S(); const L = [...document.querySelectorAll("#panneau .ligne")].find(e => e.textContent.includes("💰")); if (L && S.serie) L.insertAdjacentHTML("beforeend", ` · 🎁 Série de connexion : <b>${S.serie}/7</b>`); } catch (e) { p103Err("forgeH", e); }
+  };
+  const c = p103Clic;
+  p103Clic = function (k, act, v) {
+    if (act !== "f") return c.apply(this, arguments);
+    const f = p103Forge(), p = p103PrixForge(); if (f >= 5) return p103Ouvrir(k);
+    if ((prog.argent || 0) < p) return p103Ouvrir(k, "Il te manque " + (p - prog.argent) + " Z pour la forge.");
+    prog.argent -= p; p103S().forge = f + 1; try { appliquerStats(); } catch (_) { } try { son.jouer("fanfare"); } catch (_) { } sauvegarder(false);
+    p103Ouvrir(k, "🔨 Clang ! Équipement forgé au niveau " + (f + 1) + " : tes coups frappent plus fort !");
+  };
+} catch (e) { p103Err("forge", e); }
 
 
 /* ===== fin du module aventure ===== */
