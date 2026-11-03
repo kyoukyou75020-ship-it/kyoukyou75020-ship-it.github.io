@@ -38644,6 +38644,98 @@ function p99Shenron3D(C, W, H, dpr) {
 
 setInterval(() => { try { if (document.body.classList.contains("p99sh") && !(AV.cine && AV.cine.type === "shenron")) document.body.classList.remove("p99sh"); } catch (_) { } }, 300);
 
+/* ---------- v48 : chemin du point de départ jusqu'à Ma Ville (grand pont de bois sur les détroits) ---------- */
+function p99CheminVille(J) {
+  const m = J && J.monde, G = typeof P96 !== "undefined" && P96.G; if (!m || !G || !m.zone || m.TT == null || !J.depart) return;
+  const T = m.TT, NV = m.NV, S = 16, HF = CONFIG.HAUTEUR_FALAISE || 12, t0 = performance.now();
+  const ax = J.depart[0] | 0, ay = J.depart[1] | 0, gx = G.vx, gy = G.vy - 24;
+  const st = 2, x0 = Math.max(4, Math.min(ax, gx) - 120), y0 = Math.max(4, Math.min(ay, gy) - 60);
+  const w = ((Math.min(T - 8, Math.max(ax, gx) + 420) - x0) / st | 0) + 1, h = ((Math.min(T - 8, Math.max(ay, gy) + 40) - y0) / st | 0) + 1;
+  const cx = i => x0 + i * st, cy = j => y0 + j * st;
+  const px1 = (px, py) => { const l = m.niveauPx(px, py); if (l <= NIV.EAU || l >= NIV.NEIGE) return false; if (l < NIV.NEIGE) for (let k = 1; k <= HF; k++) { const a = m.niveauPx(px, py - k); if (a > l && a >= NIV.ROCHE) return false; } return true; };
+  const pxok = (px, py) => { for (const ox of [-9, 0, 9]) for (const oy of [-9, 0, 4]) if (!px1(px + ox, py + oy)) return false; return true; };
+  const eauOk = (X, Y) => Y > ay && Y <= G.by + 6 && m.L[Y * NV + X] <= NIV.EAU && !m.zone[Y * T + X];
+  const N = w * h, typ = new Int8Array(N);
+  const tp = k => { if (typ[k]) return typ[k]; const X = cx(k % w), Y = cy((k / w) | 0); if (m.zone[Y * T + X] === 2) return typ[k] = -1; return typ[k] = pxok(X * S + 8, Y * S + 8) ? 1 : eauOk(X, Y) ? 2 : -1; };
+  const mv = (k1, k2) => { const X1 = cx(k1 % w) * S + 8, Y1 = cy((k1 / w) | 0) * S + 8, X2 = cx(k2 % w) * S + 8, Y2 = cy((k2 / w) | 0) * S + 8; for (let t = 0.125; t < 1; t += 0.125) { const X = Math.round(X1 + (X2 - X1) * t), Y = Math.round(Y1 + (Y2 - Y1) * t); if (!px1(X, Y) || !px1(X - 7, Y) || !px1(X + 7, Y) || !px1(X, Y - 7) || !px1(X, Y + 3)) return false; } return true; };
+  // cache (par graine) : la recherche ne se fait qu'une fois par monde
+  const cle = "p99ch6:" + (m.graineTexte || "") + ":" + ax + "," + ay;
+  let chemin = null; try { chemin = JSON.parse(localStorage.getItem(cle) || "null"); } catch (_) { }
+  if (!chemin && (m.graineTexte || "") === "hyrule" && ax === 518 && ay === 508) {   // tracé précalculé (graine par défaut)
+    const D0 = {"x": 518, "y": 510, "w": 0, "s": "ghghhghhhhhhhgggghghhgggggggggggggghhghhhggggggggggggggggggggggghhghhiiiiiiiiiiiiiiiiiiiiiiiiiiihiiiiiiiiiiiiiiiiiiiiiiiiiiihhhhhhhhhhihhhhhhhhhhhhhhhhhhhhiihhfhhhhghhhghhggggggggggghhhhhhhhhhhhhqrrrrrrrrrrrrrqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhiiiiiiiiiiiiihhihihiiiiiiiiiiiiiiiiiiiiiiiiiiihhhhhffiiiifiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiffffffffffffiiiiiiiiifiiiiiiiiiiiiifiiiiiiiiiifiiiiiiiiihihihhihihhihhhhhhhhhhhiiiiiiihhihihiiiiiiiiiiiiiiiiiiiiiiiiiiiiiififffffirrrrrrrqqqrrihhhhhhhihhhhhhihhhhhhhhhhhhhhhhhhhhhhhhhhhiiiihhgghhhghhhhhhhhhhhhghhhhhhhhhhhh"};
+    const cel = [[D0.x, D0.y, D0.w]]; for (const ch of D0.s) { let c = ch.charCodeAt(0) - 97, wv = 0; if (c >= 9) { c -= 9; wv = 1; } const p = cel[cel.length - 1]; cel.push([p[0] + ((c % 3) - 1) * 2, p[1] + (((c / 3) | 0) - 1) * 2, wv]); }
+    chemin = { cel, vus: 0, pre: 1 };
+  }
+  if (!chemin && !window.__p99calc) { P99.chemin = "non calculé (graine " + m.graineTexte + ")"; return; }
+  if (!chemin) {
+    const si = Math.round((ax - x0) / st), sj = Math.round((ay - y0) / st), gi = Math.round((gx - x0) / st), gj = Math.round((gy - y0) / st);
+    const dist = new Float32Array(N).fill(1e30), prec = new Int32Array(N).fill(-1);
+    const hk = new Int32Array(N * 2), hd = new Float32Array(N * 2); let hn = 0;
+    const push = (k, d) => { let i = hn++; while (i > 0) { const p = (i - 1) >> 1; if (hd[p] <= d) break; hk[i] = hk[p]; hd[i] = hd[p]; i = p; } hk[i] = k; hd[i] = d; };
+    const pop = () => { const k = hk[0], lk = hk[--hn], ld = hd[hn]; let i = 0; for (;;) { let c = 2 * i + 1; if (c >= hn) break; if (c + 1 < hn && hd[c + 1] < hd[c]) c++; if (hd[c] >= ld) break; hk[i] = hk[c]; hd[i] = hd[c]; i = c; } hk[i] = lk; hd[i] = ld; return k; };
+    const g0 = gj * w + gi; dist[g0] = 0; push(g0, 0); let fin = -1, vus = 0;
+    while (hn > 0 && hn < N * 2 - 9) {
+      const k = pop(), d = dist[k]; if (d < 0) continue; vus++;
+      const i = k % w, j = (k / w) | 0;
+      if (Math.abs(i - si) <= 1 && Math.abs(j - sj) <= 1) { fin = k; break; }
+      dist[k] = -1;
+      const t1 = tp(k);
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= w || nj >= h) continue;
+        const nk = nj * w + ni; if (dist[nk] < 0) continue; const t2 = tp(nk); if (t2 < 0) continue;
+        if (t1 === 1 && t2 === 1 && !mv(k, nk)) continue;
+        if (di && dj && (tp(k + di) < 0 || tp(k + dj * w) < 0)) continue;
+        const nd = d + (di && dj ? 1.414 : 1) * (t2 === 2 ? 9 : 1) + (t2 === 1 && m.L[cy(nj) * NV + cx(ni)] >= NIV.ROCHE ? 0.5 : 0);
+        if (nd < dist[nk]) { dist[nk] = nd; prec[nk] = k; push(nk, nd + Math.hypot(ni - si, nj - sj) * 1.15); }
+      }
+    }
+    if (fin < 0) { P99.chemin = "introuvable " + vus; return; }
+    const cel = []; for (let k = fin; k >= 0; k = prec[k]) cel.push([cx(k % w), cy((k / w) | 0), typ[k] === 2 ? 1 : 0]);
+    chemin = { cel, vus };
+    try { localStorage.setItem(cle, JSON.stringify(chemin)); } catch (_) { }
+  }
+  const cel = chemin.cel;
+  // passages pour bateaux : au milieu de chaque traversée d'eau assez longue
+  const passes = [], eauRuns = []; { let r = null; cel.forEach((c, i) => { if (c[2]) { if (!r) r = [i, i]; else r[1] = i; } else if (r) { eauRuns.push(r); r = null; } }); if (r) eauRuns.push(r); }
+  for (const [i0, i1] of eauRuns) {
+    if (i1 - i0 < 8) continue; const im = (i0 + i1) >> 1, A = cel[Math.max(i0, im - 2)], B = cel[Math.min(i1, im + 2)], M = cel[im];
+    const vertical = Math.abs(B[1] - A[1]) >= Math.abs(B[0] - A[0]);
+    const lo = 7, la = 16; passes.push(vertical ? { x0: (M[0] - la) * S, x1: (M[0] + la) * S, y0: (M[1] - lo) * S, y1: (M[1] + lo) * S } : { x0: (M[0] - lo) * S, x1: (M[0] + lo) * S, y0: (M[1] - la) * S, y1: (M[1] + la) * S });
+  }
+  const dansPasse = (X, Y) => passes.some(P => X * S >= P.x0 && X * S < P.x1 && Y * S >= P.y0 && Y * S < P.y1);
+  // chaussée : comble l'eau traversée (terre douce), planches au centre
+  let comble = 0; const R = 6;
+  for (const c of cel) {
+    if (!c[2]) continue; const [X, Y] = c;
+    for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) {
+      const d = Math.hypot(i, j); if (d >= R) continue; const vx = X + i, vy = Y + j, kv = vy * NV + vx;
+      const hh = 0.5 - 0.2 * Math.max(0, Math.min(1, (d - 3) / 3));
+      if (hh > m.ALT[kv]) { m.ALT[kv] = hh; m.L[kv] = m.niveauDe(hh); comble++; if (AV.mer && AV.mer.length === T * T && !dansPasse(vx, vy)) AV.mer[vy * T + vx] = 0; }
+      if (d < 2.2 && m.DES && !m.zone[vy * T + vx]) m.DES[vy * T + vx] = 4;
+    }
+  }
+  // chemin de terre (rendu 2D et 3D comme les chemins d'origine ; pas d'arbres dessus)
+  let pts = cel.map(c => [c[0] * S + 8, c[1] * S + 8]);
+  for (let it = 0; it < 1; it++) { const n = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1]; n.push([p[0] * .75 + q[0] * .25, p[1] * .75 + q[1] * .25], [p[0] * .25 + q[0] * .75, p[1] * .25 + q[1] * .75]); } n.push(pts[pts.length - 1]); pts = n; }
+  const segs = [], index = new Map(); let cumul = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const s = [pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], cumul]; segs.push(s); cumul += Math.hypot(s[2] - s[0], s[3] - s[1]);
+    for (let ty = Math.floor((Math.min(s[1], s[3]) - 12) / S); ty <= Math.floor((Math.max(s[1], s[3]) + 12) / S); ty++)
+      for (let tx = Math.floor((Math.min(s[0], s[2]) - 12) / S); tx <= Math.floor((Math.max(s[0], s[2]) + 12) / S); tx++) {
+        const kk = ty * T + tx; if (!index.has(kk)) index.set(kk, []); index.get(kk).push(segs.length - 1); if (!m.zone[kk]) m.zone[kk] = 1;
+      }
+  }
+  m.chemins.push({ segs, index, pts, style: "terre", p99: 1 });
+  P99.passes = passes;
+  P99.chemin = { comble, vus: chemin.vus, n: cel.length, eau: cel.filter(c => c[2]).length, passes: passes.length, ms: Math.round(performance.now() - t0), long: Math.round(cumul / S) };
+}
+(() => {
+  if (typeof creerJeu !== "function") return;
+  const cj = creerJeu;
+  creerJeu = function () { const J = cj.apply(this, arguments); const sP = P75F; try { if (J && J.monde && J.monde.TT) P75F = J.monde.TT; p99CheminVille(J); } catch (e) { console.warn("p99 chemin", e); P99.chemin = "err " + e.message; } finally { P75F = sP; } return J; };
+  if (typeof coqueLibre === "function") { const cl = coqueLibre; coqueLibre = function (x, y) { const L = P99.passes; if (L && L.length && (AV.monde || 1) === 1 && typeof p96Ici === "function" && p96Ici()) for (const P of L) if (x > P.x0 && x < P.x1 && y > P.y0 && y < P.y1) return true; return cl.apply(this, arguments); }; }
+})();
+
 
 /* ===== fin du module aventure ===== */
 const persoActif = () => !!(jeu && jeu.persoPret);
