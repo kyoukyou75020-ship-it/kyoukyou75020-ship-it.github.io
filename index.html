@@ -226,7 +226,7 @@ const CONFIG = {
   ZOOM_DEFAUT: 6,          // indice dans ZOOMS (×3)
   VITESSE_PERSO: 110,      // vitesse de marche (px de carte / s) ; course ×1,45
   VITESSE: 900,            // vitesse de défilement clavier (px écran / s)
-  get MINI_PPT() { return CONFIG.TAILLE_MONDE > 1024 ? 1 / 6 : 0.25; },          // mini-carte : pixels par tuile (1024 × 0,25 = 256 px)
+  get MINI_PPT() { return CONFIG.TAILLE_MONDE > 1536 ? 1 / 7 : CONFIG.TAILLE_MONDE > 1024 ? 1 / 6 : 0.25; },          // mini-carte : pixels par tuile (1024 × 0,25 = 256 px)
 };
 
 // Niveaux de terrain. ROCHE, ROCHE + 1, ROCHE + 2 : terrasses séparées par des falaises
@@ -6601,7 +6601,7 @@ const grandeCarte = {
       const pay = innerWidth > innerHeight, aw = innerWidth - 40, ah = innerHeight - 60 - (pay ? 80 : 140) - SAFE.t - SAFE.b;
       const z = Math.min(aw / Math.max(1, x1 - x0 + 600), ah / Math.max(1, y1 - y0 + 300)) / this.base();
       this.zoom = Math.max(0.8, Math.min(2.5, z)); this.cx = (x0 + x1) / 2; this.cy = (y0 + y1) / 2 + (pay ? 0 : 150);
-      if (jeu.monde.TT === 1536) { this.zoom = 1; this.cx = MPX() / 2; this.cy = MPX() / 2 + (pay ? 0 : 900); } }
+      if (jeu.monde.TT >= 1536) { this.zoom = 1; this.cx = MPX() / 2; this.cy = MPX() / 2 + (pay ? 0 : 900); } }
     this.limiter();
     this.redimensionner(); this.el.hidden = false; this.ui.hidden = false;
     const boucle = () => { if (!this.ouvert) return; this.dessiner(); requestAnimationFrame(boucle); };
@@ -28615,7 +28615,7 @@ P72_IMG_PORTAIL.canyon = objetSimple(56, 46, P => {
   const cl = coqueLibre;
   coqueLibre = function (x, y, rx = 24, ry = 12) {
     const P = P75G.pont;
-    if (P && (AV.monde || 1) === 1 && jeu.monde && jeu.monde.TT === P75.T1 && x > P.x0 * 16 && x < P.x1 * 16 && y > P.y0 * 16 && y < P.y1 * 16) return true;
+    if (P && (AV.monde || 1) === 1 && jeu.monde && jeu.monde.TT >= P75.T1 && x > P.x0 * 16 && x < P.x1 * 16 && y > P.y0 * 16 && y < P.y1 * 16) return true;
     return cl(x, y, rx, ry);
   };
 })();
@@ -28673,7 +28673,7 @@ function p75AnciensPortails() {
   const rest = restaurer;
   restaurer = function (d) {
     try {
-      if (d && d.graine === jeu.monde.graineTexte && (AV.monde || 1) === 1 && !(d.av && +d.av.monde > 1) && jeu.monde.TT === P75.T1) {
+      if (d && d.graine === jeu.monde.graineTexte && (AV.monde || 1) === 1 && !(d.av && +d.av.monde > 1) && jeu.monde.TT >= P75.T1) {
         const anc = p75AnciensPortails(), nou = p72Portails(), pres = (a, b) => a && b && Math.abs(+a.x - b.x) < 70 && Math.abs(+a.y - (b.y + 30)) < 70;
         for (let i = 0; i < anc.length; i++) {
           if (pres(d, anc[i])) { d.x = nou[i].x; d.y = nou[i].y + 30; d.p75Migre = i; }
@@ -34641,7 +34641,7 @@ function p93Init(C) {
   p93Spawn(C, 0);
 }
 function p93Spawn(C, k) {
-  const A = C.act, V = A.v43, B = C.a, nb = V.tailles[k] || 2, mo = (typeof AV !== "undefined" && P93_TYPES[AV.monde]) ? AV.monde : 1, T = P93_TYPES[mo];
+  const A = C.act, V = A.v43, B = C.a, nb = V.tailles[k] || 2, mo = (typeof P96 !== "undefined" && P96.combat && P93_TYPES[96]) ? 96 : (typeof AV !== "undefined" && P93_TYPES[AV.monde]) ? AV.monde : 1, T = P93_TYPES[mo];
   const base = Math.max(40, V.pvMaxB * (C.boss ? 0.2 : 0.3)) * (1 + k * 0.15);
   V.ens = []; V.cib = 0; V.atk = null; V.tBan = 0;
   for (let j = 0; j < nb; j++) {
@@ -35471,6 +35471,1312 @@ function p94InitLibre(neuf) {
 /* ---------- bulles de message : plus de « … » coupant les phrases (le bornage du HUD ne s'applique plus à la bulle) ---------- */
 var P94_TP = textePixel;
 v74Bulle = p92Patch(v74Bulle, [["lignes.forEach((l, i) => textePixel(ctx, l,", "lignes.forEach((l, i) => P94_TP(ctx, l,"]], "p94 bulle");
+
+/* =====================================================================
+   PHASE 45 — 📲 Inviter un ami (QR code), 🎵 Musique & sons
+   ===================================================================== */
+const P95_URL = "https://kyoukyou75020-ship-it.github.io/";
+const P95_QR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAdAQAAAAB+6FqiAAAAnElEQVR42gGRAG7/AwGF+uIAfQmV8ABFX/UQAgC0MAACALjoAAI49FDgAAFVVAAC/ugL+AP+89r0AQPNtsIEZUDI8gDD5eg4BNl6MLgB4hhu+ANIDzD8Aqk3+DgC/kdHyALzTPWoA//pfrkCNhVCyAIeqr9IA8G6DdUAAbZFGAN9CwMxAsgE6bACACwCaABFvOwIA1ti0ygAAQOf2BmdOd5PFAbAAAAAAElFTkSuQmCC";
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+  #p95qr { position: fixed; inset: 0; z-index: 400; background: rgba(6,4,14,.82); display: flex; align-items: center; justify-content: center; padding: 10px; }
+  #p95qr[hidden] { display: none; }
+  #p95qr .bx { background: #2a1a10; border: 3px solid #f0c040; border-radius: 16px; padding: 12px; width: min(94vw, 440px); max-height: 96vh; overflow: auto; color: #fff4d8; font: 15px system-ui, sans-serif; text-align: center; box-shadow: 0 8px 0 #0008;
+    display: grid; gap: 8px; justify-items: center; }
+  #p95qr .t { font: bold 18px system-ui, sans-serif; color: #ffd860; }
+  #p95qr .qr { background: #fff; padding: 18px; border-radius: 10px; line-height: 0; }
+  #p95qr .qr img { image-rendering: pixelated; image-rendering: crisp-edges; width: min(72vw, 62vh, 320px); height: auto; aspect-ratio: 1; display: block; }
+  #p95qr .url { font: bold 14px ui-monospace, monospace; background: #0006; padding: 6px 8px; border-radius: 8px; word-break: break-all; user-select: all; }
+  #p95qr .bt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+  #p95qr button { font: bold 14px system-ui, sans-serif; color: #fff4d8; background: #4a2e1a; border: 2px solid #8a5a2a; border-radius: 10px; padding: 10px 4px; min-height: 46px; }
+  #p95qr button:active { transform: translateY(2px); }
+  #p95qr .ph { font-size: 14px; opacity: .95; }
+  @media (orientation: landscape) and (max-height: 500px) {
+    #p95qr .bx { width: min(96vw, 640px); grid-template-columns: auto 1fr; align-items: center; text-align: left; }
+    #p95qr .t { grid-column: span 2; text-align: center; justify-self: stretch; }
+    #p95qr .qr { grid-row: span 3; padding: 12px; }
+    #p95qr .qr img { width: min(64vh, 250px); }
+  }`;
+  document.head.appendChild(st);
+})();
+function p95QR() {
+  let Q = document.getElementById("p95qr");
+  if (!Q) {
+    Q = document.createElement("div"); Q.id = "p95qr"; Q.hidden = true;
+    Q.innerHTML = `<div class="bx"><div class="t">📲 INVITER UN AMI</div>
+      <div class="qr"><img alt="QR code du jeu" src="${P95_QR}"></div>
+      <div class="url">${P95_URL}</div>
+      <div class="ph">Scanne pour jouer, seul ou avec moi via 📶</div>
+      <div class="bt"><button data-q="copier">📋 Copier le lien</button><button data-q="partager">📤 Partager</button><button data-q="fermer">✖ Fermer</button></div></div>`;
+    document.body.appendChild(Q);
+    Q.addEventListener("pointerdown", e => { e.stopPropagation(); if (e.target === Q) p95FermerQR(); });
+    Q.addEventListener("click", e => {
+      e.stopPropagation();
+      const b = e.target.closest("[data-q]"); if (!b) return; try { son.jouer("clic"); } catch (_) { }
+      const a = b.dataset.q;
+      if (a === "fermer") return p95FermerQR();
+      if (a === "copier") {
+        const ok = () => { b.textContent = "✔ Copié !"; setTimeout(() => b.textContent = "📋 Copier le lien", 1600); };
+        const repli = () => { try { const r = document.createRange(), u = Q.querySelector(".url"); r.selectNodeContents(u); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); ok(); } catch (_) { b.textContent = "Sélectionne l'adresse"; } };
+        try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(P95_URL).then(ok, repli); else repli(); } catch (_) { repli(); }
+      }
+      if (a === "partager") {
+        if (navigator.share) navigator.share({ title: "Mon jeu d'aventure", text: "Viens jouer avec moi ! Seul ou à deux via 📶", url: P95_URL }).catch(() => { });
+        else { b.textContent = "Pas dispo : copie le lien"; setTimeout(() => b.textContent = "📤 Partager", 1800); }
+      }
+    });
+  }
+  return Q;
+}
+const P95 = { qrPause: false };
+function p95OuvrirQR() {
+  const Q = p95QR(); Q.hidden = false;
+  try { if (jeu && !jeu.pause) { jeu.pause = true; P95.qrPause = true; } touches.clear(); } catch (_) { }
+}
+function p95FermerQR() {
+  const Q = document.getElementById("p95qr"); if (Q) Q.hidden = true;
+  try { if (P95.qrPause && jeu && !menuReglages.ouvert() && !P37.mr) jeu.pause = false; } catch (_) { } P95.qrPause = false;
+}
+addEventListener("keydown", e => { const Q = document.getElementById("p95qr"); if (Q && !Q.hidden && e.key === "Escape") { e.stopImmediatePropagation(); p95FermerQR(); } }, true);
+/* ☰ */
+{
+  const m0 = p37MR;
+  p37MR = function () {
+    const M = m0.apply(this, arguments);
+    try {
+      const g = M.querySelector(".mr"), reg = g && g.querySelector('[data-mr="reglages"]'); if (!g || g.querySelector('[data-mr="p95qr"]')) return M;
+      const h = `<button class="tile" data-mr="p95qr"><b>📲</b>Inviter un ami</button>` + (typeof p95HtmlAudio === "function" ? `<button class="tile" data-mr="p95audio"><b>🎵</b>Musique & sons</button>` : "");
+      if (reg) reg.insertAdjacentHTML("afterend", h); else g.insertAdjacentHTML("beforeend", h);
+    } catch (e) { console.warn(e); }
+    return M;
+  };
+  const a0 = p37ActionMR;
+  p37ActionMR = function (a) {
+    if (a === "p95qr") { p37FermerMR(); setTimeout(p95OuvrirQR, 20); return; }
+    if (a === "p95audio") { p37FermerMR(); setTimeout(() => { menuReglages.ouvrir(); menuReglages.afficher("p95audio"); }, 20); return; }
+    return a0.apply(this, arguments);
+  };
+}
+/* paramètres */
+{
+  const h0 = p37Html;
+  p37Html = function () {
+    let h = h0.apply(this, arguments);
+    const ins = `<button data-p95="qr">📲 Inviter un ami</button>` + (typeof p95HtmlAudio === "function" ? `<button data-p95="audio">🎵 Musique & sons</button>` : "");
+    const k = h.indexOf('data-p37r="volMusique"'), e = k > 0 ? h.indexOf("</div>", k) : -1;
+    h = e > 0 ? h.slice(0, e + 6) + `<div class="gros">${ins}</div>` + h.slice(e + 6) : h.replace('<div class="gros">', '<div class="gros">' + ins);
+    return h;
+  };
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-p95]"); if (!b) return;
+    const P = document.getElementById("panneau"); if (!P || !P.contains(b)) return;
+    e.stopImmediatePropagation(); try { son.jouer("clic"); } catch (_) { }
+    const a = b.dataset.p95;
+    if (a === "qr") { p95OuvrirQR(); return; }
+    if (a === "audio") { menuReglages.afficher("p95audio"); P.scrollTop = 0; return; }
+    try { p95Action(b); } catch (err) { console.warn(err); }
+  }, true);
+}
+
+/* =====================================================================
+   🎵 MUSIQUE & SONS — séquenceur procédural WebAudio (compositions originales)
+   ===================================================================== */
+const P95_GAMMES = { maj: [0, 2, 4, 5, 7, 9, 11], min: [0, 2, 3, 5, 7, 8, 10], dor: [0, 2, 3, 5, 7, 9, 10], mix: [0, 2, 4, 5, 7, 9, 10], phr: [0, 1, 3, 5, 7, 8, 10], har: [0, 2, 3, 5, 7, 8, 11], lyd: [0, 2, 4, 6, 7, 9, 11] };
+const P95_BATT = {
+  pop: ["x.......x.......", "....x.......x...", "x.o.x.o.x.o.x.o."],
+  rock: ["x.....x.x.......", "....x.......x...", "xoxoxoxoxoxoxoxo"],
+  galop: ["x..x..x.x..x..x.", "....x.......x..o", "x.x.x.x.x.x.x.x."],
+  boss: ["x.x.x.x.x.x.x.x.", "....x.......x.o.", "..x...x...x...x."],
+  titan: ["x..x..x...x.x...", "....x.......x...", "x.o.x.o.x.o.x.o."],
+  danse: ["x...x...x...x...", "....x.......x...", "..x...x...x...x."],
+  marche: ["x.......x.......", "....x..o....x.oo", "o.o.o.o.o.o.o.o."],
+  doux: ["x.........x.....", "................", "....o.......o..."],
+  taiko: ["x..x....x.x.....", "......o.......o.", "................"],
+  vague: ["x.....x.........", "................", "..o..o..o..o..o."],
+  aucun: ["................", "................", "................"],
+};
+// id: [nom, style, bpm, tonique (midi), gamme, progression (degrés, 1 par mesure), lead, basse, accomp., batterie, densité, graine, pentatonique, octave lead]
+const P95_PISTES = {
+  azur: ["Sous le ciel d'azur", "aventure joyeuse", 132, 60, "maj", [0, 4, 5, 3, 0, 4, 3, 4], "carre", "croche", "stab", "pop", 0.62, 11, 0, 1],
+  nuages: ["La Route des nuages", "épique", 140, 62, "mix", [0, 6, 3, 0, 0, 6, 4, 4], "scie", "galop", "nappe", "rock", 0.7, 27, 0, 1],
+  herbes: ["Herbes hautes", "aventure joyeuse", 120, 65, "maj", [0, 3, 4, 0, 5, 3, 1, 4], "triangle", "marche", "arpege", "pop", 0.55, 43, 1, 1],
+  large: ["Vent du large", "marin", 108, 62, "dor", [0, 6, 0, 3, 0, 6, 4, 0], "flute", "rond", "stab", "marche", 0.5, 57, 0, 1],
+  vagues: ["Chant des vagues", "marin calme", 92, 67, "lyd", [0, 1, 0, 4, 5, 1, 3, 4], "flute", "tenue", "nappe", "vague", 0.42, 71, 0, 1],
+  murmures: ["Forêt des murmures", "mystère", 84, 57, "phr", [0, 1, 0, 6, 0, 1, 5, 4], "cloche", "tenue", "arpege", "doux", 0.38, 83, 0, 1],
+  lanterne: ["Lanterne de la feuille", "ninja", 100, 62, "min", [0, 5, 6, 0, 0, 5, 3, 4], "flute", "rond", "arpege", "taiko", 0.5, 97, 1, 1],
+  britannia: ["Plaines de la taverne", "médiéval", 112, 62, "dor", [0, 3, 0, 4, 5, 3, 6, 0], "carre", "marche", "stab", "marche", 0.55, 101, 0, 1],
+  fete: ["Fête au village", "festif village", 148, 67, "maj", [0, 3, 4, 0, 0, 3, 4, 0], "carre", "croche", "stab", "danse", 0.72, 113, 0, 0],
+  marche: ["Place du marché", "village calme", 104, 64, "maj", [0, 5, 3, 4, 0, 5, 1, 4], "triangle", "marche", "arpege", "doux", 0.5, 127, 1, 1],
+  poings: ["Choc des poings", "combat", 156, 64, "min", [0, 5, 6, 4, 0, 5, 3, 4], "carre", "galop", "stab", "galop", 0.75, 131, 0, 1],
+  duel: ["Duel éclair", "combat rapide", 168, 69, "har", [0, 0, 5, 4, 0, 0, 3, 4], "scie", "croche", "aucun", "rock", 0.8, 149, 0, 0],
+  boss: ["Tension du boss", "tension boss", 144, 64, "har", [0, 1, 0, 1, 5, 4, 1, 4], "scie", "galop", "nappe", "boss", 0.68, 151, 0, 0],
+  titan: ["Colère du titan", "boss épique", 128, 62, "min", [0, 5, 3, 4, 0, 5, 6, 4], "scie", "galop", "nappe", "titan", 0.6, 167, 0, 0],
+  etoiles: ["Nuit étoilée", "nuit calme", 72, 69, "lyd", [0, 3, 0, 4, 5, 3, 1, 4], "cloche", "tenue", "nappe", "aucun", 0.34, 173, 1, 0],
+};
+const P95_CATS = [
+  ["monde1", "🐉 Monde de Sangoku", "azur"], ["monde2", "🏴‍☠️ Grand Line (îles)", "nuages"], ["monde3", "⚡ Monde Pokémon", "herbes"],
+  ["monde4", "🍥 Konoha", "lanterne"], ["monde5", "🐷 Britannia", "britannia"], ["village", "🏘 Village / ville", "fete"],
+  ["mer", "⛵ Mer et bateau", "large"], ["nuit", "🌙 La nuit", "etoiles"], ["combat", "⚔ Combats", "poings"], ["boss", "👹 Boss", "boss"],
+];
+const P95_SONS = {
+  coffre: ["🎁 Coffre ouvert", ["Classique", "Cascade magique", "Trésor royal", "Grincement + éclat"]],
+  objet: ["✨ Objet reçu", ["Classique", "Clochette", "Pièce d'or", "Bulle"]],
+  niveau: ["⬆ Niveau supérieur", ["Classique", "Arpège héroïque", "Envol", "Gong doré"]],
+  quete: ["📜 Quête terminée", ["Classique", "Fanfare royale", "Harpe", "Tambours"]],
+  coup: ["👊 Coup", ["Classique", "Claque", "Choc lourd", "Rétro 8-bit"]],
+  victoire: ["🏆 Victoire", ["Classique", "Ding-ding", "Mini-fanfare", "Étoile"]],
+};
+const P95A = (() => { let d = {}; try { d = JSON.parse(localStorage.getItem("sangoku.audio45") || "{}") || {}; } catch (_) { } return { mus: d.mus || {}, sfx: d.sfx || {} }; })();
+function p95SauverAudio() { try { localStorage.setItem("sangoku.audio45", JSON.stringify({ mus: P95A.mus, sfx: P95A.sfx })); } catch (_) { } }
+
+/* ---------- composition : une boucle de 8 mesures (16 pas par mesure) ---------- */
+function p95Rng(s) { return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; }
+const P95_CACHE = {};
+function p95Compiler(id) {
+  if (P95_CACHE[id]) return P95_CACHE[id];
+  const D = P95_PISTES[id]; if (!D) return null;
+  const [nom, , bpm, root, gam, prog, lead, basse, acc, bat, dens, graine, penta, octL] = D, G = P95_GAMMES[gam], R = p95Rng(graine);
+  const mi = d => root + 12 * Math.floor(d / 7) + G[((d % 7) + 7) % 7];
+  const exPenta = ["min", "dor", "phr", "har"].includes(gam) ? [1, 5] : [3, 6];
+  const okPenta = d => !penta || !exPenta.includes(((d % 7) + 7) % 7);
+  const ton = (deg, i) => [deg, deg + 2, deg + 4].map(x => x);
+  // rythme du motif (2 mesures) et d'une variante
+  const rythme = () => { const r = []; for (let s = 0; s < 32; s++) { const p = s % 8 === 0 ? 0.95 : s % 4 === 0 ? 0.25 + dens * 0.6 : s % 2 === 0 ? dens * 0.5 : dens > 0.7 ? 0.12 : 0.03; r.push(R() < p); } r[0] = true; return r; };
+  const RA = rythme(), RB = rythme();
+  const N = 128, mel = new Array(N).fill(-1);
+  let cur = 7 + prog[0];
+  const phrase = (bar0, rt, haut) => {
+    const out = [], amp = 3 + Math.floor(R() * 3);
+    for (let s = 0; s < 32; s++) {
+      if (!rt[s]) { out.push(null); continue; }
+      const cible = 8 + (haut || 0) + amp * Math.sin(Math.PI * s / 32) - (s > 24 ? 1 : 0);
+      const ch = prog[bar0 + (s >> 4)], tons = ton(ch).flatMap(t => [t, t + 7, t - 7, t + 14]);
+      if (s % 8 === 0 || R() < 0.18) { let best = tons[0], bd = 99; for (const t of tons) { const d = Math.abs(t - cible) * 0.7 + Math.abs(t - cur) * 0.3 + (t === cur ? 1.2 : 0); if (d < bd) { bd = d; best = t; } } cur = best; }
+      else { const dir = cible > cur + 0.5 ? 1 : cible < cur - 0.5 ? -1 : (R() < 0.5 ? 1 : -1), r = R(); let st = r < 0.7 ? dir : r < 0.88 ? dir * 2 : -dir; cur += st; let g = 0; while (!okPenta(cur) && g++ < 3) cur += st >= 0 ? 1 : -1; }
+      cur = Math.max(2, Math.min(16, cur)); out.push(cur);
+    }
+    return out;
+  };
+  const A = phrase(0, RA); let sh = prog[2] - prog[0]; if (sh > 3) sh -= 7; if (sh < -3) sh += 7;
+  const A2 = A.map(v => v == null ? null : Math.max(3, Math.min(16, v + sh))), B = phrase(4, RB, 2);
+  const C = A.slice(0, 16).concat(new Array(16).fill(null)); C[16] = prog[7] + 4 + (prog[7] + 4 < 5 ? 7 : 0); C[20] = C[16] - 1; C[24] = 7;
+  [A, A2, B, C].forEach((P, k) => P.forEach((v, s) => { if (v != null) mel[k * 32 + s] = mi(v) + 12 * (octL - 1); }));
+  // longueur des notes (jusqu'à l'attaque suivante, max 6 pas)
+  const len = new Array(N).fill(0);
+  for (let i = 0; i < N; i++) if (mel[i] >= 0) { let k = 1; while (k < 6 && mel[(i + k) % N] < 0) k++; len[i] = k; }
+  // basse
+  const bas = new Array(N).fill(-1), blen = new Array(N).fill(0);
+  for (let b = 0; b < 8; b++) {
+    const r0 = mi(prog[b]) - 24, r5 = mi(prog[b] + 4) - 24, r3 = mi(prog[b] + 2) - 24, o = b * 16;
+    const put = (s, n, l) => { bas[o + s] = n; blen[o + s] = l; };
+    if (basse === "tenue") put(0, r0, 16);
+    else if (basse === "rond") { put(0, r0, 6); put(8, r5, 6); }
+    else if (basse === "croche") for (let s = 0; s < 16; s += 2) put(s, s % 4 ? r0 + 12 : r0, 2);
+    else if (basse === "marche") { put(0, r0, 4); put(4, r3, 4); put(8, r5, 4); put(12, mi(prog[b] + 5) - 24, 4); }
+    else if (basse === "galop") for (const s of [0, 3, 4, 7, 8, 11, 12, 14]) put(s, s === 12 || s === 14 ? r5 : r0, 2);
+  }
+  const accords = prog.map(d => [mi(d), mi(d + 2), mi(d + 4)].map(n => n - 12));
+  const T = { id, nom, bpm, dur: 60 / bpm / 4, mel, len, bas, blen, accords, lead, acc, bat: P95_BATT[bat] || P95_BATT.aucun, N };
+  return (P95_CACHE[id] = T);
+}
+
+/* ---------- moteur ---------- */
+const P95M = { id: null, pas: 0, t: 0, bus: null, leadBus: null, filtre: null, ecoute: null, ecouteFin: 0, combatT: -99, ctx: null, bruit: null };
+const p95Hz = m => 440 * Math.pow(2, (m - 69) / 12);
+function p95Bus(c) {
+  if (P95M.ctx === c && P95M.bus) return;
+  P95M.ctx = c;
+  const bus = c.createGain(); bus.gain.value = 0; bus.connect(c.destination);
+  const lb = c.createGain(), f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 6000; f.Q.value = 0.7; lb.connect(f); f.connect(bus);
+  const dl = c.createDelay(1), fb = c.createGain(), wet = c.createGain(); fb.gain.value = 0.28; wet.gain.value = 0.2;
+  f.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(bus);
+  const n = Math.floor(c.sampleRate * 0.5), b = c.createBuffer(1, n, c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1;
+  const cuit = (d, f) => { const m = Math.floor(c.sampleRate * d), B = c.createBuffer(1, m, c.sampleRate), y = B.getChannelData(0); let p = 0, q = 0; for (let i = 0; i < m; i++) { const r = Math.random() * 2 - 1; y[i] = f(r, p, q, i / m); q = p; p = r; } return B; };
+  const hat = cuit(0.05, (r, p, q, u) => (r - p) * 0.5 * Math.pow(1 - u, 3)), caisse = cuit(0.16, (r, p, q, u) => (r + p + q) / 3 * Math.pow(1 - u, 2) * 1.6);
+  Object.assign(P95M, { bus, leadBus: lb, filtre: f, delay: dl, bruit: b, hat, caisse });
+}
+function p95Note(c, dest, type, f, t, d, v, opt = {}) {
+  const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+  if (opt.vib) { o.frequency.setValueAtTime(f, t + 0.08); o.frequency.linearRampToValueAtTime(f * 1.006, t + d * 0.6); }
+  if (opt.glis) o.frequency.exponentialRampToValueAtTime(Math.max(30, opt.glis), t + d);
+  const a = opt.a || 0.008, dec = opt.dec;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + a);
+  if (dec) g.gain.exponentialRampToValueAtTime(0.0008, t + d); else { g.gain.setValueAtTime(v * 0.75, t + Math.min(d * 0.4, 0.12)); g.gain.linearRampToValueAtTime(0.0001, t + d); }
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + 0.03);
+}
+function p95Bruit(c, dest, t, d, v, hp, lp) {
+  const s = c.createBufferSource(), g = c.createGain(), f = c.createBiquadFilter(); s.buffer = P95M.bruit;
+  f.type = hp ? "highpass" : "bandpass"; f.frequency.value = hp || lp || 1800;
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0008, t + d);
+  s.connect(f); f.connect(g); g.connect(dest); s.start(t, Math.random() * 0.3, d + 0.02);
+}
+function p95Echant(c, buf, t, v, d) { const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = v; s.connect(g); g.connect(P95M.bus); s.start(t, 0, d || buf.duration); }
+function p95Pas(c, T, i, t) {
+  const bus = P95M.bus, lb = P95M.leadBus, d = T.dur, s = i % 16, bar = (i >> 4) % 8;
+  // lead
+  const m = T.mel[i];
+  if (m >= 0) {
+    const L = T.len[i] * d * 0.92, f = p95Hz(m);
+    if (T.lead === "carre") { p95Note(c, lb, "square", f, t, L, 0.11); }
+    else if (T.lead === "triangle") { p95Note(c, lb, "triangle", f, t, L, 0.26); }
+    else if (T.lead === "flute") { p95Note(c, lb, "sine", f, t, L, 0.24, { a: 0.03, vib: 1 }); p95Note(c, lb, "triangle", f * 2, t, L * 0.6, 0.03, { a: 0.03 }); }
+    else if (T.lead === "scie") { p95Note(c, lb, "sawtooth", f, t, L, 0.085); }
+    else if (T.lead === "cloche") { p95Note(c, lb, "sine", f, t, Math.max(L, d * 4), 0.22, { dec: 1 }); p95Note(c, lb, "sine", f * 3.01, t, d * 2, 0.04, { dec: 1 }); }
+  }
+  // basse
+  const b = T.bas[i]; if (b >= 0) p95Note(c, bus, T.lead === "cloche" || T.bpm < 95 ? "sine" : "triangle", p95Hz(b), t, T.blen[i] * d * 0.9, 0.3);
+  // accompagnement
+  const A = T.accords[bar];
+  if (T.acc === "nappe" && s === 0) A.forEach(n => p95Note(c, bus, "triangle", p95Hz(n), t, d * 16, 0.045, { a: 0.25 }));
+  else if (T.acc === "stab" && (s === 4 || s === 12 || (T.bpm > 140 && (s === 6 || s === 14)))) A.forEach(n => p95Note(c, bus, "square", p95Hz(n + 12), t, d * 0.9, 0.022));
+  else if (T.acc === "arpege" && s % 2 === 0) { const n = A[(s >> 1) % 3] + ((s >> 1) % 6 >= 3 ? 12 : 0); p95Note(c, bus, "sine", p95Hz(n + 12), t, d * 2.5, 0.05, { dec: 1 }); }
+  // batterie
+  const [K, S, H] = T.bat;
+  if (K[s] !== ".") p95Note(c, bus, "sine", 140, t, 0.16, K[s] === "x" ? 0.55 : 0.3, { glis: 42, dec: 1, a: 0.002 });
+  if (S[s] !== ".") { p95Echant(c, P95M.caisse, t, S[s] === "x" ? 0.3 : 0.14, S[s] === "x" ? 0 : 0.08); if (S[s] === "x") p95Note(c, bus, "triangle", 190, t, 0.07, 0.12, { dec: 1, a: 0.002 }); }
+  if (H[s] !== ".") p95Echant(c, P95M.hat, t, H[s] === "x" ? 0.16 : 0.08);
+}
+function p95Contexte() {
+  try {
+    const C = AV.cine;
+    if (C && C.type === "tbcombat") return C.phase !== "intro" && !C.fini ? (C.boss || (C.o && C.o.boss) ? "boss" : "combat") : null;
+    if (C && C.type === "pkcombat") return C.sauvage === false || C.nomDresseur ? "boss" : "combat";
+    if (C && C.p95boss) return "boss";
+    if (C && (C.type === "shenron" || C.plein)) return null;
+    const s = jeu && jeu.scene;
+    if (typeof SceneRaditz !== "undefined" && s instanceof SceneRaditz) return "boss";
+    const now = performance.now() / 1000;
+    if (perso && !perso.ko && s === sceneMonde) {
+      for (let k = 0; k < animaux.length; k++) { const a = animaux[k]; if (a.D && !a.D.gentil && !(a.pv <= 0) && Math.abs(a.x - perso.x) < 170 && Math.abs(a.y - perso.y) < 150) { P95M.combatT = now; break; } }
+      if (now - P95M.combatT < 6) return "combat";
+    }
+    if (AV.nav || (typeof SceneNavire !== "undefined" && s instanceof SceneNavire && !(typeof SceneTour !== "undefined" && s instanceof SceneTour) && !(typeof SceneP72 !== "undefined" && s instanceof SceneP72))) return "mer";
+    if (s && s !== sceneMonde && (typeof SceneLieu !== "undefined" && s instanceof SceneLieu) && !(typeof SceneTour !== "undefined" && s instanceof SceneTour) && !(typeof SceneP72 !== "undefined" && s instanceof SceneP72)) return "village";
+    if (typeof cycleNuit === "function" && cycleNuit() > 0.6 && exMonde() !== 2) return "nuit";
+    return "monde" + Math.min(5, exMonde());
+  } catch (_) { return "monde1"; }
+}
+function p95PisteDe(cat) { const v = P95A.mus[cat]; if (v === "off") return null; if (v && P95_PISTES[v]) return v; const c = P95_CATS.find(x => x[0] === cat); return c ? c[2] : "azur"; }
+function p95Choisir() {
+  const now = performance.now();
+  if (P95M.ecoute && now < P95M.ecouteFin) return P95M.ecoute;
+  if (P95M.ecoute) { P95M.ecoute = null; try { p95MajEcoute(); } catch (_) { } }
+  if (!PARAMS.musique || !PARAMS.son || volMusique() <= 0 || document.hidden) return null;
+  const cat = p95Contexte(); P95M.cat = cat; return cat ? p95PisteDe(cat) : null;
+}
+function p95Tic() {
+  try {
+    const c = son.ctx; if (!c || c.state !== "running") return;
+    p95Bus(c);
+    const id = p95Choisir(), ec = !!P95M.ecoute;
+    const vol = id ? Math.max(ec ? 0.5 : 0, volMusique()) * 0.11 * (ec || cycleDehors() || P95M.cat === "boss" || P95M.cat === "combat" ? 1 : 0.75) : 0;
+    P95M.bus.gain.setTargetAtTime(vol, c.currentTime, id !== P95M.id ? 0.05 : 0.3);
+    if (!id) { P95M.id = null; return; }
+    const T = p95Compiler(id); if (!T) return;
+    if (id !== P95M.id) { P95M.id = id; P95M.pas = 0; P95M.t = c.currentTime + 0.12; P95M.delay.delayTime.setValueAtTime(T.dur * 3, c.currentTime); P95M.filtre.frequency.setValueAtTime(T.lead === "scie" ? 2600 : 6000, c.currentTime); }
+    if (P95M.t < c.currentTime - 0.4) P95M.t = c.currentTime + 0.05;
+    let n = 0;
+    while (P95M.t < c.currentTime + 0.3 && n++ < 12) { p95Pas(c, T, P95M.pas % T.N, P95M.t); P95M.pas++; P95M.t += T.dur; }
+  } catch (e) { if (!P95M.err) { P95M.err = 1; console.warn("musique", e); } }
+}
+// remplace l'ancien séquenceur (on garde MUSIQUES pour compatibilité)
+try { clearInterval(MUS.timer); if (MUS.gain) MUS.gain.gain.value = 0; } catch (_) { }
+MUS.timer = setInterval(p95Tic, 90);
+function p95Ecouter(id) {
+  try { son.init(); } catch (_) { }
+  if (P95M.ecoute === id) { P95M.ecoute = null; P95M.ecouteFin = 0; }
+  else { P95M.ecoute = id; P95M.ecouteFin = performance.now() + 12000; }
+  p95MajEcoute(); setTimeout(p95Tic, 30);
+}
+function p95MajEcoute() { document.querySelectorAll("[data-p95ec]").forEach(b => { const on = b.dataset.p95ec === P95M.ecoute; b.textContent = on ? "■" : "▶"; b.classList.toggle("on", on); }); }
+
+/* ---------- effets sonores au choix ---------- */
+function p95Fx(cat, v) {
+  const S = son, c = S.ctx; if (!c) return;
+  p95Bus(c);
+  const T = (f0, f1, d, ty, vo, t0) => S.ton(f0, f1, d, ty, vo, t0 || 0), B = (d, vo, hp, t0) => p95Bruit(c, S.maitre, c.currentTime + (t0 || 0), d, vo, hp || 0, hp ? 0 : 900);
+  const K = cat + v;
+  switch (K) {
+    case "coffre1": for (let i = 0; i < 8; i++) T(1046 + i * 160, 1046 + i * 160, 0.16, "sine", 0.14, i * 0.045); T(2093, 2093, 0.5, "triangle", 0.06, 0.38); break;
+    case "coffre2": [523, 659, 784].forEach(f => T(f, f, 0.6, "triangle", 0.12)); T(1046, 1046, 0.7, "square", 0.06, 0.18); [1568, 2093, 2637].forEach((f, i) => T(f, f, 0.18, "sine", 0.08, 0.3 + i * 0.07)); break;
+    case "coffre3": T(150, 240, 0.28, "sawtooth", 0.07); B(0.2, 0.08, 2500); T(1568, 1568, 0.3, "triangle", 0.2, 0.28); T(2093, 2093, 0.45, "triangle", 0.16, 0.36); break;
+    case "objet1": T(1760, 1760, 0.35, "sine", 0.18); T(2637, 2637, 0.3, "sine", 0.06, 0.02); break;
+    case "objet2": T(988, 988, 0.07, "square", 0.1); T(1319, 1319, 0.2, "square", 0.1, 0.07); break;
+    case "objet3": T(380, 1300, 0.12, "sine", 0.22); T(600, 1800, 0.1, "sine", 0.1, 0.1); break;
+    case "niveau1": [523, 659, 784, 1046, 1318].forEach((f, i) => T(f, f, i === 4 ? 0.4 : 0.1, "square", 0.09, i * 0.08)); break;
+    case "niveau2": T(300, 1500, 0.5, "sine", 0.18); T(450, 2200, 0.5, "triangle", 0.07, 0.05); [1318, 1568].forEach((f, i) => T(f, f, 0.3, "sine", 0.1, 0.5 + i * 0.1)); break;
+    case "niveau3": T(220, 210, 1.4, "sine", 0.3); T(330, 320, 1.2, "sine", 0.12); T(660, 650, 0.8, "triangle", 0.06); B(0.5, 0.08, 3000); break;
+    case "quete1": [[392, 0, 0.12], [523, 0.13, 0.12], [659, 0.26, 0.12], [784, 0.39, 0.25], [659, 0.66, 0.1], [784, 0.78, 0.6]].forEach(([f, t, d]) => { T(f, f, d, "square", 0.09, t); T(f / 2, f / 2, d, "triangle", 0.12, t); }); break;
+    case "quete2": [523, 659, 784, 988, 1046, 1318, 1568, 2093].forEach((f, i) => T(f, f, 0.6, "sine", 0.12, i * 0.05)); break;
+    case "quete3": [0, 0.15, 0.3, 0.38, 0.45].forEach(t => { T(120, 50, 0.18, "sine", 0.35, t); B(0.1, 0.12, 0, t); }); [523, 659, 784].forEach(f => T(f, f, 0.7, "square", 0.06, 0.6)); break;
+    case "coup1": B(0.05, 0.25, 2500); T(620, 220, 0.06, "square", 0.1); break;
+    case "coup2": T(130, 40, 0.18, "sine", 0.45); B(0.12, 0.25, 0); break;
+    case "coup3": T(800, 90, 0.08, "square", 0.13); break;
+    case "victoire1": T(1319, 1319, 0.1, "square", 0.08); T(1568, 1568, 0.25, "square", 0.08, 0.1); break;
+    case "victoire2": [784, 988, 1175].forEach((f, i) => T(f, f, 0.07, "square", 0.08, i * 0.07)); T(1568, 1568, 0.3, "triangle", 0.16, 0.21); break;
+    case "victoire3": T(600, 2400, 0.25, "sine", 0.12); T(2400, 2400, 0.2, "triangle", 0.06, 0.25); break;
+  }
+}
+const P95S = { tMsg: 0, msg: "", base: null };
+{ const mi = messageInfo; messageInfo = function (txt) { P95S.tMsg = performance.now(); P95S.msg = String(txt || ""); return mi.apply(this, arguments); }; }
+function p95Classer(nom) {
+  const recent = performance.now() - P95S.tMsg < 10 ? P95S.msg : "", ban = (jeu && jeu.banniere && !jeu.banniere.t && jeu.banniere.texte) || "", t = recent + " " + ban;
+  if (/NIVEAU \d+ !/.test(t) || nom === "niveau") return "niveau";
+  if (/coffre|trésor/i.test(t)) return "coffre";
+  if (/qu[êe]te accomplie|qu[êe]te termin|mission[^!]*réussie|accomplie !/i.test(t)) return "quete";
+  if (nom === "orbe" || nom === "piece") return "objet";
+  return null;
+}
+function p95Router() {
+  if (P95S.base) return;
+  const base = P95S.base = son.jouer;
+  son.jouer = function (nom) {
+    try {
+      if (!PARAMS.son || PARAMS.volume <= 0) return base.call(this, nom);
+      let cat = nom === "touche" || nom === "crit" ? "coup" : nom === "vaincu" || nom === "victoire" ? "victoire" : null;
+      const diff = ["orbe", "piece", "fanfare", "niveau"].includes(nom);
+      if (!cat && !diff) return base.call(this, nom);
+      const go = k => {
+        const v = k ? (P95A.sfx[k] | 0) : 0;
+        if (!v) return base.call(son, nom);
+        if (v >= 4) return;
+        this.init(); if (!this.ctx || this.ctx.state !== "running") return;
+        this.maitre.gain.value = PARAMS.volume * 0.5;
+        if (k === "coup" && nom === "crit") { p95Fx(k, v); this.ton(900, 300, 0.1, "square", 0.08, 0.04); } else p95Fx(k, v);
+      };
+      if (cat) return go(cat);
+      Promise.resolve().then(() => { try { go(p95Classer(nom)); } catch (_) { } });
+    } catch (e) { return base.call(this, nom); }
+  };
+}
+setTimeout(p95Router, 0);
+function p95EssaiFx(cat) {
+  try { son.init(); } catch (_) { } if (!son.ctx) return;
+  const v = P95A.sfx[cat] | 0; if (v >= 4) return;
+  const nomBase = { coffre: "fanfare", objet: "orbe", niveau: "orbe", quete: "fanfare", coup: "touche", victoire: "vaincu" }[cat];
+  const go = () => { if (!son.ctx || son.ctx.state !== "running") return; son.maitre.gain.value = Math.max(0.2, PARAMS.volume) * 0.5; if (v) p95Fx(cat, v); else (P95S.base || son.jouer).call(son, nomBase); };
+  if (son.ctx.state !== "running") son.ctx.resume().then(go, () => { }); else go();
+}
+
+/* ---------- panneau « 🎵 Musique & sons » ---------- */
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+  .p95a .lig { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+  .p95a .lig .n { flex: 0 0 34%; font-weight: bold; font-size: 13px; text-align: left; }
+  .p95a .lig select { flex: 1; min-width: 0; font: 13px system-ui, sans-serif; padding: 8px 4px; border-radius: 8px; background: #1e120a; color: #fff4d8; border: 2px solid #8a5a2a; }
+  .p95a .lig input[type=range] { flex: 1; }
+  .p95a .lig .v { flex: 0 0 40px; text-align: right; font-size: 12px; }
+  .p95a button.ec { flex: 0 0 42px; min-height: 40px; padding: 0; font-size: 16px; margin: 0; }
+  .p95a button.ec.on { background: #c04a1a; border-color: #ffd060; }
+  .p95a .sec { margin-top: 10px; font-weight: bold; color: #ffd860; text-align: left; }
+  .p95a .rep { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+  .p95a .rep div { display: flex; align-items: center; gap: 4px; background: #0004; border-radius: 8px; padding: 2px 2px 2px 6px; font-size: 12px; text-align: left; }
+  .p95a .rep div span { flex: 1; } .p95a .rep small { opacity: .7; display: block; }
+  .p95a .petit { font-size: 11px; opacity: .8; }`;
+  document.head.appendChild(st);
+})();
+function p95HtmlAudio() {
+  const vol = Math.round((PARAMS.son ? PARAMS.volume : 0) * 100), mus = Math.round((PARAMS.volMusique ?? 0.75) * 100), on = PARAMS.musique !== false;
+  const ids = Object.keys(P95_PISTES);
+  const optM = cat => { const c = P95_CATS.find(x => x[0] === cat), v = P95A.mus[cat] || "auto";
+    return `<option value="auto"${v === "auto" ? " selected" : ""}>Auto · ${P95_PISTES[c[2]][0]}</option>` + ids.map(id => `<option value="${id}"${v === id ? " selected" : ""}>${P95_PISTES[id][0]} — ${P95_PISTES[id][1]}</option>`).join("") + `<option value="off"${v === "off" ? " selected" : ""}>🔇 Silence</option>`; };
+  const optS = k => { const v = P95A.sfx[k] | 0; return P95_SONS[k][1].map((n, i) => `<option value="${i}"${v === i ? " selected" : ""}>${n}</option>`).join("") + `<option value="4"${v === 4 ? " selected" : ""}>🔇 Aucun</option>`; };
+  return `<div class="titre">🎵 MUSIQUE & SONS</div><div class="p37 p95a">
+    <div class="lig"><span class="n">🎵 Musique</span><input type="range" min="0" max="100" step="5" value="${mus}" data-p37r="volMusique"><span class="v">${mus}%</span></div>
+    <div class="lig"><span class="n">🔊 Effets</span><input type="range" min="0" max="100" step="5" value="${vol}" data-p37r="volume"><span class="v">${vol}%</span></div>
+    <div class="basc"><span>🎼 Musique de fond<br><span class="petit">change selon la map, les combats et les boss</span></span><button data-p95="musOnOff" class="${on ? "on" : ""}">${on ? "OUI" : "NON"}</button></div>
+    <div class="sec">🎼 Musiques (Auto = choix du jeu)</div>
+    ${P95_CATS.map(([cat, nom]) => `<div class="lig"><span class="n">${nom}</span><select data-p95sel="${cat}">${optM(cat)}</select><button class="ec" data-p95ec="${p95PisteDe(cat) || ""}">▶</button></div>`).join("")}
+    <div class="sec">🔔 Effets sonores</div>
+    ${Object.keys(P95_SONS).map(k => `<div class="lig"><span class="n">${P95_SONS[k][0]}</span><select data-p95sfx="${k}">${optS(k)}</select><button class="ec" data-p95fx="${k}">▶</button></div>`).join("")}
+    <div class="sec">📻 Répertoire (${ids.length} morceaux originaux)</div>
+    <div class="rep">${ids.map(id => `<div><span>${P95_PISTES[id][0]}<small>${P95_PISTES[id][1]} · ${P95_PISTES[id][2]} bpm</small></span><button class="ec" data-p95ec="${id}">▶</button></div>`).join("")}</div>
+    <div class="petit" style="margin-top:8px">Musiques et sons créés en direct par le jeu (aucun fichier). Touche ▶ pour écouter 12 s, ■ pour arrêter.</div>
+    <button data-p95="resetAudio">↺ Tout remettre en Auto</button>
+    <button data-onglet="simple" class="large">◀ Retour aux paramètres</button></div>`;
+}
+{
+  const aff = menuReglages.afficher;
+  menuReglages.afficher = function (vue) {
+    if (vue === "p95audio") { this.onglet = "p95audio"; this.panneau.innerHTML = p95HtmlAudio(); p95MajEcoute(); return; }
+    return aff.apply(this, arguments);
+  };
+  const fe = menuReglages.fermer;
+  menuReglages.fermer = function () { P95M.ecoute = null; return fe.apply(this, arguments); };
+}
+function p95Action(b) {
+  const P = document.getElementById("panneau"), sc = P ? P.scrollTop : 0;
+  const a = b.dataset.p95;
+  if (b.dataset.p95ec !== undefined) { if (b.dataset.p95ec) p95Ecouter(b.dataset.p95ec); return; }
+  if (b.dataset.p95fx) { p95EssaiFx(b.dataset.p95fx); return; }
+  if (a === "musOnOff") { PARAMS.musique = !(PARAMS.musique !== false); sauverParams(); try { appliquerParams(); } catch (_) { } }
+  if (a === "resetAudio") { P95A.mus = {}; P95A.sfx = {}; p95SauverAudio(); }
+  menuReglages.afficher("p95audio"); if (P) P.scrollTop = sc;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-p95ec],[data-p95fx]"); if (!b) return;
+  const P = document.getElementById("panneau"); if (!P || !P.contains(b)) return;
+  e.stopImmediatePropagation(); p95Action(b);
+}, true);
+document.addEventListener("change", e => {
+  const s = e.target.closest && e.target.closest("[data-p95sel],[data-p95sfx]"); if (!s) return;
+  if (s.dataset.p95sel) {
+    const cat = s.dataset.p95sel; if (s.value === "auto") delete P95A.mus[cat]; else P95A.mus[cat] = s.value; p95SauverAudio();
+    const b = s.parentElement.querySelector("[data-p95ec]"), id = p95PisteDe(cat); if (b) b.dataset.p95ec = id || "";
+    if (id) { P95M.ecoute = null; p95Ecouter(id); } else { P95M.ecoute = null; p95MajEcoute(); }
+  } else { const k = s.dataset.p95sfx; P95A.sfx[k] = +s.value; p95SauverAudio(); p95EssaiFx(k); }
+});
+
+/* =====================================================================
+   PHASE 45 · étape 3 (p96) : la carte s'agrandit (monde 1 : 1536 → 1792)
+   - nouvelle région au sud et à l'est, reliée par un isthme + passerelle
+   - six lacs (roseaux, nénuphars, pontons), pêche à une main
+   - « Ma Ville » : bâtiments, héros invités qui y vivent
+   - quête finale : Nox, Titan du Néant, attaque la ville
+   ===================================================================== */
+const P96 = { T1: 1536, T2: 1792, G: null, ms: 0, s: null, f: null, ui: null, err: {} };
+function p96Defaut() { return { canne: 0, appat: 0, poissons: {}, cuits: {}, bat: {}, heros: {}, boss: 0, peches: 0, vendus: 0, rec: {}, vu: false, gaston: 0 }; }
+P96.s = p96Defaut();
+function p96Msg(t) { try { messageInfo(String(t).replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim()); } catch (_) { } }
+function p96Err(k, e) { if (!P96.err[k]) { P96.err[k] = 1; console.warn("p96 " + k, e); } }
+function p96Ici() { try { return !!(jeu && jeu.monde && jeu.monde.TT === P96.T2 && (AV.monde || 1) === 1 && P96.G); } catch (_) { return false; } }
+
+/* ---------------- 1) géographie ---------------- */
+function p96PathX(y) { const G = P96.G; return G.bx + 5 * Math.sin((y - G.by) / 29); }
+function p96Lacs(G) {
+  const b = G.bx;
+  return [
+    { id: "ponton", nom: "Lac du Ponton", x: b + 78, y: 1652, R: 15, ph: 0.6, bonus: 0 },
+    { id: "miroir", nom: "Lac Miroir", x: b - 96, y: 1690, R: 19, ph: 2.1, bonus: 1 },
+    { id: "roseaux", nom: "Lac des Roseaux", x: b - 230, y: 1628, R: 17, ph: 4.0, bonus: 1 },
+    { id: "emeraude", nom: "Lac Émeraude", x: b + 215, y: 1700, R: 21, ph: 1.3, bonus: 2 },
+    { id: "couchant", nom: "Lac du Couchant", x: 1676, y: 1460, R: 22, ph: 3.2, bonus: 2 },
+    { id: "perdu", nom: "Lac Perdu", x: 1660, y: 1120, R: 18, ph: 5.1, bonus: 3 },
+  ];
+}
+function p96LacU(L, x, y) { const dx = x - L.x, dy = y - L.y, a = Math.atan2(dy, dx); return Math.hypot(dx, dy) / (L.R * (1 + 0.14 * Math.sin(3 * a + L.ph) + 0.08 * Math.sin(5 * a + 2 * L.ph))); }
+function p96VilleU(x, y) { const G = P96.G; return Math.hypot((x - G.vx) / 46, (y - G.vy) / 34); }
+function p96Alt(m, x, y) {
+  const G = P96.G; let h = 0.53 + (m.p75Brut(x, y) - 0.52) * 0.75;
+  { const u = p96VilleU(x, y); if (u < 1.35) { const w = p75Clamp((1.35 - u) / 0.35); h = h * (1 - w) + 0.5 * w; } }
+  for (const L of G.lacs) {
+    const u = p96LacU(L, x, y); if (u >= 1.5) continue;
+    if (u < 1) h = 0.35 + 0.05 * u * u;
+    else { const w = p75Clamp((1.5 - u) / 0.5); h = h * (1 - w) + (0.418 + (u - 1) * 0.2) * w; }
+  }
+  const dOld = Math.hypot(Math.max(0, x - P96.T1), Math.max(0, y - P96.T1)), e = Math.min(x, y, P96.T2 - x, P96.T2 - y);
+  const pert = m.bDeform.bruit(x / 60 + 11, y / 60 + 7) * 12 + m.bHumid.bruit(x / 20, y / 20) * 5;
+  const b = Math.max(p75Clamp((30 + pert - dOld) / 18), p75Clamp((46 + pert - e) / 26));
+  h = h * (1 - b) + 0.15 * b;
+  return h;
+}
+function p96Isthme(y, x) {
+  const G = P96.G; if (y < G.by || y > G.vy - 20) return 0;
+  const dB = Math.abs(x - p96PathX(y)); if (dB >= 9) return 0; return 0.5 - 0.2 * p75Clamp((dB - 4) / 4);
+}
+function p96Ponton(L) {   // bande de planches : de la rive vers le centre du lac, orientée vers la ville
+  const G = P96.G, a = Math.atan2(G.vy - L.y, G.vx - L.x), ux = Math.cos(a), uy = Math.sin(a);
+  return { ux, uy, a, L };
+}
+function p96SurPonton(P, x, y) {   // x, y en tuiles (réel) ; ponton large de 2,4 tuiles, de u = 1.1 à u = 0.45
+  const L = P.L, dx = x - L.x, dy = y - L.y, along = dx * P.ux + dy * P.uy, perp = -dx * P.uy + dy * P.ux;
+  const Re = L.R * (1 + 0.14 * Math.sin(3 * P.a + L.ph) + 0.08 * Math.sin(5 * P.a + 2 * L.ph));
+  return Math.abs(perp) < 1.25 && along > Re * 0.45 && along < Re * 1.12;
+}
+function p96Etendre(J) {
+  const m = J.monde; if (!m || m.TT !== P96.T1) return;
+  const T0 = P96.T1, T1 = P96.T2, N0 = T0 + 1, N1 = T1 + 1, t0 = performance.now();
+  // 0) point de départ de l'isthme : la côte la plus au sud entre x = 900 et 1300
+  let best = -1, bx = 1100;
+  for (let x = 900; x <= 1300; x += 4) { for (let y = T0 - 4; y > 1300; y--) { let ok = true; for (let d = -2; d <= 2; d++) if (m.L[y * N0 + x + d] < NIV.HERBE) { ok = false; break; } if (ok) { if (y > best) { best = y; bx = x; } break; } } }
+  if (best < 0) { best = 1470; bx = 1100; }
+  const G = P96.G = { bx, by: best - 6, vx: bx, vy: 1666, lacs: [] };
+  G.lacs = p96Lacs(G); G.pontons = G.lacs.map(p96Ponton);
+  const L = new Int8Array(N1 * N1), ALT = new Float32Array(N1 * N1), HUM = new Float32Array(N1 * N1);
+  for (let y = 0; y < N0; y++) { const a = y * N0, b = y * N1; L.set(m.L.subarray(a, a + N0), b); ALT.set(m.ALT.subarray(a, a + N0), b); HUM.set(m.HUM.subarray(a, a + N0), b); }
+  // 1) sommets pairs calculés, impairs interpolés
+  for (let y = 0; y < N1; y += 2) for (let x = 0; x < N1; x += 2) {
+    if (x <= T0 && y <= T0) continue; const k = y * N1 + x;
+    ALT[k] = p96Alt(m, x, y); HUM[k] = m.bHumid.fbm(x / 180, y / 180, 3) * 0.5 + 0.5;
+  }
+  for (let y = 0; y < N1; y++) for (let x = (y & 1) ? 0 : 1; x < N1; x += (y & 1) ? 1 : 2) {
+    if (x <= T0 && y <= T0) continue; const k = y * N1 + x;
+    if (y & 1 && x & 1) { ALT[k] = (ALT[k - N1 - 1] + ALT[k - N1 + 1] + ALT[k + N1 - 1] + ALT[k + N1 + 1]) / 4; HUM[k] = (HUM[k - N1 - 1] + HUM[k - N1 + 1] + HUM[k + N1 - 1] + HUM[k + N1 + 1]) / 4; }
+    else if (x & 1) { ALT[k] = (ALT[k - 1] + ALT[k + 1]) / 2; HUM[k] = (HUM[k - 1] + HUM[k + 1]) / 2; }
+    else { ALT[k] = (ALT[k - N1] + ALT[k + N1]) / 2; HUM[k] = (HUM[k - N1] + HUM[k + N1]) / 2; }
+  }
+  // 2) isthme (terre étroite à travers le détroit), pontons sur les lacs
+  const iy0 = G.by, iy1 = G.vy - 20;
+  for (let y = iy0; y <= iy1; y++) { const cx = p96PathX(y); for (let x = Math.floor(cx - 9); x <= cx + 9; x++) { const h = p96Isthme(y, x), k = y * N1 + x; if (h > ALT[k]) ALT[k] = h; } }
+  for (const P of G.pontons) { const l = P.L; for (let y = Math.floor(l.y - l.R * 1.4); y <= l.y + l.R * 1.4; y++) for (let x = Math.floor(l.x - l.R * 1.4); x <= l.x + l.R * 1.4; x++) if (p96SurPonton(P, x, y)) ALT[y * N1 + x] = 0.42; }
+  for (let k = 0; k < N1 * N1; k++) { const x = k % N1, y = (k / N1) | 0; if (x <= T0 && y <= T0 && !(y >= iy0 && y <= iy1 && Math.abs(x - G.bx) < 16)) continue; L[k] = m.niveauDe(ALT[k]); }
+  // 3) forêt, zones, dalles
+  const FOR = new Float32Array(T1 * T1), zone = new Uint8Array(T1 * T1), vis = new Int8Array(T1 * T1), DES = new Uint8Array(T1 * T1);
+  for (let y = 0; y < T0; y++) { const a = y * T0, b = y * T1; FOR.set(m.FOR.subarray(a, a + T0), b); zone.set(m.zone.subarray(a, a + T0), b); if (m.visDecor) vis.set(m.visDecor.subarray(a, a + T0), b); if (m.DES) DES.set(m.DES.subarray(a, a + T0), b); }
+  for (let y = 0; y < T1; y += 2) for (let x = 0; x < T1; x += 2) {
+    if (x < T0 && y < T0) continue;
+    const f = m.bForet.fbm((x + 1) / 45, (y + 1) / 45, 3) + (HUM[y * N1 + x] - 0.5) * 0.8;
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) FOR[(y + j) * T1 + x + i] = f;
+  }
+  for (let y = 1500; y < T1; y++) for (let x = 0; x < T1; x++) {
+    const cx = x + 0.5, cy = y + 0.5, k = y * T1 + x, u = p96VilleU(cx, cy);
+    if (u < 1.12) { zone[k] = 3; const dx = cx - G.vx, dy = cy - G.vy; if (Math.hypot(dx, dy * 1.2) < 11 || (Math.abs(dx) < 1.6 && u < 1) || (Math.abs(dy) < 1.6 && u < 1)) DES[k] = 3; }
+  }
+  for (const l of G.lacs) for (let y = Math.floor(l.y - l.R * 1.7); y <= l.y + l.R * 1.7; y++) for (let x = Math.floor(l.x - l.R * 1.7); x <= l.x + l.R * 1.7; x++) { if (x < 0 || y < 0 || x >= T1 || y >= T1) continue; const u = p96LacU(l, x + 0.5, y + 0.5); if (u < 1.45 && u > 0.9) zone[y * T1 + x] = 3; }
+  for (const P of G.pontons) { const l = P.L; for (let y = Math.floor(l.y - l.R * 1.4); y <= l.y + l.R * 1.4; y++) for (let x = Math.floor(l.x - l.R * 1.4); x <= l.x + l.R * 1.4; x++) if (p96SurPonton(P, x + 0.5, y + 0.5)) { DES[y * T1 + x] = 4; zone[y * T1 + x] = 3; } }
+  for (let y = iy0; y <= iy1; y++) { const cx = Math.round(p96PathX(y)); for (let x = cx - 10; x <= cx + 10; x++) if (y >= T0 - 60) zone[y * T1 + x] = 3; }
+  // passerelle : les bateaux passent au milieu du détroit
+  { const ym = T0 + 4; let x0 = 1e9, x1 = -1;
+    for (let y = ym - 6; y <= ym + 6; y++) { const cx = Math.round(p96PathX(y)); for (let x = cx - 9; x <= cx + 9; x++) if (L[y * N1 + x] >= NIV.SABLE) { DES[y * T1 + x] = 4; x0 = Math.min(x0, x); x1 = Math.max(x1, x); } }
+    G.pont = { x0: x0 - 1, x1: x1 + 2, y0: ym - 7, y1: ym + 8 }; }
+  // 4) clés de tuiles reconverties
+  const rek = k => { const x = k % T0, y = (k - x) / T0; return y * T1 + x; };
+  for (const nom of ["coupes", "masques"]) if (m[nom] && m[nom].size) m[nom] = new Set([...m[nom]].map(rek));
+  for (const nom of ["secousses", "repousses", "pousses"]) if (m[nom] && m[nom].size) m[nom] = new Map([...m[nom]].map(([k, v]) => [rek(k), v]));
+  for (const ch of (m.chemins || [])) if (ch.index) ch.index = new Map([...ch.index].map(([k, v]) => [rek(k), v]));
+  if (AV.mer && AV.mer.length === T0 * T0) { const mer = new Uint8Array(T1 * T1); for (let y = 0; y < T0; y++) mer.set(AV.mer.subarray(y * T0, y * T0 + T0), y * T1); AV.mer = mer; }
+  m.NV = N1; m.L = L; m.ALT = ALT; m.HUM = HUM; m.FOR = FOR; m.zone = zone; m.visDecor = vis; m.DES = DES; m.TT = T1;
+  p96Decor(m);
+  P96.ms = Math.round(performance.now() - t0);
+}
+(() => {
+  const cj = creerJeu;
+  creerJeu = function () { const J = cj.apply(this, arguments); try { p96Etendre(J); } catch (e) { console.warn("p96 extension", e); } return J; };
+})();
+// les bateaux franchissent la passerelle du détroit
+(() => {
+  const cl = coqueLibre;
+  coqueLibre = function (x, y) {
+    const P = P96.G && P96.G.pont;
+    if (P && p96Ici() && x > P.x0 * 16 && x < P.x1 * 16 && y > P.y0 * 16 && y < P.y1 * 16) return true;
+    return cl.apply(this, arguments);
+  };
+})();
+
+/* ---------------- 2) décor des lacs (sprites → voxels en 3D) ---------------- */
+const P96I = {};
+function p96Img(k) {
+  if (P96I[k]) return P96I[k];
+  let c;
+  if (k === "roseau0" || k === "roseau1") { const s = k === "roseau1" ? 1 : 0; c = objetSimple(12, 18, P => {
+      const tige = (x, h, d, col) => { for (let i = 0; i < h; i++) P.p(x + Math.round(d * i / h), 17 - i, col); };
+      tige(2, 13, s ? 1 : 0, "#4a7a2a"); tige(5, 16, s ? 2 : 1, "#5a8a32"); tige(8, 12, s ? 1 : 0, "#3e6a24"); tige(10, 9, s ? 1 : 0, "#5a8a32");
+      P.r(5 + (s ? 2 : 1), 0, 2, 5, "#6a3a1a"); P.p(5 + (s ? 2 : 1), 0, "#8a5a2a"); P.r(2 + (s ? 1 : 0), 4, 2, 4, "#6a3a1a"); P.r(0, 16, 12, 2, "rgba(30,60,40,.35)"); }); }
+  else if (k === "nenu0" || k === "nenu1") c = objetSimple(10, 6, P => { P.ell(5, 3, 5, 2.6, "#2e6a2a"); P.ell(5, 2.6, 4.2, 2, "#4a9a3a"); P.r(5, 1, 3, 1, "#2e6a2a"); if (k === "nenu1") { P.r(3, 1, 3, 2, "#f6c8e0"); P.p(4, 1, "#fff0a0"); } });
+  else if (k === "font3") c = objetSimple(38, 40, P => {   // fontaine vue de face (pour la 3D ; < 40 px de large : pas de « toit »)
+      P.r(0, 26, 38, 12, "#7a7a86"); P.r(0, 26, 38, 2, "#b8b8c4"); P.r(2, 29, 34, 2, "#3a78c8"); P.r(0, 36, 38, 2, "#55555f");
+      for (let i = 0; i < 5; i++) P.r(3 + i * 8, 32, 1, 4, "#606070");
+      P.r(16, 10, 6, 17, "#9a9aa6"); P.r(17, 10, 2, 17, "#c8c8d2"); P.r(11, 8, 16, 3, "#8a8a96"); P.r(11, 8, 16, 1, "#c0c0ca");
+      P.r(17, 0, 4, 8, "#9ad8ff"); P.r(18, 0, 2, 8, "#e8f8ff"); P.r(9, 11, 2, 15, "#7ac0f0"); P.r(27, 11, 2, 15, "#7ac0f0"); P.r(10, 10, 3, 2, "#9ad8ff"); P.r(25, 10, 3, 2, "#9ad8ff"); });
+  else if (k === "poteau") c = objetSimple(4, 10, P => { P.r(0, 0, 4, 10, "#5a3a1e"); P.r(1, 0, 2, 10, "#7a5230"); P.r(0, 0, 4, 1, "#9a7040"); });
+  else if (k === "barque") c = objetSimple(26, 11, P => { P.r(2, 3, 22, 5, "#7a4a22"); P.r(0, 3, 26, 2, "#9a6230"); P.r(4, 8, 18, 2, "#5a3416"); P.r(6, 4, 3, 3, "#c8a060"); P.r(16, 4, 3, 3, "#c8a060"); P.r(1, 2, 24, 1, "#b88048"); });
+  else if (k === "bouchon") c = objetSimple(5, 7, P => { P.r(2, 0, 1, 2, "#333"); P.ell(2.5, 4, 2.5, 2.6, "#fff"); P.r(0, 2, 5, 2, "#e83030"); });
+  else if (k === "panneau") c = objetSimple(40, 26, (P, x) => { P.r(18, 12, 4, 14, "#5a3a1e"); P.r(0, 0, 40, 13, "#4a2a12"); P.r(1, 1, 38, 11, "#a8743a"); P.r(1, 1, 38, 2, "#c8945a");
+      try { textePixel(x, "MA VILLE", 20, 3, 1, "#3a1a08", null, 0.5); } catch (_) { } });
+  else if (k === "tableau") c = objetSimple(26, 28, P => { P.r(2, 10, 3, 18, "#5a3a1e"); P.r(21, 10, 3, 18, "#5a3a1e"); P.r(0, 0, 26, 18, "#4a2a12"); P.r(1, 1, 24, 16, "#8a5a2a");
+      P.r(3, 3, 8, 6, "#f0e0b8"); P.r(13, 2, 9, 7, "#f8ecc8"); P.r(4, 10, 9, 5, "#e8d8a8"); P.r(15, 10, 7, 5, "#f0e0b8"); P.p(7, 3, "#c83030"); P.p(17, 2, "#3060c8"); P.p(8, 10, "#30a040"); P.p(18, 10, "#c8a020"); });
+  else if (k === "chantier") c = objetSimple(34, 12, P => { for (const [x, y] of [[0, 6], [31, 6], [0, 0], [31, 0]]) P.r(x, y, 3, 6, "#8a5a2a"); P.r(0, 1, 34, 1, "#e8c040"); P.r(0, 7, 34, 1, "#e8c040"); for (let x = 4; x < 30; x += 6) P.r(x, 1, 3, 1, "#3a2a10"); });
+  else if (k === "auberge") c = objetSimple(56, 50, P => {
+      P.ell(28, 47, 27, 3, "rgba(20,10,4,.35)");
+      P.r(4, 20, 48, 27, "#6a4424"); P.r(5, 21, 46, 25, "#c8a070"); for (let y = 24; y < 46; y += 5) P.r(5, y, 46, 1, "#a8804e");
+      P.r(5, 32, 46, 2, "#6a4424"); for (const x of [8, 20, 34, 44]) P.r(x, 24, 5, 6, "#ffe08a"), P.r(x, 24, 5, 1, "#6a4424");
+      for (const x of [8, 40]) P.r(x, 36, 6, 6, "#ffd070"), P.r(x + 2, 36, 1, 6, "#6a4424");
+      P.r(23, 35, 10, 12, "#4a2a12"); P.r(24, 36, 8, 11, "#7a4a22"); P.p(30, 41, "#ffd040");
+      for (let i = 0; i < 12; i++) P.r(2 + i, 20 - i, 52 - 2 * i, 1, i % 3 ? "#b83a2a" : "#8a2a1e");
+      P.r(14, 8, 28, 2, "#8a2a1e"); P.r(40, 2, 5, 10, "#7a7a80"); P.r(40, 1, 5, 2, "#9a9aa0");
+      P.r(20, 13, 16, 6, "#4a2a12"); P.r(21, 14, 14, 4, "#f0c040"); P.r(24, 15, 8, 2, "#8a2a1e"); });
+  else if (k === "port") c = objetSimple(44, 34, P => {
+      P.ell(22, 31, 21, 3, "rgba(20,10,4,.35)"); P.r(4, 14, 36, 18, "#5a3a1e"); P.r(5, 15, 34, 16, "#9a6a3a"); for (let x = 7; x < 38; x += 4) P.r(x, 15, 1, 16, "#7a5230");
+      for (let i = 0; i < 9; i++) P.r(2 + i, 14 - i, 40 - 2 * i, 1, i & 1 ? "#4a6a8a" : "#3a5a7a"); P.r(16, 20, 12, 12, "#2a1a0a");
+      P.r(30, 18, 6, 5, "#2a1a0a"); P.r(31, 19, 4, 3, "#80b0e0"); P.r(6, 22, 6, 2, "#c8a060"); P.r(7, 18, 1, 4, "#c8a060"); P.r(10, 18, 1, 4, "#c8a060"); });
+  else if (k === "place") c = objetSimple(22, 14, P => { P.ell(11, 8, 11, 6, "#8a8a90"); P.ell(11, 7, 10, 5, "#b0b0b8"); P.ell(11, 7, 7, 3.4, "#3a78c8"); P.ell(10, 6, 3, 1.2, "#8ac8ff"); P.r(10, 0, 2, 7, "#c0c0c8"); P.r(9, 0, 4, 1, "#e0e0e8"); });
+  else if (k === "mur") c = suImg("murH");
+  P96I[k] = c; return c;
+}
+function p96Decor(m) {   // position des roseaux / nénuphars / poteaux, calculée une fois
+  const G = P96.G, rnd = mulberry32(hacherGraine(m.graineTexte + ":p96"));
+  G.dec = [];
+  for (const l of G.lacs) {
+    const n = Math.round(l.R * 2.2);
+    for (let i = 0; i < n; i++) {   // roseaux en touffes sur la rive
+      const a = rnd() * 6.283, uu = 0.93 + rnd() * 0.12, rr = l.R * uu * (1 + 0.14 * Math.sin(3 * a + l.ph) + 0.08 * Math.sin(5 * a + 2 * l.ph));
+      const x = (l.x + Math.cos(a) * rr) * 16, y = (l.y + Math.sin(a) * rr) * 16, P = G.pontons[G.lacs.indexOf(l)];
+      if (p96SurPonton(P, x / 16, y / 16) || Math.abs(Math.atan2(Math.sin(a - P.a + Math.PI), Math.cos(a - P.a + Math.PI))) < 0.35) continue;
+      G.dec.push({ t: "roseau", x, y, p: rnd() * 6 });
+      if (rnd() < 0.5) G.dec.push({ t: "roseau", x: x + (rnd() - 0.5) * 14, y: y + 3, p: rnd() * 6 });
+    }
+    for (let i = 0; i < Math.round(l.R * 0.9); i++) { const a = rnd() * 6.283, r = l.R * (0.35 + rnd() * 0.45); G.dec.push({ t: rnd() < 0.3 ? "nenu1" : "nenu0", x: (l.x + Math.cos(a) * r) * 16, y: (l.y + Math.sin(a) * r) * 16, p: rnd() * 6, eau: 1 }); }
+    { const P = G.pontons[G.lacs.indexOf(l)], Re = l.R * (1 + 0.14 * Math.sin(3 * P.a + l.ph) + 0.08 * Math.sin(5 * P.a + 2 * l.ph));
+      for (const f of [0.5, 0.72, 0.94]) for (const s of [-1, 1]) G.dec.push({ t: "poteau", x: (l.x + P.ux * Re * f - P.uy * s * 1.35) * 16, y: (l.y + P.uy * Re * f + P.ux * s * 1.35) * 16 + 4 });
+      const bx = l.x + P.ux * Re * 0.62 + P.uy * 3, by = l.y + P.uy * Re * 0.62 - P.ux * 3;
+      G.dec.push({ t: "barque", x: bx * 16, y: by * 16 + 6, p: rnd() * 6, eau: 1 });
+      P.bout = { x: (l.x + P.ux * Re * 0.52) * 16, y: (l.y + P.uy * Re * 0.52) * 16 }; P.base = { x: (l.x + P.ux * Re * 1.18) * 16, y: (l.y + P.uy * Re * 1.18) * 16 }; }
+  }
+  const P0 = G.pontons[0]; G.gaston = { x: P0.base.x + P0.uy * 22, y: P0.base.y - P0.ux * 22 + 4 };
+}
+/* ---------------- 3) Ma Ville : bâtiments ---------------- */
+const P96_BAT = {
+  place: { n: "Place & fontaine", ic: "⛲", c: { pierre: 12 }, max: 1, d: "Le cœur de la ville. Bois à la fontaine : PV et KI au max." },
+  maison: { n: "Maison", ic: "🏠", c: { bois: 14, pierre: 6 }, max: 6, d: "Un toit pour un héros ou un compagnon recruté." },
+  forge: { n: "Forge", ic: "⚒", c: { pierre: 12, minerai: 4, bois: 6 }, max: 1, d: "Améliore ta canne à pêche. Héros +10 % d'attaque au combat final." },
+  marche: { n: "Marché", ic: "🏪", c: { bois: 12, pierre: 6, fibre: 6 }, max: 1, d: "Tes poissons se vendent 50 % plus cher." },
+  auberge: { n: "Auberge des Héros", ic: "🍺", c: { bois: 20, pierre: 10, fibre: 8 }, max: 1, d: "Les héros invités s'y retrouvent. Repos : PV/KI au max." },
+  port: { n: "Port de pêche", ic: "🛶", c: { bois: 16, fibre: 6 }, max: 1, d: "Au Lac du Ponton : poissons rares plus fréquents." },
+  tour: { n: "Tour de guet", ic: "🗼", c: { pierre: 16, bois: 8 }, max: 2, d: "Défense : le boss final frappe 6 % moins fort (par tour)." },
+  remparts: { n: "Remparts", ic: "🏰", c: { pierre: 30, bois: 16, minerai: 6 }, max: 1, d: "Défense : le boss final frappe 12 % moins fort." },
+};
+const P96_ORDRE = ["place", "maison", "forge", "marche", "auberge", "port", "tour", "remparts"];
+const P96_SLOTS = {
+  place: [[0, 6]], maison: [[-300, -190], [-170, -215], [170, -215], [300, -190], [-310, 150], [-170, 185]],
+  forge: [[-440, -70]], marche: [[300, 150]], auberge: [[170, 190]], tour: [[-560, -396], [560, -396]], remparts: [[0, 0]], port: null,
+};
+function p96C() { const G = P96.G; return { x: G.vx * 16 + 8, y: G.vy * 16 + 8 }; }
+function p96Pos(t, i) {
+  const C = p96C();
+  if (t === "port") { const P = P96.G.pontons[0]; return { x: P.base.x - P.uy * 40 + P.ux * 30, y: P.base.y + P.ux * 40 + P.uy * 30 + 30 }; }
+  const s = P96_SLOTS[t][i]; return { x: C.x + s[0], y: C.y + s[1] };
+}
+const P96_DIM = { place: [50, 14, 32, 46], maison: [42, 16, 23, 43], forge: [36, 14, 20, 39], marche: [40, 14, 22, 33], auberge: [50, 16, 28, 47], port: [38, 14, 22, 31], tour: [18, 10, 11, 47] };
+function p96Img2(t) { return t === "maison" || t === "forge" || t === "marche" || t === "tour" ? suImg(t) : t === "place" ? (P96I.font || (P96I.font = imageFontaine())) : p96Img(t); }
+function p96Nb(t) { return Math.max(0, Math.min(P96_BAT[t].max, P96.s.bat[t] | 0)); }
+function p96NbBat() { let n = 0; for (const t in P96_BAT) n += p96Nb(t); return n; }
+function p96Niveau() { return Math.min(5, 1 + Math.floor(p96NbBat() / 3)); }
+function p96Batiments() {   // liste des bâtiments posés (positions monde)
+  const L = [];
+  for (const t of P96_ORDRE) { if (t === "remparts") continue; const n = p96Nb(t); for (let i = 0; i < n; i++) { const p = p96Pos(t, i); L.push({ t, i, x: p.x, y: p.y }); } }
+  return L;
+}
+const P96_REMP = { x0: -560, x1: 560, y0: -396, y1: 380, g: 34 };
+function p96Murs() {   // segments des remparts [x, y, horizontal]
+  if (P96.murs && P96.mursCle === P96.G.vx + ":" + P96.G.vy) return P96.murs;
+  const C = p96C(), R = P96_REMP, L = [];
+  for (let x = R.x0 + 8; x < R.x1 - 8; x += 16) { if (Math.abs(x + 8) < R.g + 8) continue; L.push([C.x + x, C.y + R.y0, 1], [C.x + x, C.y + R.y1, 1]); }
+  for (let y = R.y0 + 10; y < R.y1; y += 16) { if (Math.abs(y + 8) < R.g) continue; L.push([C.x + R.x0, C.y + y, 0], [C.x + R.x1, C.y + y, 0]); }
+  P96.murs = L.filter(([x, y]) => { try { return niveauIci(x + 8, y - 2) >= NIV.SABLE; } catch (_) { return true; } }); P96.mursCle = P96.G.vx + ":" + P96.G.vy; return P96.murs;
+}
+/* ---------------- 4) héros invités ---------------- */
+const P96_HEROS = [
+  { id: "sangoku", nom: "Sangoku", q: "Sangoku a toujours faim : offre-lui 3 poissons grillés.", ok: () => p96NbCuits() >= 3, payer: () => p96Retirer(true, 3), ligne: "Wouah, ça sent bon ! Je m'installe ici, on va s'entraîner ensemble !" },
+  { id: "luffy", nom: "Luffy", q: "Luffy veut un festin : construis le Marché et offre-lui 5 poissons.", ok: () => p96Nb("marche") > 0 && p96NbCrus() >= 5, payer: () => p96Retirer(false, 5), ligne: "Shishishi ! Un festin ! Je reste, et je ramène mon équipage plus tard !" },
+  { id: "naruto", nom: "Naruto", q: "Naruto rêve d'un bon bol : offre une Truite arc-en-ciel (ou mieux) et construis une Maison.", ok: () => p96Nb("maison") > 0 && !!p96Meilleur(2), payer: () => p96RetirerMeilleur(2), ligne: "Dattebayo ! C'est presque aussi bon qu'un ramen ! Je deviendrai le chef de cette ville !" },
+  { id: "meliodas", nom: "Meliodas", q: "Meliodas veut tenir le comptoir : construis l'Auberge des Héros.", ok: () => p96Nb("auberge") > 0, payer: () => true, ligne: "Une auberge ? Parfait. Je m'occupe des boissons… mais pas de la cuisine." },
+  { id: "theo", nom: "Théo", q: "Théo (le héros Pokémon) veut voir un poisson rare : offre un Brochet des roseaux ou mieux.", ok: () => !!p96Meilleur(3), payer: () => p96RetirerMeilleur(3), ligne: "Incroyable, ce poisson ! Mes Pokémon adorent déjà le lac. On reste !" },
+];
+function p96Recrues() { try { return (typeof P2 !== "undefined" ? P2 : []).filter(P => { try { return !!P.ok(); } catch (_) { return false; } }); } catch (_) { return []; } }
+function p96Habitants() { const L = []; for (const H of P96_HEROS) if (P96.s.heros[H.id]) L.push(H.id); for (const P of p96Recrues()) if (P96.s.heros[P.id]) L.push(P.id); return L; }
+function p96NbHeros() { let n = 0; for (const H of P96_HEROS) if (P96.s.heros[H.id]) n++; return n; }
+function p96NbInvites() { return p96Habitants().length; }
+function p96MaisonsLibres() { let n = 0; for (const P of p96Recrues()) if (P96.s.heros[P.id]) n++; return p96Nb("maison") - n; }
+function p96BossDispo() { return p96NbHeros() >= 4 || p96Niveau() >= 4; }
+/* ---------------- 5) poissons ---------------- */
+const P96_RAR = [
+  { n: "Commun", c: "#c8d0d8" }, { n: "Peu commun", c: "#6ad060" }, { n: "Rare", c: "#5aa8ff" }, { n: "Épique", c: "#c070ff" }, { n: "Légendaire", c: "#ffc030" },
+];
+const P96_POISSONS = [
+  { id: "gardon", nom: "Gardon argenté", r: 0, p: 8, f: 10, col: ["#b8c8d0", "#e0e8f0", "#7a8a98"], vit: 0.8 },
+  { id: "perche", nom: "Perche rayée", r: 0, p: 10, f: 12, col: ["#9ab04a", "#d0e070", "#4a6a2a"], vit: 0.95, raye: 1 },
+  { id: "truite", nom: "Truite arc-en-ciel", r: 1, p: 24, f: 18, col: ["#a8b0c0", "#f0a0c0", "#5a6a8a"], vit: 1.15, bande: "#e86090" },
+  { id: "carpe", nom: "Carpe dorée", r: 1, p: 28, f: 22, col: ["#d8a030", "#ffe070", "#8a5a10"], vit: 1.05 },
+  { id: "brochet", nom: "Brochet des roseaux", r: 2, p: 60, f: 28, col: ["#5a7a3a", "#a8c870", "#2a4a1a"], vit: 1.4, long: 1 },
+  { id: "anguille", nom: "Anguille lune", r: 2, p: 65, f: 26, col: ["#4a4a6a", "#a0a0d8", "#22223a"], vit: 1.5, long: 2, nuit: 1 },
+  { id: "koi", nom: "Koï céleste", r: 3, p: 150, f: 40, col: ["#f0f0f0", "#ff6a3a", "#c8c8d0"], vit: 1.75, tache: 1 },
+  { id: "jade", nom: "Poisson-dragon de jade", r: 4, p: 420, f: 70, col: ["#2ab088", "#9af0c8", "#0a5a48"], vit: 2.1, long: 1, dragon: 1 },
+];
+const P96_PI = {};
+function p96ImgPoisson(id, cuit) {
+  const k = id + (cuit ? "c" : ""); if (P96_PI[k]) return P96_PI[k];
+  const F = P96_POISSONS.find(q => q.id === id) || P96_POISSONS[0], W = F.long ? 22 : 18, Hh = F.long === 2 ? 7 : 10;
+  let [a, b, d] = F.col; if (cuit) { a = "#b8743a"; b = "#e8b070"; d = "#6a3a18"; }
+  const c = objetSimple(W, Hh, P => {
+    const cy = Hh / 2, rx = (W - 6) / 2, ry = Hh / 2 - 1;
+    P.ell(rx + 1, cy, rx + 1, ry + 1, d); P.ell(rx + 1, cy, rx, ry, a); P.ell(rx + 1, cy + ry * 0.35, rx * 0.8, ry * 0.45, b);
+    P.r(W - 6, cy - ry, 2, ry * 2, d); for (let i = 0; i < 4; i++) P.r(W - 5 + i, cy - ry - 1 + i, 1, ry * 2 + 2 - 2 * i, i ? a : d);
+    if (!cuit) { P.p(3, Math.floor(cy) - 1, "#fff"); P.p(3, Math.floor(cy) - 1 + 0, "#101010"); P.p(4, Math.floor(cy) - 1, "#fff"); }
+    if (F.raye && !cuit) for (let x = 6; x < W - 7; x += 3) P.r(x, 1, 1, Hh - 3, d);
+    if (F.bande && !cuit) P.r(3, Math.floor(cy), W - 9, 1, F.bande);
+    if (F.tache && !cuit) { P.r(6, 2, 3, 2, "#ff6a3a"); P.r(10, 4, 3, 3, "#ff6a3a"); P.r(7, 6, 2, 1, "#202020"); }
+    if (F.dragon && !cuit) { P.r(2, 0, 1, 2, "#ffd040"); P.r(5, 0, 1, 1, "#ffd040"); for (let x = 6; x < W - 7; x += 2) P.p(x, 1, "#ffd040"); }
+    if (cuit) { for (let x = 4; x < W - 7; x += 4) P.r(x, 2, 1, Hh - 4, "#4a2408"); }
+  });
+  P96_PI[k] = c; return c;
+}
+function p96Png(cv) { try { return cv._url || (cv._url = cv.toDataURL()); } catch (_) { return ""; } }
+function p96NbCrus() { let n = 0; for (const k in P96.s.poissons) n += P96.s.poissons[k] | 0; return n; }
+function p96NbCuits() { let n = 0; for (const k in P96.s.cuits) n += P96.s.cuits[k] | 0; return n; }
+function p96Meilleur(rmin) { let B = null; for (const F of P96_POISSONS) if (F.r >= rmin && (P96.s.poissons[F.id] | 0) > 0) { if (!B || F.r < B.r) B = F; } return B; }
+function p96RetirerMeilleur(rmin) { const F = p96Meilleur(rmin); if (!F) return false; P96.s.poissons[F.id]--; return true; }
+function p96Retirer(cuit, n) {
+  const S = cuit ? P96.s.cuits : P96.s.poissons, tot = cuit ? p96NbCuits() : p96NbCrus(); if (tot < n) return false;
+  for (const F of P96_POISSONS) { while (n > 0 && (S[F.id] | 0) > 0) { S[F.id]--; n--; } } return true;
+}
+function p96PrixVente(F, cuit) { return Math.round(F.p * (cuit ? 1.3 : 1) * (p96Nb("marche") ? 1.5 : 1)); }
+
+/* ---------------- 6) dessin dans le monde ---------------- */
+function p96Resid() {   // habitants qui se promènent en ville (état de marche)
+  const ids = p96Habitants(), cle = ids.join(","); if (P96.rc === cle && P96.rl) return P96.rl;
+  const C = p96C(), old = new Map((P96.rl || []).map(r => [r.id, r]));
+  P96.rl = ids.map((id, i) => old.get(id) || (() => { const a = i * 2.39 + 0.5, hx = C.x + Math.cos(a) * (90 + (i % 3) * 60), hy = C.y + 40 + Math.sin(a) * (70 + (i % 2) * 50); return { id, x: hx, y: hy, hx, hy, tx: hx, ty: hy, vue: 0, bouge: false, t: Math.random() * 3, arr: 0 }; })());
+  P96.rc = cle; return P96.rl;
+}
+function p96ImgHeros(id, vue, f, bouge, t) {
+  const dir = ["bas", "haut", "droite", "gauche"][vue] || "bas";
+  try {
+    if (id === "sangoku") return framePerso(dir, bouge ? (Math.floor(t * 10) & 7) : 0, !bouge && (Math.floor(t / 0.75) & 1), Math.floor(t * 6) % 8, false);
+    if (id === "luffy") return imageLuffy(dir, f, !bouge && (Math.floor(t / 0.75) & 1));
+    if (id === "naruto") return imageNaruto("classique", dir, f, null, false);
+    if (id === "meliodas") return imageMeliodas("classique", dir, f, null, false);
+    if (id === "theo") return imageDresseur(dir, f, false);
+    const L = TB_LOOKS[id]; if (L) return imageKPNJ(L, vue === 3 ? 2 : vue, f, vue === 3, false);
+  } catch (e) { p96Err("img" + id, e); }
+  return null;
+}
+function p96Joue() { try { return heroActuel(); } catch (_) { return "sangoku"; } }
+function p96Elements(items, o, e, visible) {
+  const G = P96.G, t = AV.temps, img = (im, x, y, ax, ay, a) => poserImg(im, x, y, ax, ay, o, e, a);
+  for (const d of G.dec) {
+    if (!visible(d.x, d.y, 30)) continue;
+    if (d.t === "roseau") { const f = Math.floor(t * 1.3 + d.p) & 1; items.push({ y: d.y, dessiner: () => img(p96Img("roseau" + f), d.x, d.y, 6, 17) }); }
+    else if (d.t === "poteau") items.push({ y: d.y, dessiner: () => img(p96Img("poteau"), d.x, d.y, 2, 9) });
+    else if (d.t === "barque") { const dy = Math.sin(t * 1.6 + d.p) * 1.2; items.push({ y: d.y - 12, dessiner: () => img(p96Img("barque"), d.x, d.y + dy, 13, 10) }); }
+    else { const dy = Math.sin(t * 1.1 + d.p) * 0.6; items.push({ y: d.y - 14, dessiner: () => img(p96Img(d.t), d.x, d.y + dy, 5, 5) }); }
+  }
+  // Papi Gaston, le pêcheur
+  { const g = G.gaston; if (visible(g.x, g.y, 30)) items.push({ y: g.y, dessiner: () => { const f = Math.floor(t * 1.5) & 1; img(imagePNJ(5, 0, f ? 0 : 0, false), g.x, g.y, 8, 23); if (!P96.s.canne) img(p96Img("bouchon"), g.x + 8, g.y - 34 + Math.sin(t * 4) * 1.5, 2, 6); } }); }
+  // ville
+  const C = p96C();
+  { const px = C.x + 30, py = C.y - P96_REMP.y1 - 60; if (visible(px, py, 40)) items.push({ y: py, dessiner: () => img(p96Img("panneau"), px, py, 20, 25) }); }
+  { const bx = C.x + 70, by = C.y + 44; if (visible(bx, by, 40)) items.push({ y: by, dessiner: () => img(p96Img("tableau"), bx, by, 13, 27) }); }
+  const deja = new Set();
+  for (const b of p96Batiments()) {
+    deja.add(b.t + b.i); if (!visible(b.x, b.y - 20, 70)) continue;
+    const D = P96_DIM[b.t] || [30, 10, 15, 30];
+    items.push({ y: b.y, dessiner: () => {
+      if (b.t === "place" && typeof E3 !== "undefined" && E3.actif) img(p96Img("font3"), b.x, b.y - 8, 19, 39); else img(p96Img2(b.t), b.x, b.y, D[2], D[3]);
+      if (b.t === "forge" && Math.floor(t * 3) % 2) img(suImg("flamme", Math.floor(t * 6) % 3), b.x + 11, b.y - 37, 7, 12, 0.5);
+    } });
+  }
+  for (const t2 of P96_ORDRE) { if (t2 === "remparts" || t2 === "port") continue; const n = p96Nb(t2); if (n < P96_BAT[t2].max) { const p = p96Pos(t2, n); if (visible(p.x, p.y, 40)) items.push({ y: p.y - 20, dessiner: () => img(p96Img("chantier"), p.x, p.y, 17, 11, 0.8) }); } }
+  if (p96Nb("remparts")) {
+    for (const [x, y, h] of p96Murs()) { if (!visible(x, y, 40)) continue; items.push({ y, dessiner: () => h ? img(suImg("murH"), x, y, 0, 20) : img(suImg("murV"), x, y, 5, 17) }); }
+    const R = P96_REMP;
+    for (const yy of [R.y0, R.y1]) { const gx = C.x, gy = C.y + yy; if (visible(gx, gy, 50)) items.push({ y: gy + 0.5, dessiner: () => img(suImg("porte"), gx, gy + 2, 18, 30) }); }
+    for (const [x, y] of [[R.x0, R.y1], [R.x1, R.y1]]) { const X = C.x + x, Y = C.y + y; if (visible(X, Y - 20, 60)) items.push({ y: Y + 1, dessiner: () => img(suImg("tour"), X, Y + 2, 11, 47) }); }
+  }
+  // habitants
+  const joue = p96Joue();
+  for (const r of p96Resid()) {
+    if (r.id === joue || !visible(r.x, r.y, 30)) continue;
+    items.push({ y: r.y, dessiner: () => {
+      const f = r.bouge ? Math.floor(t * 8) & 3 : 0, im = p96ImgHeros(r.id, r.vue, f, r.bouge, t + r.t); if (!im) return;
+      img(OMBRE_PERSO, r.x, r.y + 1, 7, 3, 0.8); img(im, r.x, r.y, Math.floor(im.width / 2), im.height - 1);
+    } });
+  }
+  // bouchon de pêche
+  const F = P96.f;
+  if (F && F.bx != null && visible(F.bx, F.by, 30)) items.push({ y: F.by - 10, dessiner: () => {
+    const plonge = F.ph === "mord" ? 2 + Math.sin(t * 30) * 1.5 : Math.sin(t * 3) * 0.8;
+    if (!(typeof E3 !== "undefined" && E3.actif)) { const k = Math.max(1, e), h = { x: perso.x + (perso.dir === "gauche" ? -8 : perso.dir === "droite" ? 8 : 4), y: perso.y - 22 };
+      ctx.strokeStyle = "rgba(240,240,240,.75)"; ctx.lineWidth = Math.max(1, k * 0.5); ctx.beginPath(); ctx.moveTo((h.x - o.x) * e, (h.y - o.y) * e); ctx.quadraticCurveTo(((h.x + F.bx) / 2 - o.x) * e, ((h.y + F.by) / 2 + 14 - o.y) * e, (F.bx - o.x) * e, (F.by - 3 + plonge - o.y) * e); ctx.stroke(); }
+    img(p96Img("bouchon"), F.bx, F.by + plonge, 2, 6);
+  } });
+}
+(() => {
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try { if (p96Ici() && dansMonde()) p96Elements(items, o, e, visible); } catch (er) { p96Err("dess", er); }
+  };
+})();
+// collisions : bâtiments, remparts, pêcheur
+function p96Rects() {
+  const cle = JSON.stringify(P96.s.bat); if (P96.rk === cle && P96.rr) return P96.rr;
+  const L = [];
+  for (const b of p96Batiments()) { const D = P96_DIM[b.t]; if (!D) continue; L.push([b.x - D[0] / 2, b.y - D[1], b.x + D[0] / 2, b.y]); }
+  if (p96Nb("remparts")) { P96.murs = null; for (const [x, y, h] of p96Murs()) L.push(h ? [x, y - 8, x + 16, y] : [x - 5, y - 16, x + 5, y]); }
+  { const g = P96.G.gaston; L.push([g.x - 6, g.y - 5, g.x + 6, g.y]); }
+  { const C = p96C(); L.push([C.x + 64, C.y + 38, C.x + 76, C.y + 44]); }
+  P96.rr = L; P96.rk = cle; return L;
+}
+(() => {
+  const bl = sceneMonde.bloque;
+  sceneMonde.bloque = function (x, y) {
+    try { if (p96Ici() && y > 1450 * 16) { for (const r of p96Rects()) if (x > r[0] && x < r[2] && y > r[1] && y < r[3]) return true; } } catch (e) { p96Err("bloque", e); }
+    return bl.apply(this, arguments);
+  };
+})();
+
+/* ---------------- 7) mise à jour : habitants, pêche ---------------- */
+function p96MajResid(dt) {
+  const C = p96C(); if (Math.hypot(perso.x - C.x, perso.y - C.y) > 1400) return;
+  for (const r of p96Resid()) {
+    r.t += dt;
+    if (r.arr > 0) { r.arr = Math.max(0, r.arr - dt); }
+    const dx = r.tx - r.x, dy = r.ty - r.y, l = Math.hypot(dx, dy);
+    if (l < 3) { r.bouge = false; if (Math.random() < dt * 0.35) { const a = Math.random() * 6.283, rr = 30 + Math.random() * 110; r.tx = r.hx + Math.cos(a) * rr; r.ty = r.hy + Math.sin(a) * rr * 0.7; } continue; }
+    const v = (r.arr > 0 ? 60 : 24) * dt, nx = r.x + dx / l * Math.min(v, l), ny = r.y + dy / l * Math.min(v, l);
+    if (r.arr > 0 || !sceneMonde.bloque(Math.round(nx), Math.round(ny))) { r.x = nx; r.y = ny; r.bouge = true; r.vue = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 3) : (dy > 0 ? 0 : 1); }
+    else { r.tx = r.hx; r.ty = r.hy; r.x += (r.hx - r.x) * 0.02; r.y += (r.hy - r.y) * 0.02; }
+  }
+}
+function p96Devant(d) { const dir = perso.dir; return { x: perso.x + (dir === "gauche" ? -d : dir === "droite" ? d : 0), y: perso.y + (dir === "haut" ? -d : dir === "bas" ? d : 0) - (dir === "haut" ? 6 : 0) }; }
+function p96EauDevant() {
+  for (const d of [26, 40, 54]) { const p = p96Devant(d); try { if (niveauIci(p.x, p.y) <= NIV.EAU && niveauIci(perso.x, perso.y) >= NIV.SABLE) return p; } catch (_) { return null; } }
+  return null;
+}
+function p96LacIci(x, y) { if (!p96Ici()) return null; for (const l of P96.G.lacs) if (p96LacU(l, x / 16, y / 16) < 1.15) return l; return null; }
+function p96Tirer(lac) {   // tirage d'un poisson selon le lac, la canne, l'appât, le port, la nuit
+  let bonus = (lac ? lac.bonus : 0) * 0.5 + (P96.s.canne >= 2 ? 1 : 0) + (P96.s.appat > 0 ? 1.2 : 0) + (lac && lac.id === "ponton" && p96Nb("port") ? 1 : 0);
+  let nuit = false; try { nuit = typeof cycleNuit === "function" ? +cycleNuit() > 0.5 : false; } catch (_) { }
+  const poids = P96_POISSONS.map(F => { const base = [55, 26, 11, 4.5, 1.2][F.r]; let w = base * Math.pow(1 + bonus * 0.35, F.r); if (F.nuit) w *= nuit ? 2.5 : 0.6; if (!lac && F.r >= 3) w *= 0.35; return w; });
+  let s = poids.reduce((a, b) => a + b, 0), r = Math.random() * s;
+  for (let i = 0; i < poids.length; i++) { r -= poids[i]; if (r <= 0) return P96_POISSONS[i]; }
+  return P96_POISSONS[0];
+}
+function p96Pecher() {
+  if (P96.f) return;
+  const p = p96EauDevant(); if (!p) return;
+  try { touches.clear(); manette.relacher(); } catch (_) { }
+  const lac = p96LacIci(p.x, p.y);
+  P96.f = { ph: "lance", t: 0, bx: null, by: null, tx: p.x, ty: p.y, lac, poisson: null, att: 2 + Math.random() * 4, jauge: null };
+  son.jouer("lancer"); p96UIPeche();
+}
+function p96FinPeche(msg) { P96.f = null; p96UIPeche(); if (msg) p96Msg(msg); }
+function p96MajPeche(dt) {
+  const F = P96.f; if (!F) return;
+  if (!dansMonde() || AV.cine || perso.ko || jeu.transition) { p96FinPeche(); return; }
+  if (Math.hypot(perso.x - (F.x0 ?? (F.x0 = perso.x)), perso.y - (F.y0 ?? (F.y0 = perso.y))) > 10) { p96FinPeche("Tu as rangé ta canne."); return; }
+  F.t += dt;
+  if (F.ph === "lance") { const k = Math.min(1, F.t / 0.5); F.bx = perso.x + (F.tx - perso.x) * k; F.by = perso.y - 10 + (F.ty - perso.y + 10) * k - Math.sin(k * Math.PI) * 26; if (k >= 1) { F.ph = "attente"; F.t = 0; try { son.jouer("plouf"); } catch (_) { } } }
+  else if (F.ph === "attente") { if (F.t >= F.att) { F.ph = "mord"; F.t = 0; F.poisson = p96Tirer(F.lac); vibrer([60, 40, 60]); try { son.jouer("orbe"); } catch (_) { } p96UIPeche(); } }
+  else if (F.ph === "mord") { if (F.t > 1.25) { F.ph = "rate"; F.t = 0; p96UIPeche(); } }
+  else if (F.ph === "rate") { if (F.t > 1.4) p96FinPeche("Le poisson s'est échappé… retente ta chance !"); }
+  else if (F.ph === "combat") {
+    const J = F.jauge, P = F.poisson, d = Math.min(dt, 0.05);
+    J.zt -= d; if (J.zt <= 0) { J.zc = 0.12 + Math.random() * 0.76; J.zt = (0.5 + Math.random() * 1.2) / P.vit; }
+    J.z += (J.zc - J.z) * Math.min(1, d * 2.2 * P.vit);
+    J.v += (J.tient ? 2.6 : -2.2) * d; J.v *= Math.pow(0.25, d); J.c += J.v * d;
+    if (J.c < 0) { J.c = 0; J.v = Math.max(0, J.v) * 0.3; } if (J.c > 1) { J.c = 1; J.v = Math.min(0, J.v) * 0.3; }
+    const dedans = Math.abs(J.c - J.z) < J.w / 2;
+    J.p += (dedans ? 0.3 : -0.16 - 0.03 * P.r) * d;
+    if (J.p >= 1) { p96Prise(P); return; }
+    if (J.p <= 0) { F.ph = "rate"; F.t = 0; p96UIPeche(); return; }
+    p96UIJauge(dedans);
+  }
+}
+function p96Ferrer() {
+  const F = P96.f; if (!F) return;
+  if (F.ph === "attente" || F.ph === "lance") { p96FinPeche("Trop tôt ! Attends que ça morde (le « ! »)."); return; }
+  if (F.ph !== "mord") return;
+  F.ph = "combat"; F.t = 0; const P = F.poisson;
+  F.jauge = { c: 0.3, v: 0, z: 0.5, zc: 0.5, zt: 0.8, w: Math.max(0.17, 0.32 - 0.035 * P.r + (P96.s.canne >= 2 ? 0.05 : 0)), p: 0.35, tient: false };
+  vibrer(30); p96UIPeche();
+}
+function p96Prise(P) {
+  const S = P96.s; S.poissons[P.id] = (S.poissons[P.id] | 0) + 1; S.peches++; if (S.appat > 0) S.appat--;
+  const taille = Math.round((P.long ? 40 : 18) * (1 + P.r * 0.35) * (0.8 + Math.random() * 0.5));
+  if (!S.rec[P.id] || taille > S.rec[P.id]) S.rec[P.id] = taille;
+  P96.f = { ph: "prise", t: 0, poisson: P, taille };
+  try { son.jouer(P.r >= 3 ? "fanfare" : "piece"); } catch (_) { } vibrer(P.r >= 3 ? [80, 50, 120] : 40);
+  try { gagnerXP && gagnerXP(6 + P.r * 10); } catch (_) { }
+  p96UIPeche();
+}
+(() => {
+  const ma = majAventure;
+  majAventure = function (dt) {
+    const r = ma.apply(this, arguments);
+    try { if (p96Ici()) { if (dansMonde()) p96MajResid(dt); p96MajPeche(dt); p96Decouverte(); } else if (P96.f) p96FinPeche(); } catch (e) { p96Err("maj", e); }
+    return r;
+  };
+})();
+function p96Decouverte() {
+  if (P96.s.vu || !dansMonde()) return;
+  if (p96VilleU(perso.x / 16, perso.y / 16) < 1.3) { P96.s.vu = true; p96Msg("🏘 Bienvenue dans MA VILLE ! Ouvre le tableau pour construire et inviter les héros."); try { son.jouer("orbe"); } catch (_) { } }
+}
+
+/* ---------------- 8) interface : pêche (une main) ---------------- */
+function p96Style() {
+  if (document.getElementById("p96st")) return;
+  const st = document.createElement("style"); st.id = "p96st";
+  st.textContent = `#p96f { position: fixed; z-index: 62; right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 236px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; font: bold 13px system-ui, sans-serif; color: #fff4d8; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #p96f[hidden], #p96p[hidden] { display: none !important; }
+  #p96f .bx { background: rgba(14,24,36,.86); border: 2px solid #6ab0e0; border-radius: 14px; padding: 8px; box-shadow: 0 5px 0 #0007; }
+  #p96f .m { text-align: center; min-height: 18px; }
+  #p96f .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  #p96f .jg { position: relative; width: 34px; height: 150px; background: linear-gradient(#123048, #1e5a78); border: 2px solid #9ad0f0; border-radius: 10px; overflow: hidden; flex: none; }
+  #p96f .jg .z { position: absolute; left: 2px; right: 2px; background: rgba(120,240,140,.55); border: 2px solid #b0ffb8; border-radius: 6px; box-sizing: border-box; }
+  #p96f .jg .z.on { background: rgba(160,255,150,.85); }
+  #p96f .jg .c { position: absolute; left: -2px; right: -2px; height: 6px; margin-top: -3px; background: #ffe070; border-radius: 3px; box-shadow: 0 0 6px #ffd040; }
+  #p96f .jg .pf { position: absolute; left: 3px; width: 26px; height: 14px; margin-top: -7px; }
+  #p96f .pr { width: 12px; height: 150px; background: #2a1a10; border: 2px solid #8a5a2a; border-radius: 6px; position: relative; overflow: hidden; flex: none; }
+  #p96f .pr i { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(#ffe070, #ff9a30); }
+  #p96f .gros { width: 112px; height: 112px; border-radius: 50%; border: 4px solid #ffe070; background: radial-gradient(circle at 40% 35%, #4a90d0, #1a4a80); color: #fff; font: 900 17px system-ui, sans-serif; box-shadow: 0 6px 0 #0a2038, 0 0 0 3px #0008; touch-action: none; flex: none; }
+  #p96f .gros.mord { background: radial-gradient(circle at 40% 35%, #ff7a50, #c82a1a); animation: p96cl .25s infinite alternate; }
+  #p96f .gros.tient { transform: translateY(4px); box-shadow: 0 2px 0 #0a2038; }
+  @keyframes p96cl { to { transform: scale(1.08); } }
+  #p96f button { font: bold 13px system-ui, sans-serif; color: #fff4d8; background: #24405a; border: 2px solid #6ab0e0; border-radius: 10px; min-height: 40px; padding: 4px 8px; touch-action: manipulation; }
+  #p96f .card { text-align: center; } #p96f .card img { width: 88px; image-rendering: pixelated; display: block; margin: 4px auto; }
+  #p96f .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  #p96p { position: fixed; inset: 0; z-index: 61; background: rgba(4,8,14,.62); display: flex; align-items: flex-start; justify-content: center; padding: max(10px, env(safe-area-inset-top, 0px)) 8px 8px; touch-action: manipulation; }
+  #p96p .cp { background: #1c2a1a; border: 3px solid #f0c040; border-radius: 14px; padding: 10px; width: min(96vw, 680px); max-height: calc(100% - 8px); overflow-y: auto; -webkit-overflow-scrolling: touch; font: 13px system-ui, sans-serif; color: #fff4d8; box-sizing: border-box; box-shadow: 0 8px 0 #0008; }
+  #p96p .t { position: sticky; top: -10px; z-index: 2; background: #1c2a1a; padding: 4px 46px; min-height: 34px; display: flex; align-items: center; justify-content: center; text-align: center; font: bold 17px system-ui, sans-serif; color: #ffe070; margin: 2px 0 6px; }
+  #p96p .x { position: absolute; right: 0; top: 2px; width: 40px; min-height: 36px; }
+  #p96p .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px; }
+  #p96p button { font: bold 13px system-ui, sans-serif; color: #fff4d8; background: #2e4a26; border: 2px solid #6a9a4a; border-radius: 10px; min-height: 42px; padding: 4px 6px; touch-action: manipulation; }
+  #p96p button.on { background: #5a6a10; border-color: #ffe070; } #p96p button:disabled { opacity: .45; }
+  #p96p .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 7px; }
+  #p96p .it { background: #263822; border: 2px solid #4a6a3a; border-radius: 10px; padding: 7px; display: flex; flex-direction: column; gap: 4px; }
+  #p96p .it b { color: #ffe8a0; font-size: 14px; } #p96p .it small { opacity: .85; } #p96p .ok { color: #9af08a; } #p96p .ko { color: #ff8a7a; }
+  #p96p .it .bb { display: flex; gap: 5px; flex-wrap: wrap; } #p96p .it .bb button { flex: 1; min-width: 70px; }
+  #p96p .it.fait { border-color: #c8a020; background: #3a3a18; }
+  #p96p .pi { display: flex; align-items: center; gap: 8px; } #p96p .pi img { width: 54px; image-rendering: pixelated; flex: none; }
+  #p96p .bar { height: 10px; background: #102010; border-radius: 6px; overflow: hidden; border: 1px solid #6a9a4a; } #p96p .bar i { display: block; height: 100%; background: linear-gradient(90deg, #f0c040, #ff7030); }
+  #p96p .boss { background: linear-gradient(#2a1040, #140a20); border: 2px solid #a060ff; border-radius: 12px; padding: 10px; text-align: center; }
+  #p96p .boss button { background: #5a1a8a; border-color: #e0a0ff; font-size: 16px; width: 100%; min-height: 52px; margin-top: 6px; }
+  @media (orientation: landscape) and (max-height: 500px) { #p96f { width: 300px; } #p96f .jg, #p96f .pr { height: 120px; } #p96f .gros { width: 96px; height: 96px; } }`;
+  document.head.appendChild(st);
+}
+function p96UIPeche() {
+  p96Style();
+  let el = document.getElementById("p96f");
+  if (!el) {
+    el = document.createElement("div"); el.id = "p96f"; el.hidden = true; document.body.appendChild(el);
+    const bas = ev => { const b = ev.target.closest("[data-p96]"); if (!b) return; const a = b.dataset.p96; ev.preventDefault(); ev.stopPropagation();
+      if (a === "gros") { const F = P96.f; if (!F) return; if (F.ph === "combat") { F.jauge.tient = true; b.classList.add("tient"); } else { p96Ferrer(); if (P96.f && P96.f.jauge) P96.f.jauge.tient = true; } }
+      else if (a === "ranger") p96FinPeche();
+      else if (a === "manger") p96Manger(P96.f && P96.f.poisson, false, true);
+      else if (a === "garder") p96FinPeche(); };
+    const haut = () => { const F = P96.f; if (F && F.jauge) F.jauge.tient = false; const g = el.querySelector(".gros"); if (g) g.classList.remove("tient"); };
+    el.addEventListener("pointerdown", bas); for (const t of ["pointerup", "pointercancel", "pointerleave"]) el.addEventListener(t, haut);
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+  const F = P96.f; if (!F) { el.hidden = true; el.innerHTML = ""; P96.fPh = null; return; }
+  if (P96.fPh === F.ph) return; P96.fPh = F.ph; el.hidden = false;
+  const lac = F.lac ? F.lac.nom : "";
+  if (F.ph === "lance" || F.ph === "attente") el.innerHTML = `<div class="bx"><div class="m">🎣 ${lac ? lac + " · " : ""}Attends que ça morde…</div><div class="row" style="margin-top:6px"><button data-p96="ranger">✕ Ranger</button><button class="gros" data-p96="gros">FERRER</button></div><div class="m" style="opacity:.8;font-weight:normal;margin-top:4px">Appuie sur FERRER dès que le « ! » apparaît.</div></div>`;
+  else if (F.ph === "mord") el.innerHTML = `<div class="bx"><div class="m" style="color:#ffd040;font-size:16px">❗ ÇA MORD ! ❗</div><div class="row" style="margin-top:6px;justify-content:flex-end"><button class="gros mord" data-p96="gros">FERRE !</button></div></div>`;
+  else if (F.ph === "combat") el.innerHTML = `<div class="bx"><div class="m">Garde le poisson dans la zone verte !</div><div class="row" style="margin-top:6px"><div class="jg"><div class="z"></div><img class="pf" src="${p96Png(p96ImgPoisson(F.poisson.id))}" style="image-rendering:pixelated"><div class="c"></div></div><div class="pr"><i></i></div><button class="gros" data-p96="gros">TIENS<br>pour<br>remonter</button></div></div>`;
+  else if (F.ph === "rate") el.innerHTML = `<div class="bx"><div class="m" style="color:#ff9a8a;font-size:15px">💨 Raté !</div></div>`;
+  else if (F.ph === "prise") { const P = F.poisson, R = P96_RAR[P.r];
+    el.innerHTML = `<div class="bx card"><div style="color:${R.c};font-size:12px">★ ${R.n.toUpperCase()} ★</div><img src="${p96Png(p96ImgPoisson(P.id))}"><div style="font-size:15px;color:#ffe8a0">${P.nom}</div><div style="font-weight:normal">${F.taille} cm · vaut ${p96PrixVente(P, false)} Z</div><div class="btns"><button data-p96="manger">🍖 Manger</button><button data-p96="garder">🎒 Garder</button></div></div>`; }
+  if (F.ph === "combat") p96UIJauge(false);
+}
+function p96UIJauge(dedans) {
+  const el = document.getElementById("p96f"), J = P96.f && P96.f.jauge; if (!el || !J) return;
+  const z = el.querySelector(".z"), c = el.querySelector(".c"), pf = el.querySelector(".pf"), pr = el.querySelector(".pr i"); if (!z) return;
+  z.style.top = ((1 - J.z - J.w / 2) * 100) + "%"; z.style.height = (J.w * 100) + "%"; z.classList.toggle("on", dedans);
+  c.style.top = ((1 - J.c) * 100) + "%"; pf.style.top = ((1 - J.z) * 100) + "%"; pr.style.height = (J.p * 100) + "%";
+}
+function p96Manger(P, cuit, depuisPeche) {
+  if (!P) return; const S = P96.s, T = cuit ? S.cuits : S.poissons;
+  if (!depuisPeche) { if ((T[P.id] | 0) <= 0) return; T[P.id]--; } else { if ((S.poissons[P.id] | 0) > 0) S.poissons[P.id]--; }
+  const f = Math.round(P.f * (cuit ? 1.8 : 1));
+  try { SU.faim = Math.min(100, SU.faim + f); } catch (_) { }
+  try { perso.pv = Math.min(perso.pvMax, perso.pv + Math.round(perso.pvMax * (cuit ? 0.3 : 0.12))); } catch (_) { }
+  p96Msg(`${cuit ? "🔥" : "🐟"} Miam ! ${P.nom}${cuit ? " grillé" : ""} : +${f} faim${cuit ? ", +30 % PV" : ", +12 % PV"}.`);
+  try { son.jouer("soin"); } catch (_) { }
+  if (depuisPeche) p96FinPeche(); else p96Panneau();
+}
+
+/* ---------------- 9) interface : Ma Ville ---------------- */
+function p96CoutZ(c) { let n = 0; for (const k in c) n += c[k]; return n * 10; }
+function p96CoutTxt(c) { try { return suCoutTxt(c); } catch (_) { return Object.keys(c).map(k => k + " " + c[k]).join(" "); } }
+function p96Ouvrir(tab) {
+  if (!jeu || AV.cine || jeu.transition) return;
+  p96Style(); let el = document.getElementById("p96p");
+  if (!el) {
+    el = document.createElement("div"); el.id = "p96p"; el.hidden = true; document.body.appendChild(el);
+    el.addEventListener("click", ev => { const b = ev.target.closest("[data-v]"); if (!b) { if (ev.target === el) p96Fermer(); return; } p96Clic(b.dataset.v, b.dataset.k || ""); });
+  }
+  P96.tab = tab || P96.tab || "bat"; p96Panneau(); el.hidden = false; el.scrollTop = 0; jeu.pause = true; P96.ouvert = true;
+  try { touches.clear(); manette.relacher(); } catch (_) { }
+}
+function p96Fermer() { const el = document.getElementById("p96p"); if (el && !el.hidden) { el.hidden = true; if (jeu && P96.ouvert) jeu.pause = false; } P96.ouvert = false; }
+function p96Panneau() {
+  const el = document.getElementById("p96p"); if (!el) return;
+  const S = P96.s, niv = p96Niveau(), nb = p96NbBat(), tab = P96.tab, sv = (() => { try { return suOn(); } catch (_) { return false; } })();
+  const tabs = [["bat", "🏗 Bâtir"], ["heros", "🦸 Héros"], ["poissons", "🐟 Poissons"], ["boss", "⚔ Finale"]].map(([k, n]) => `<button data-v="tab" data-k="${k}" class="${tab === k ? "on" : ""}">${n}</button>`).join("");
+  let h = `<div class="cp"><div class="t" style="position:sticky">🏘 MA VILLE · niveau ${niv}<button class="x" data-v="fermer">✕</button></div>`;
+  h += `<div style="margin-bottom:6px">${nb} bâtiment${nb > 1 ? "s" : ""} · ${p96NbInvites()} habitant${p96NbInvites() > 1 ? "s" : ""} · 💰 ${prog.argent} Z${sv ? " · " + ["bois", "pierre", "fibre", "minerai"].map(k => `${suIc(k)} ${SU.inv[k] | 0}`).join(" ") : ""}</div>`;
+  h += `<div class="bar" style="margin-bottom:8px"><i style="width:${Math.min(100, (nb % 3) / 3 * 100 + (niv >= 5 ? 100 : 0))}%"></i></div><div class="tabs">${tabs}</div>`;
+  if (tab === "bat") {
+    h += `<div class="g">`;
+    for (const t of P96_ORDRE) {
+      const B = P96_BAT[t], n = p96Nb(t), plein = n >= B.max, mat = sv && suAssez(B.c), z = p96CoutZ(B.c);
+      h += `<div class="it${plein ? " fait" : ""}"><b>${B.ic} ${B.n} ${B.max > 1 ? `(${n}/${B.max})` : plein ? "✔" : ""}</b><small>${B.d}</small>`;
+      if (!plein) h += `<small>${sv ? p96CoutTxt(B.c) : "Survie désactivée : paiement en zénis"}</small><div class="bb">${sv ? `<button data-v="bat" data-k="${t}" ${mat ? "" : "disabled"}>🔨 Matériaux</button>` : ""}<button data-v="batz" data-k="${t}" ${prog.argent >= z ? "" : "disabled"}>💰 ${z} Z</button></div>`;
+      h += `</div>`;
+    }
+    h += `</div><p style="opacity:.8">Les bâtiments apparaissent sur les emplacements jalonnés (piquets jaunes). Niveau de la ville : +1 tous les 3 bâtiments.</p>`;
+  } else if (tab === "heros") {
+    h += `<p>Invite les héros à vivre en ville : chacun a sa petite demande. Ils se promènent ensuite dans les rues et combattront avec toi le boss final.</p><div class="g">`;
+    for (const H of P96_HEROS) {
+      const fait = !!S.heros[H.id], ok = !fait && H.ok();
+      h += `<div class="it${fait ? " fait" : ""}"><b>${fait ? "🏠" : "✉"} ${H.nom}</b><small>${fait ? "Habite à Ma Ville." : H.q}</small>${fait ? "" : `<div class="bb"><button data-v="inv" data-k="${H.id}" ${ok ? "" : "disabled"}>${ok ? "✔ Inviter !" : "⏳ Pas encore"}</button></div>`}</div>`;
+    }
+    const R = p96Recrues(), lib = p96MaisonsLibres();
+    for (const P of R) { const fait = !!S.heros[P.id];
+      h += `<div class="it${fait ? " fait" : ""}"><b>${fait ? "🏠" : "✉"} ${P.nom}</b><small>${fait ? "Habite à Ma Ville." : "Compagnon recruté : il lui faut une maison libre."}</small>${fait ? "" : `<div class="bb"><button data-v="inv" data-k="${P.id}" ${lib > 0 ? "" : "disabled"}>${lib > 0 ? "✔ Inviter" : "🏠 Construis une maison"}</button></div>`}</div>`; }
+    if (!R.length) h += `<div class="it"><b>👥 Compagnons recrutés</b><small>Recrute des personnages (menu 👤) : ils pourront aussi s'installer ici.</small></div>`;
+    h += `</div>`;
+  } else if (tab === "poissons") {
+    const canne = S.canne ? (S.canne >= 2 ? "Canne renforcée (zone verte plus large, poissons plus rares)" : "Vieille canne de Papi Gaston") : "Pas encore de canne : va voir Papi Gaston au Lac du Ponton, à l'est de la ville.";
+    h += `<p>🎣 ${canne} · ${S.peches} prise${S.peches > 1 ? "s" : ""}${S.appat ? ` · appât doré : ${S.appat}` : ""}</p>`;
+    if (S.canne === 1) h += `<div class="it"><b>⚒ Améliorer la canne</b><small>${p96Nb("forge") ? "La forge peut renforcer ta canne." : "Il faut d'abord une Forge."}</small><div class="bb"><button data-v="canne" ${p96Nb("forge") && prog.argent >= 250 ? "" : "disabled"}>💰 250 Z</button></div></div>`;
+    h += `<div class="g" style="margin-top:7px">`; let vide = true;
+    for (const P of P96_POISSONS) for (const cuit of [false, true]) {
+      const n = (cuit ? S.cuits : S.poissons)[P.id] | 0; if (!n) continue; vide = false; const R = P96_RAR[P.r];
+      h += `<div class="it"><div class="pi"><img src="${p96Png(p96ImgPoisson(P.id, cuit))}"><div><b>${P.nom}${cuit ? " grillé" : ""} ×${n}</b><br><small style="color:${R.c}">${R.n}</small>${S.rec[P.id] && !cuit ? `<small> · record ${S.rec[P.id]} cm</small>` : ""}</div></div>
+        <div class="bb"><button data-v="manger${cuit ? "c" : ""}" data-k="${P.id}">🍖 Manger</button>${cuit ? "" : `<button data-v="cuire" data-k="${P.id}" ${!sv || (SU.inv.bois | 0) >= 1 ? "" : "disabled"}>🔥 Cuire${sv ? " (1 🪵)" : ""}</button>`}<button data-v="vendre${cuit ? "c" : ""}" data-k="${P.id}">💰 ${p96PrixVente(P, cuit)} Z</button></div></div>`;
+    }
+    if (vide) h += `<div class="it"><small>Ton seau est vide. Approche-toi de l'eau avec la canne : bouton 🎣 Pêcher.</small></div>`;
+    h += `</div>`;
+  } else if (tab === "boss") {
+    const nh = p96NbHeros(), dispo = p96BossDispo();
+    h += `<div class="boss"><div style="font:bold 17px system-ui;color:#e0b0ff">🌑 NOX, TITAN DU NÉANT</div><p>Une faille s'ouvre au-dessus du lac… Le Titan veut engloutir Ma Ville. Réunis les héros pour le repousser !</p>
+      <p>${nh >= 4 ? "✔" : "•"} Héros réunis : ${nh}/4 &nbsp; <b>ou</b> &nbsp; ${niv >= 4 ? "✔" : "•"} Ville niveau ${niv}/4</p>
+      <p>Défense : ${p96Defense()} % de dégâts en moins · ${p96Nb("forge") ? "Forge : +10 % d'attaque" : "(une Forge donnerait +10 % d'attaque)"}</p>
+      ${S.boss ? `<p style="color:#ffe070">🏆 Déjà vaincu ${S.boss} fois — tu peux le combattre à nouveau.</p>` : ""}
+      <button data-v="boss" ${dispo ? "" : "disabled"}>${dispo ? "⚔ DÉFENDRE MA VILLE !" : "🔒 Pas encore prêt"}</button></div>`;
+  }
+  h += `</div>`; el.innerHTML = h;
+}
+function p96Defense() { return Math.min(30, p96Nb("tour") * 6 + p96Nb("remparts") * 12); }
+function p96Clic(v, k) {
+  const S = P96.s; try { son.jouer("clic"); } catch (_) { }
+  if (v === "fermer") return p96Fermer();
+  if (v === "tab") { P96.tab = k; return p96Panneau(); }
+  if (v === "bat" || v === "batz") {
+    const B = P96_BAT[k]; if (!B || p96Nb(k) >= B.max) return;
+    if (v === "bat") { if (!suAssez(B.c)) return; suPayer(B.c); } else { const z = p96CoutZ(B.c); if (prog.argent < z) return; prog.argent -= z; }
+    const av = p96Niveau(); S.bat[k] = p96Nb(k) + 1; P96.rr = null; P96.murs = null;
+    try { son.jouer("fanfare"); } catch (_) { } vibrer(40);
+    const p = k === "remparts" ? p96C() : p96Pos(k, S.bat[k] - 1); try { nombreFlottant(p.x, p.y - 50, B.n + " !", "#ffe070", true); } catch (_) { }
+    p96Msg(`${B.ic} ${B.n} construit${k === "remparts" ? "s" : ""} !${p96Niveau() > av ? ` La ville passe au niveau ${p96Niveau()} !` : ""}${p96BossDispo() && !S.bossAnnonce ? " ⚔ La quête finale est disponible !" : ""}`);
+    if (p96BossDispo()) S.bossAnnonce = 1;
+    return p96Panneau();
+  }
+  if (v === "inv") {
+    const H = P96_HEROS.find(q => q.id === k);
+    if (H) { if (S.heros[k] || !H.ok() || !H.payer()) return; }
+    else { const P = p96Recrues().find(q => q.id === k); if (!P || S.heros[k] || p96MaisonsLibres() <= 0) return; }
+    S.heros[k] = 1; p96Arrivee(k, H ? H.ligne : null);
+    if (p96BossDispo() && !S.bossAnnonce) { S.bossAnnonce = 1; setTimeout(() => p96Msg("⚔ Assez de héros réunis : la quête finale est disponible (onglet Finale) !"), 2600); }
+    return p96Fermer();
+  }
+  if (v === "canne") { if (S.canne !== 1 || !p96Nb("forge") || prog.argent < 250) return; prog.argent -= 250; S.canne = 2; p96Msg("⚒ Canne renforcée ! La zone verte est plus large et les poissons rares mordent plus."); return p96Panneau(); }
+  const P = P96_POISSONS.find(q => q.id === k);
+  if (v === "manger" || v === "mangerc") return p96Manger(P, v === "mangerc", false);
+  if (v === "cuire") { if (!P || (S.poissons[k] | 0) <= 0) return; if (suOn()) { if ((SU.inv.bois | 0) < 1) return; suAjout("bois", -1); } S.poissons[k]--; S.cuits[k] = (S.cuits[k] | 0) + 1; p96Msg(`🔥 ${P.nom} grillé à point !`); return p96Panneau(); }
+  if (v === "vendre" || v === "vendrec") { const c = v === "vendrec", T = c ? S.cuits : S.poissons; if (!P || (T[k] | 0) <= 0) return; T[k]--; const z = p96PrixVente(P, c); prog.argent = Math.min(999999, prog.argent + z); S.vendus++; try { son.jouer("piece"); } catch (_) { } return p96Panneau(); }
+  if (v === "boss") { if (!p96BossDispo()) return; p96Fermer(); p96LancerFinale(); }
+}
+function p96Arrivee(id, ligne) {   // le héros arrive par la porte nord en courant
+  const C = p96C(), r0 = p96Resid().find(r => r.id === id) || null;
+  const r = r0 || p96Resid().find(q => q.id === id);
+  if (r) { r.x = C.x; r.y = C.y + P96_REMP.y0 - 70; r.tx = r.hx; r.ty = r.hy; r.arr = 4; }
+  const nom = (P96_HEROS.find(q => q.id === id) || p96Recrues().find(q => q.id === id) || { nom: id }).nom;
+  p96Msg(`🎉 ${nom} s'installe à Ma Ville !`); try { son.jouer("fanfare"); } catch (_) { } vibrer([40, 30, 80]);
+  if (r) { try { bulleMonde(r.hx, r.hy - 34, ligne || "Merci pour la maison ! Je suis prêt pour le grand combat.", 4.5); } catch (_) { } }
+}
+
+/* ---------------- 10) actions contextuelles ---------------- */
+function p96Gaston() {
+  const S = P96.s, g = P96.G.gaston;
+  if (!S.canne) { S.canne = 1; S.gaston = 1; p96Msg("🎣 Papi Gaston t'offre sa vieille canne à pêche ! Mets-toi face à l'eau : bouton 🎣 Pêcher."); bulleMonde(g.x, g.y - 30, "Tiens, petit ! Lance, attends le « ! », ferre… et tiens bon !", 4.5); try { son.jouer("fanfare"); } catch (_) { } return; }
+  if (prog.argent >= 60 && S.appat < 5) { prog.argent -= 60; S.appat = 5; bulleMonde(g.x, g.y - 30, "Appât doré : 5 lancers, les gros poissons adorent ! (60 Z)", 4); try { son.jouer("piece"); } catch (_) { } return; }
+  const astuces = ["Le Lac Perdu, loin à l'est, cache des poissons légendaires…", "La nuit, l'Anguille lune sort de sa cachette.", "Un Port de pêche rendra mon lac plus généreux !", "Le Poisson-dragon de jade ? Je l'ai vu une fois… au Lac Perdu.", "Grillé, un poisson nourrit deux fois mieux !"];
+  bulleMonde(g.x, g.y - 30, astuces[(S.gaston++) % astuces.length], 4);
+}
+function p96Repos(nom) { perso.pv = perso.pvMax; try { perso.ki = perso.kiMax; } catch (_) { } try { son.jouer("soin"); } catch (_) { } p96Msg(`💤 ${nom} : PV et KI au maximum !`); }
+function p96Action() {
+  if (!p96Ici() || !dansMonde() || AV.nav || P96.f) return null;
+  const G = P96.G, S = P96.s;
+  if (Math.hypot(perso.x - G.gaston.x, perso.y - G.gaston.y) < 34) return { txt: "🗣 Papi Gaston" + (!S.canne ? " !" : ""), f: p96Gaston };
+  if (S.canne && p96EauDevant()) return { txt: "🎣 Pêcher", f: p96Pecher };
+  const C = p96C(); if (Math.hypot(perso.x - C.x, perso.y - C.y) > 1100) return null;
+  const joue = p96Joue();
+  for (const r of p96Resid()) if (r.id !== joue && Math.hypot(perso.x - r.x, perso.y - r.y) < 30) {
+    const nom = (P96_HEROS.find(q => q.id === r.id) || p96Recrues().find(q => q.id === r.id) || { nom: r.id }).nom;
+    return { txt: "💬 " + nom, f: () => { const L = ["On s'entraîne demain matin sur la place ?", "Cette ville devient super !", "Si le Titan arrive, on sera prêts.", "J'ai pêché un truc énorme… il s'est échappé !", "Merci de m'avoir invité !"]; bulleMonde(r.x, r.y - 34, L[Math.floor(Math.random() * L.length)], 3.5); r.tx = r.x; r.ty = r.y; } };
+  }
+  if (p96Nb("place") && Math.hypot(perso.x - C.x, perso.y - (C.y + 6)) < 46) return { txt: "⛲ Boire", f: () => p96Repos("Fontaine") };
+  if (p96Nb("auberge")) { const p = p96Pos("auberge", 0); if (Math.hypot(perso.x - p.x, perso.y - p.y - 8) < 34) return { txt: "🍺 Se reposer", f: () => p96Repos("Auberge des Héros") }; }
+  if (p96VilleU(perso.x / 16, perso.y / 16) < 1.1) return { txt: "🏘 Ma Ville" + (p96BossDispo() && !S.boss ? " ⚔" : ""), f: () => p96Ouvrir() };
+  return null;
+}
+(() => {
+  const ad = actionDispo;
+  actionDispo = function () {
+    if (P96.f && p96Ici()) return null;
+    const a = ad.apply(this, arguments); if (a) return a;
+    if (!jeu || AV.cine || perso.ko || jeu.transition) return null;
+    try { return p96Action(); } catch (e) { p96Err("action", e); return null; }
+  };
+})();
+
+/* ---------------- 11) quête finale : Nox, Titan du Néant ---------------- */
+const P96_BOSS = [0, 1].map(f => objetSimple(64, 80, P => {
+  const K = "#0c0614", B1 = "#2a1440", B2 = "#46246a", B3 = "#6a3a9a", CY = f ? "#7af8ff" : "#40d8f0", RG = "#ff3048";
+  P.ell(32, 77, 24, 3, "rgba(0,0,0,.45)");
+  for (const [x, h] of [[6, 22], [12, 30], [52, 30], [58, 22], [18, 16], [46, 16]]) { P.r(x - 2, 36 - h + (f ? 1 : 0), 4, h, K); P.r(x - 1, 37 - h + (f ? 1 : 0), 2, h - 2, "#1e0e30"); }
+  P.r(17, 56, 12, 20, K); P.r(18, 57, 10, 18, B1); P.r(35, 56, 12, 20, K); P.r(36, 57, 10, 18, B1); P.r(15, 72, 15, 5, K); P.r(34, 72, 15, 5, K); P.r(19, 60, 3, 10, B2); P.r(37, 60, 3, 10, B2);
+  P.ell(32, 44, 22, 18, K); P.ell(32, 44, 21, 17, B1); P.ell(29, 40, 15, 11, B2); P.ell(26, 37, 7, 5, B3);
+  const crack = [[24, 36], [25, 38], [26, 40], [28, 41], [30, 42], [34, 42], [36, 41], [38, 43], [39, 46], [40, 49], [26, 44], [24, 47], [23, 50], [33, 46], [33, 49], [32, 52]];
+  for (const [x, y] of crack) P.p(x, y, CY);
+  P.ell(32, 43, 5, 5, f ? "#ff60f0" : "#c030d0"); P.ell(32, 43, 3, 3, f ? "#ffe0ff" : "#ff90f8"); P.p(31, 42, "#fff");
+  const bras = (sx, dir) => { P.r(sx - 5, 30, 10, 10, K); P.r(sx - 4, 31, 8, 8, B2); for (let i = 0; i < 18; i++) { const x = sx + dir * Math.round(i * 0.35), y = 38 + i; P.r(x - 4, y, 8, 1, i % 5 ? B1 : K); P.p(x + (dir > 0 ? -3 : 2), y, B2); }
+    const cx = sx + dir * 6, cy = 57 + (f ? 1 : 0); P.r(cx - 5, cy, 10, 5, K); for (const d of [-4, -1, 2]) { P.r(cx + d, cy + 5, 2, 4, "#d8d0e8"); P.p(cx + d, cy + 9, "#ffffff"); } };
+  bras(10, -1); bras(54, 1);
+  P.ell(32, 21, 12, 11, K); P.ell(32, 21, 11, 10, B1); P.ell(30, 18, 7, 5, B2);
+  for (const s of [-1, 1]) { for (let i = 0; i < 10; i++) P.r(32 + s * (8 + Math.round(i * 0.6)), 13 - i, 3, 2, i > 6 ? "#a090c0" : K); for (let i = 0; i < 7; i++) P.r(32 + s * (4 + Math.round(i * 0.2)) - 1, 10 - i, 2, 2, i > 4 ? "#a090c0" : K); }
+  P.r(24, 21, 6, 2, RG); P.r(34, 21, 6, 2, RG); P.p(25, 21, "#fff0a0"); P.p(38, 21, "#fff0a0"); P.r(27, 27, 10, 2, K); for (let x = 27; x < 37; x += 2) P.p(x, 27, "#d8d0e8");
+  for (const [x, y] of f ? [[3, 10], [60, 14], [8, 50], [58, 46], [30, 2]] : [[5, 14], [58, 9], [4, 46], [60, 52], [36, 3]]) { P.r(x, y, 3, 3, K); P.p(x + 1, y + 1, CY); }
+}));
+const P96_BOSS_PORT = objetSimple(32, 30, P => { P.r(0, 0, 32, 30, "#140a20"); P.ell(16, 18, 13, 13, "#2a1440"); P.ell(14, 15, 8, 6, "#46246a"); P.r(8, 16, 6, 2, "#ff3048"); P.r(18, 16, 6, 2, "#ff3048"); for (const s of [-1, 1]) for (let i = 0; i < 8; i++) P.r(16 + s * (8 + i * 0.6) - 1, 8 - i, 3, 2, "#0c0614"); P.r(11, 24, 10, 2, "#0c0614"); });
+function p96LancerFinale() {
+  if (!jeu || AV.cine) return;
+  try { touches.clear(); manette.relacher(); } catch (_) { }
+  const ids = p96Habitants().filter(id => id !== p96Joue()).slice(0, 6), imgs = {};
+  const etoiles = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random() * 0.6, p: Math.random() * 6 }));
+  AV.cine = { type: "p96arr", t: 0, plein: true, cacherHUD: true, cacherPerso: true, particules: false,
+    maj() { if (this.t > 7.2) finCine(); if (!this.b1 && this.t > 2.2) { this.b1 = 1; jeu.tremble = 0.6; try { son.jouer("boum"); } catch (_) { } vibrer([80, 40, 140]); } },
+    passer() { finCine(); },
+    fin() { boutonPasser(false); setTimeout(() => p96Combat(), 30); },
+    dessiner(W, H, dpr) {
+      const c = ctx, t = this.t; c.save(); c.imageSmoothingEnabled = false;
+      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#08020e"); g.addColorStop(0.6, "#2a0e3a"); g.addColorStop(1, "#4a1a4a"); c.fillStyle = g; c.fillRect(0, 0, W, H);
+      for (const s of etoiles) { c.fillStyle = `rgba(255,255,255,${0.4 + 0.4 * Math.sin(t * 3 + s.p)})`; c.fillRect(s.x * W, s.y * H, 2 * dpr, 2 * dpr); }
+      // faille
+      const fo = Math.min(1, t / 1.8), fx = W / 2, fy = H * 0.24;
+      c.fillStyle = `rgba(80,240,255,${0.25 * fo})`; c.beginPath(); c.ellipse(fx, fy, W * 0.36 * fo, H * 0.07 * fo + 2, 0, 0, 6.29); c.fill();
+      c.fillStyle = `rgba(20,0,30,${fo})`; c.beginPath(); c.ellipse(fx, fy, W * 0.3 * fo, H * 0.05 * fo + 1, 0, 0, 6.29); c.fill();
+      // ville au bas de l'écran
+      const yb = H * 0.86, u = Math.max(4, Math.round(W / 140));
+      c.fillStyle = "#1a2a4a"; c.fillRect(0, yb, W, H - yb);
+      c.fillStyle = "rgba(120,200,255,.25)"; c.fillRect(W * 0.62, yb + u * 2, W * 0.3, u * 3);
+      for (let i = 0; i < 9; i++) { const x = W * (0.04 + i * 0.11), h = u * (6 + (i * 7) % 5); c.fillStyle = "#120a1a"; c.fillRect(x, yb - h, u * 9, h); c.beginPath(); c.moveTo(x - u, yb - h); c.lineTo(x + u * 4.5, yb - h - u * 4); c.lineTo(x + u * 10, yb - h); c.fill(); c.fillStyle = Math.sin(t * 5 + i) > -0.3 ? "#ffd070" : "#6a4a20"; c.fillRect(x + u * 3, yb - h + u * 2, u * 2, u * 2); }
+      // le Titan descend de la faille
+      if (t > 0.9) { const k = Math.min(1, (t - 0.9) / 1.6), im = P96_BOSS[Math.floor(t * 4) & 1], sc = (H * 0.5 / im.height) * (0.35 + 0.65 * k), y = fy - im.height * sc * 0.25 + k * H * 0.16;
+        c.globalAlpha = Math.min(1, k * 1.5); c.drawImage(im, Math.round(fx - im.width * sc / 2), Math.round(y), Math.round(im.width * sc), Math.round(im.height * sc)); c.globalAlpha = 1;
+        if (t > 2.2 && t < 2.5) { c.fillStyle = "rgba(255,255,255,.6)"; c.fillRect(0, 0, W, H); } }
+      const p = Math.max(2, Math.round(3 * dpr * Math.min(1.4, W / (420 * dpr))));
+      if (t > 2.4) { c.globalAlpha = Math.min(1, (t - 2.4) * 2); c.fillStyle = "rgba(0,0,0,.55)"; c.fillRect(0, H * 0.04, W, p * 22); textePixel(c, "NOX, TITAN DU NÉANT", W / 2, H * 0.04 + p * 3, p, "#e0b0ff", "#140820", 0.5); textePixel(c, "ATTAQUE MA VILLE !", W / 2, H * 0.04 + p * 12, Math.max(2, p - 1), "#ff8090", "#140820", 0.5); c.globalAlpha = 1; }
+      // les héros accourent
+      if (t > 3.8) {
+        const L = [p96Joue(), ...ids], n = L.length, k = Math.min(1, (t - 3.8) / 1.2), sp = Math.min(W / (n + 1), 90 * dpr), hs = Math.min(5 * dpr, (H * 0.16) / 26);
+        L.forEach((id, i) => { const im = imgs[id] || (imgs[id] = p96ImgHeros(id, 1, 0, false, 0)); if (!im) return; const x = W / 2 + (i - (n - 1) / 2) * sp, y = yb + (H - yb) * 0.15 - (1 - k) * -H * 0.3 + Math.abs(Math.sin(t * 8 + i)) * (1 - k) * 10 * dpr;
+          c.drawImage(im, Math.round(x - im.width * hs / 2), Math.round(y - im.height * hs + H * 0.08), Math.round(im.width * hs), Math.round(im.height * hs)); });
+        if (t > 5) { c.globalAlpha = Math.min(1, (t - 5) * 2); textePixel(c, n > 1 ? "TOUS ENSEMBLE !" : "EN AVANT !", W / 2, H * 0.62, p, "#ffe070", "#1a1008", 0.5); c.globalAlpha = 1; }
+      }
+      c.restore();
+    } };
+  boutonPasser(true); try { son.jouer("echo"); } catch (_) { }
+}
+function p96Combat() {
+  const S = P96.s, n = prog.niveau || 1, def = p96Defense(), forge = p96Nb("forge") > 0;
+  const atk = Math.round((22 + n * 1.5) * (1 - def / 100)), pv = Math.round((900 + n * 25) * (forge ? 0.9 : 1));
+  const C0 = p96C();
+  P96.combat = true;
+  const ok = tbLancer({ nom: "Nox, Titan du Néant", pv, atk, xp: 3000 + n * 60, z: 1500, couleur: "#5a2a8a", grand: 1.4, niv: Math.max(30, n + 5), cle: "p96boss",
+    ligne: "Votre petite ville… disparaîtra dans le Néant !", ligne2: "Nox, Titan du Néant, s'abat sur Ma Ville !",
+    techs: [{ nom: "Griffe du Néant", mult: 1.8 }, { nom: "Pluie d'éclats", mult: 1.6 }, { nom: "Rayon abyssal", mult: 2.2 }],
+    sprite: f => P96_BOSS[f & 1], portrait: () => tbPortrait(P96_BOSS_PORT, "#3a1a5a", 0, 0, 32),
+    victoire: () => { P96.combat = false; S.boss++; try { gagnerZenis(1500, C0.x, C0.y - 40); } catch (_) { } S.titre = 1;
+      for (const r of p96Resid()) { r.tx = C0.x + (Math.random() - 0.5) * 120; r.ty = C0.y + 30 + Math.random() * 50; }
+      setTimeout(() => { p96Msg("🏆 Ma Ville est sauvée ! Titre : « Gardien de Ma Ville » · +1500 Z"); try { son.jouer("fanfare"); } catch (_) { } }, 700);
+      try { sauvegarder(false); } catch (_) { } },
+    defaite: () => { P96.combat = false; setTimeout(() => p96Msg("Le Titan s'est retiré dans la faille… Construis des défenses et reviens !"), 600); },
+    fuiteF: () => { P96.combat = false; } });
+  if (!ok) { P96.combat = false; return; }
+  const C = AV.cine; if (!C || C.type !== "tbcombat" || !C.eq) return;
+  P96.combat = true;
+  if (!C.act) { if (C.a) { C.a.pv = C.a.pvMax = Math.round(C.a.pvMax * 0.75); } p96Msg("Les héros de la ville t'encouragent : le Titan est affaibli !"); return; }
+  const joue = (C.eq[0] && C.eq[0].id) || p96Joue(), pm = Math.round(perso.pvMax * 0.9);
+  const ids = p96Habitants().filter(id => TB_HEROS[id] && id !== joue && !C.eq.some(F => F.id === id)).slice(0, 4);
+  for (const id of ids) { const H = TB_HEROS[id]; C.eq.push({ j: 1, H, id, nom: H.nom, pv: pm, pvMax: pm, ki: Math.round(perso.kiMax * 0.4), kiMax: perso.kiMax, ult: 0, garde: false, esq: false, buff: forge ? 1 : 0, niveau: () => prog.niveau, ia: true, p96: 1 }); }
+}
+(() => {
+  const ci = coopIA;
+  coopIA = function () { if (P96.combat && !coopOn()) return true; return ci.apply(this, arguments); };
+  const ad = actDemarrer;
+  actDemarrer = function (C) {
+    const r = ad.apply(this, arguments);
+    try { if (P96.combat && C && C.act) { const Y = [24, 8, 32, 14, 28, 4]; let k = 0; for (const e of C.act.ents) { if (!e.i) continue; e.y = Y[k % Y.length]; e.x = 34 - (k & 1) * 12; k++; }
+      actBandeau(C, `${C.act.ents.length > 1 ? C.act.ents.length + " héros" : "Seul"} contre le Titan ! Défendez Ma Ville !`, 3, "#e0b0ff", 1.2); } } catch (e) { p96Err("act", e); }
+    return r;
+  };
+})();
+
+/* ---------------- 12) sauvegarde ---------------- */
+(() => {
+  const es = etatSauvegarde;
+  etatSauvegarde = function () {
+    const d = es.apply(this, arguments);
+    try { if (d) d.p96 = JSON.parse(JSON.stringify(P96.s)); } catch (e) { p96Err("save", e); }
+    return d;
+  };
+  const re = restaurer;
+  restaurer = function (d) {
+    const D = p96Defaut(), x = d && d.p96;
+    try {
+      if (x && typeof x === "object") {
+        D.canne = Math.max(0, Math.min(2, x.canne | 0)); D.appat = Math.max(0, Math.min(9, x.appat | 0)); D.boss = Math.max(0, x.boss | 0); D.peches = Math.max(0, x.peches | 0); D.vendus = Math.max(0, x.vendus | 0);
+        D.vu = !!x.vu; D.gaston = x.gaston | 0; D.titre = x.titre | 0; D.bossAnnonce = x.bossAnnonce | 0;
+        for (const F of P96_POISSONS) { const a = x.poissons && x.poissons[F.id], b = x.cuits && x.cuits[F.id], r = x.rec && x.rec[F.id]; if (a) D.poissons[F.id] = Math.max(0, Math.min(999, a | 0)); if (b) D.cuits[F.id] = Math.max(0, Math.min(999, b | 0)); if (r) D.rec[F.id] = r | 0; }
+        for (const t in P96_BAT) if (x.bat && x.bat[t]) D.bat[t] = Math.max(0, Math.min(P96_BAT[t].max, x.bat[t] | 0));
+        if (x.heros && typeof x.heros === "object") for (const k in x.heros) if (x.heros[k] && /^[a-z0-9_]{2,20}$/.test(k)) D.heros[k] = 1;
+      }
+    } catch (e) { p96Err("rest", e); }
+    P96.s = D; P96.rl = null; P96.rc = null; P96.rr = null; P96.murs = null; P96.f = null; P96.combat = false;
+    try { p96UIPeche(); p96Fermer(); } catch (_) { }
+    return re.apply(this, arguments);
+  };
+})();
+/* ---------------- 13) cartes : « MA VILLE », lacs ---------------- */
+(() => {
+  const icones = miniCarte.icones;
+  miniCarte.icones = function (c, pT) {
+    icones.call(this, c, pT);
+    try { if (!p96Ici()) return; const B = this.B, k = this.taille / MPX(), C = p96C(), ix = Math.round(B + C.x * k), iy = Math.round(B + C.y * k);
+      c.fillStyle = "#1a1008"; c.fillRect(ix - 4, iy - 4, 9, 8); c.fillStyle = "#ffd040"; c.fillRect(ix - 3, iy - 1, 7, 4); c.fillStyle = "#c83a2a"; c.fillRect(ix - 3, iy - 3, 7, 2); c.fillRect(ix - 1, iy - 4, 3, 1);
+      textePixel(c, "MA VILLE", ix, iy + 5, pT, "#ffe070", "#1a1008", 0.5); } catch (e) { p96Err("mini", e); }
+  };
+  const gd = grandeCarte.dessiner;
+  grandeCarte.dessiner = function () {
+    gd.apply(this, arguments);
+    try { if (!p96Ici() || !this.ctx) return;
+      const c = this.ctx, dpr = DPR(), W = this.el.width, H = this.el.height, kk = this.echelle() * dpr;
+      const X = mx => Math.round(W / 2 + (mx - this.cx) * kk), Y = my => Math.round(H / 2 + (my - this.cy) * kk), p = Math.max(2, Math.round(1.5 * dpr));
+      const C = p96C(), x = X(C.x), y = Y(C.y), s = Math.max(3 * p, Math.round(10 * kk * 16));
+      c.fillStyle = "#1a1008"; c.fillRect(x - 5 * p, y - 5 * p, 10 * p, 9 * p); c.fillStyle = "#ffd040"; c.fillRect(x - 4 * p, y - p, 8 * p, 4 * p); c.fillStyle = "#c83a2a"; c.fillRect(x - 4 * p, y - 4 * p, 8 * p, 3 * p);
+      const txt = "MA VILLE", tw = imageTexte(txt).width * p; c.fillStyle = "rgba(20,12,8,0.75)"; c.fillRect(Math.round(x - tw / 2 - 3 * p), y - 18 * p, Math.round(tw + 6 * p), 11 * p); textePixel(c, txt, x, y - 17 * p, p, "#ffe070", "#140a0c", 0.5);
+      if (this.zoom >= 1.4) for (const l of P96.G.lacs) { const lx = X(l.x * 16), ly = Y(l.y * 16); if (lx < 0 || ly < 0 || lx > W || ly > H) continue; textePixel(c, l.nom.toUpperCase(), lx, ly - 3 * p, Math.max(1, p - 1), "#d0f0ff", "#0a1a2a", 0.5); }
+      void s;
+    } catch (e) { p96Err("gc", e); }
+  };
+})();
+// sécurité : drapeau de combat final remis à zéro hors combat
+(() => {
+  const ma = majAventure;
+  majAventure = function () { if (P96.combat && !(AV.cine && AV.cine.type === "tbcombat")) P96.combat = false; return ma.apply(this, arguments); };
+})();
+
+/* ---------------- 14) 3D : dalles de la place et planches des pontons ---------------- */
+(() => {
+  if (typeof e3CoulSol !== "function") return;
+  const cs = e3CoulSol;
+  e3CoulSol = function (m, tx, ty, l, T) {
+    const v = cs.apply(this, arguments);
+    try { const dz = m.DES ? m.DES[ty * T + tx] : 0;
+      if ((dz === 3 || dz === 4) && l > NIV.EAU && l < NIV.ROCHE) { const h = hash(tx, ty, 77);
+        if (dz === 4) { const k = (0.86 + h * 0.22) * ((dz === 4 && ((tx + ty) & 1)) ? 0.92 : 1); return [0.62 * k, 0.42 * k, 0.24 * k]; }
+        const k = (0.84 + h * 0.18) * (((tx ^ ty) & 1) ? 0.94 : 1); return [0.6 * k, 0.6 * k, 0.65 * k]; } } catch (_) { }
+    return v;
+  };
+})();
+P93_TYPES[96] = [["Ombre du Néant", { s: "#6a4a8a", h: "#1a0a2a", c: "#2a1440", p: "#140a20", xCol: "#c060ff" }], ["Spectre d'éclats", { s: "#8ab0d0", h: "#3a2a5a", c: "#4a2a6a", p: "#2a1a3a", xCol: "#60e0ff" }], ["Golem du Néant", { s: "#4a3a5a", h: "#2a1a3a", c: "#3a2a4a", p: "#1a1028", chapeau: "#7a3aaa" }]];
 
 
 /* ===== fin du module aventure ===== */
