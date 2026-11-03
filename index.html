@@ -34313,7 +34313,7 @@ e3Figure = function (P, spiky, body, o) {
   const id = V41.curId && V41.curId !== "pnj" ? V41.curId : "pnj", kk = "__s41" + id + (spiky ? 1 : 0);
   let S = P[kk]; if (!S) { S = P[kk] = v41Style(id, P); S.spiky = !!spiky; if (id === "pnj") S.hs = 1; }
   let M; try { M = v41Modele(S, P, id === "pnj"); } catch (e) { console.warn(e); V41.off = true; return v41FigBase.apply(this, arguments); }
-  const J = v41Pose0(), sw = o.sw || 0, mvk = Math.min(1, Math.abs(sw) * 1.4), t = performance.now() / 1000;
+  let J = v41Pose0(); const sw = o.sw || 0, mvk = Math.min(1, Math.abs(sw) * 1.4), t = performance.now() / 1000;
   J.lR = [sw * 0.75, 0.04, 0.1 + Math.max(0, -sw) * 0.7]; J.lL = [-sw * 0.75, 0.04, 0.1 + Math.max(0, sw) * 0.7];
   J.aR = [-sw * 0.7 - 0.15, 0.18, 0.05, -0.7 - mvk * 0.3]; J.aL = [sw * 0.7 - 0.15, 0.18, 0.05, -0.7 - mvk * 0.3]; J.tp = 0.08 + Math.sin(t * 3) * 0.02; J.by = -0.4 + Math.sin(t * 3) * 0.25;   // garde de combat, respiration
   if (o.jump) { J.lR = [-1.0, 0.1, 1.5]; J.lL = [-0.3, 0.1, 0.9]; J.aR = [-2.3, 0.35, 0, -0.5]; J.aL = [-2.0, 0.35, 0, -0.6]; }
@@ -34321,6 +34321,7 @@ e3Figure = function (P, spiky, body, o) {
   if (o.K) { J.aR = [-1.5, -0.05, 0.28, -0.05]; J.aL = [-1.5, -0.05, 0.28, -0.05]; J.by = -1.2; J.lR = [-0.35, 0.1, 0.4]; J.lL = [0.3, 0.1, 0.25]; }
   if (o.garde) { J.aR = [-1.45, -0.25, 0.55, -2.2]; J.aL = [-1.3, -0.25, 0.55, -2.2]; J.tp = 0.22; J.by = -1.4; J.lR = [-0.4, 0.1, 0.55]; J.lL = [0.35, 0.1, 0.4]; }
   if (o.esq) { J.tp = 0.45; J.by = -2.6; J.lR = [-1.0, 0.1, 1.3]; J.lL = [0.5, 0.1, 0.7]; J.aR = [0.6, 0.4, 0, -0.4]; J.aL = [0.5, 0.4, 0, -0.4]; }
+  if (o.pose) { try { const Jp = o.pose(J); if (Jp) J = Jp; } catch (e) { } }
   let B = body;
   if (o.hurt && !o.ko) { const k = o.hurt; B = M4.mul(body, M4.trs(0, 0, -1.2 * k, 0, -0.38 * k)); J.tp = -0.3 * k; J.aR = [0.7 * k - 0.3, 0.6, 0, -0.5]; J.aL = [0.6 * k - 0.3, 0.6, 0, -0.5]; J.lR = [0.3 * k, 0.05, 0.2]; }
   if (o.ko) { B = M4.mul(body, M4.trs(0, 2.2, -8, 0, -1.45)); J.aR = [-0.3, 1.1, 0, -0.4]; J.aL = [-0.4, 1.0, 0, -0.3]; J.by = -10.3; }
@@ -38230,8 +38231,11 @@ function p99Action(F, a) {
     if (F.y > 5 && F.st === "idle" && !F.air && F.stun <= 0) { F.air = 1; F.st = "dive"; F.t = 0; F.hit = 0; F.vy = -330; const dx = O.x - F.x, dz = O.z - F.z, d = Math.hypot(dx, dz) || 1, v = Math.min(200, d * 3.2); F.vx = dx / d * v; F.vz = dz / d * v; F.yaw = Math.atan2(dx, dz); p99Son("bond"); return; }
     if (F.st === "att" && F.t > 0.1) { F.buf = 1; return; }
     if (!p99Libre(F) || F.y > 1) return;
-    F.garde = false; F.combo = F.comboT > 0 ? F.combo % 3 + 1 : 1; F.comboT = 0.6; F.st = "att"; F.t = 0; F.hit = 0; F.dur = F.combo === 3 ? 0.34 : 0.24;
+    F.garde = false; F.combo = F.comboT > 0 ? F.combo % 3 + 1 : 1; F.comboT = 0.6; F.st = "att"; F.t = 0; F.hit = 0;
     p99Face(F, O); const d = Math.hypot(O.x - F.x, O.z - F.z);
+    if (F.combo === 1) F.coup = "jab"; else if (F.combo === 2) F.coup = "direct";
+    else { F.k3 = (F.k3 || 0) + 1; F.coup = d < 30 && (O.st === "hurt" || O.stun > 0) && !O.vol && O.y < 2 && Math.random() < 0.45 ? "proj" : (F.k3 & 1) ? "pied" : "upper"; }
+    F.dur = P99_COUPS[F.coup].dur; if (F.coup === "pied" && F.y < 1) F.vy = 55;
     if (d > 22 && d < 80) { const T = 0.1, s = (d - 17) / T; F.vx = Math.sin(F.yaw) * s; F.vz = Math.cos(F.yaw) * s; F.lunge = T; p99Fx("trait", { x: F.x, z: F.z, x1: F.x + Math.sin(F.yaw) * (d - 17), z1: F.z + Math.cos(F.yaw) * (d - 17), vie: 0.25, col: g3Col(F.col) }); }
     p99Son("baton"); return;
   }
@@ -38249,6 +38253,15 @@ function p99Action(F, a) {
     const T = F.techs && F.techs.length ? F.techs[sup ? F.techs.length - 1 : 0] : null; F.txt = { s: (T && T.nom) || (sup ? "Kaméhaméha" : "Boule de ki"), t: 0 }; p99Son(sup ? "kame" : "orbe");
   }
 }
+/* v51 : vrais coups (jab, direct, pied, uppercut, projection) en images clés */
+const P99_COUPS = {
+  jab: { dur: 0.2, hit: 0.35, m: 0.85, kb: 55, pop: 0, K: [[0, { aL: [-0.9, 0.2, 0.5, -1.9], ty: -0.15 }], [0.35, { aL: [-1.56, 0.05, 0.12, -0.02], ty: 0.42, tp: 0.12, bz: 1.3, lL: [-0.35, 0.1, 0.4], lR: [0.3, 0.1, 0.3] }], [1, {}]] },
+  direct: { dur: 0.24, hit: 0.36, m: 1, kb: 85, pop: 0, K: [[0, { aR: [-0.9, 0.2, 0.5, -1.9], ty: 0.2 }], [0.36, { aR: [-1.56, 0.05, 0.12, -0.02], ty: -0.55, tp: 0.16, bz: 1.8, lR: [-0.45, 0.1, 0.5], lL: [0.35, 0.1, 0.3] }], [1, {}]] },
+  pied: { dur: 0.36, hit: 0.34, m: 1.7, kb: 240, pop: 70, K: [[0, { lR: [-0.4, 0.1, 1.3], ty: 0.35, tp: -0.05 }], [0.32, { lR: [-1.62, 0.28, 0.12], lL: [0.15, 0.1, 0.25], ty: -0.65, tp: -0.32, by: 0.4, aR: [0.35, 0.6, 0, -0.6], aL: [-0.9, 0.4, 0.4, -1.5] }], [0.66, { lR: [-1.55, 0.28, 0.1], ty: -0.6, tp: -0.3 }], [1, {}]] },
+  upper: { dur: 0.34, hit: 0.36, m: 1.6, kb: 110, pop: 235, K: [[0, { aR: [0.2, 0.2, 0.2, -1.8], by: -1.6, tp: 0.3, lR: [-0.6, 0.1, 1.0], lL: [0.4, 0.1, 0.8] }], [0.36, { aR: [-2.75, 0.05, 0.1, -0.45], by: 0.6, tp: -0.22, ty: -0.3, lift: 1.5 }], [0.7, { aR: [-2.8, 0.05, 0.1, -0.4], lift: 1 }], [1, {}]] },
+  proj: { dur: 0.56, hit: 0.28, m: 0, kb: 0, pop: 0, K: [[0, { aR: [-1.4, 0.1, 0.2, -0.5], aL: [-1.4, 0.1, 0.2, -0.5], tp: 0.3, by: -0.8, bz: 1.5 }], [0.3, { aR: [-1.5, 0, 0, -0.6], aL: [-1.5, 0, 0, -0.6], tp: 0.2, by: -1.2 }], [0.6, { aR: [-3.0, 0.1, 0, -0.6], aL: [-3.0, 0.1, 0, -0.6], tp: -0.38, by: -0.4, lR: [-0.4, 0.1, 0.6], lL: [0.4, 0.1, 0.4] }], [0.85, { aR: [-0.8, 0.2, 0, -0.8], aL: [-0.8, 0.2, 0, -0.8], tp: 0.45, by: -1.4 }], [1, {}]] }
+};
+function p99Pose(F) { const c = F.st === "att" && P99_COUPS[F.coup]; if (!c || typeof v41Cles !== "function") return null; const u = Math.min(1, F.t / F.dur); return J => v41Cles(J, c.K, u); }
 function p99Coup(F, O, mult, kb, pop, x, z) {
   if (O.ko) return false;
   if (O.inv > 0) { p99Fx("txt", { x: O.x, z: O.z, y: O.y + 34, s: "ESQUIVE !", col: "#bfe8ff", vie: 0.7 }); return false; }
@@ -38260,7 +38273,7 @@ function p99Coup(F, O, mult, kb, pop, x, z) {
   F.ki = Math.min(100, F.ki + 7); O.ki = Math.min(100, O.ki + 4);
   const mx = (O.x + F.x) / 2, mz = (O.z + F.z) / 2, my = Math.max(O.y, F.y) + 14;
   P99.hs = Math.max(P99.hs, gard ? 0.03 : kb > 150 ? 0.11 : 0.06); P99.shake = Math.max(P99.shake, gard ? 0.15 : kb > 150 ? 0.7 : 0.32);
-  p99Fx("flash", { x: O.x - dx / l * 5, z: O.z - dz / l * 5, y: my, vie: kb > 150 ? 0.26 : 0.17, r: kb > 150 ? 15 : 9, col: gard ? [0.5, 0.8, 1] : [1, 0.92, 0.6] });
+  p99Fx("flash", { x: O.x - dx / l * 5, z: O.z - dz / l * 5, y: my, vie: kb > 150 ? 0.22 : 0.14, r: kb > 150 ? 10 : 5.5, col: gard ? [0.5, 0.8, 1] : [1, 0.92, 0.6] });
   if (kb > 150) { p99Fx("onde", { x: O.x, z: O.z, vie: 0.5, r: 40, col: [1, 1, 1] }); p99Fx("onde", { x: O.x, z: O.z, vie: 0.6, r: 26, col: g3Col(F.col) }); }
   p99Fx("txt", { x: O.x, z: O.z, y: O.y + 30, s: gard ? "GARDE" : String(Math.round(dmg)), col: gard ? "#9fd8ff" : kb > 150 ? "#ffcf40" : "#ffffff", vie: 0.7 });
   F.cc = F.ccT > 0 ? F.cc + 1 : 1; F.ccT = 1.1; C.tEch = Math.max(C.tEch || 0, 1.3); P99.hype = Math.min(1.5, P99.hype + (kb > 150 ? 0.6 : 0.25));
@@ -38475,14 +38488,20 @@ function p99Maj(C, dt) {
     const O = F === A ? B : A;
     for (const k in F.cd) F.cd[k] = Math.max(0, F.cd[k] - dt);
     F.inv = Math.max(0, F.inv - dt); F.hurt = Math.max(0, F.hurt - dt); F.comboT = Math.max(0, F.comboT - dt); F.ccT = Math.max(0, F.ccT - dt); if (F.txt) { F.txt.t += dt; if (F.txt.t > 1.1) F.txt = null; }
+    if (F.vol) { const V = F.vol; V.t += dt; const u = Math.min(1, V.t / V.dur); F.x = V.x0 + (V.x1 - V.x0) * u; F.z = V.z0 + (V.z1 - V.z0) * u; F.y = Math.sin(Math.PI * u) * 34; F.mx = F.mz = 0;
+      if (u >= 1) { F.vol = null; F.y = 0; F.vy = 0; F.inv = 0; const G = V.by; p99Coup(G, F, 1.9, 190, 80, G.x, G.z); P99.shake = Math.max(P99.shake, 0.8); p99Fx("onde", { x: F.x, z: F.z, vie: 0.5, r: 34, col: [1, 0.95, 0.85] }); for (let i = 0; i < 7; i++) p99Fx("poussiere", { x: F.x + (Math.random() - 0.5) * 22, z: F.z + (Math.random() - 0.5) * 22, vie: 0.6, r: 4 + Math.random() * 4 }); p99Son("boum"); }
+      continue; }
     if (go && !F.ko) { F.ki = Math.min(100, F.ki + dt * 3.2); if (F.hum) p99EntreeJ(F, C); else { p99IA(F, dt); F.mx = F.ia.mx; F.mz = F.ia.mz; const l = Math.hypot(F.mx, F.mz); if (l > 1) { F.mx /= l; F.mz /= l; } F.mx *= 0.86; F.mz *= 0.86; } }
     else { F.mx = F.mz = 0; if (!F.ko) F.garde = false; }
     if (F.stun > 0) { F.stun -= dt; if (F.stun <= 0 && F.st === "hurt") F.st = "idle"; }
     // états
     if (F.st === "att") {
       F.t += dt; if (F.lunge > 0) { F.lunge -= dt; if (F.lunge <= 0) { F.vx *= 0.15; F.vz *= 0.15; } }
-      if (!F.hit && F.t >= (F.combo === 3 ? 0.12 : 0.08)) { F.hit = 1; const d = Math.hypot(O.x - F.x, O.z - F.z); if (d < 27 && Math.abs(O.y - F.y) < 18) { p99Face(F, O); const c3 = F.combo === 3;
-          if (!C.clash && (C.clashCd || 0) <= 0 && !O.ko && O.y < 2 && F.y < 2 && !F.out && !O.out && (O.st === "att" || (c3 && Math.random() < 0.55))) { p99ClashDebut(C, F, O); continue; } p99Coup(F, O, c3 ? 1.7 : 1, c3 ? 240 : 70, c3 ? 110 : 0); F.vx *= 0.2; F.vz *= 0.2; } }
+      const CP = P99_COUPS[F.coup] || P99_COUPS.direct;
+      if (!F.hit && F.t >= F.dur * CP.hit) { F.hit = 1; const d = Math.hypot(O.x - F.x, O.z - F.z); if (d < (F.coup === "pied" ? 31 : 27) && Math.abs(O.y - F.y) < 18) { p99Face(F, O); const c3 = F.combo === 3;
+          if (F.coup !== "proj" && !C.clash && (C.clashCd || 0) <= 0 && !O.ko && O.y < 2 && F.y < 2 && !F.out && !O.out && (O.st === "att" || (c3 && Math.random() < 0.3))) { p99ClashDebut(C, F, O); continue; }
+          if (F.coup === "proj" && !O.ko && O.inv <= 0) { const ux = (O.x - F.x) / (d || 1), uz = (O.z - F.z) / (d || 1); O.vol = { t: 0, dur: 0.42, x0: O.x, z0: O.z, x1: F.x - ux * 30, z1: F.z - uz * 30, by: F }; O.st = "hurt"; O.stun = 1; O.vx = O.vz = O.vy = 0; O.combo = 0; O.buf = 0; P99.hs = Math.max(P99.hs, 0.05); p99Son("bond"); F.txt = { s: "PROJECTION !", t: 0 }; }
+          else if (F.coup !== "proj") p99Coup(F, O, CP.m, CP.kb, CP.pop); F.vx *= 0.2; F.vz *= 0.2; } }
       if (F.t >= F.dur) { F.st = "idle"; if (F.buf) { F.buf = 0; p99Action(F, "frap"); } }
     } else if (F.st === "dash") { F.t += dt; if (F.t >= F.dur) { F.st = "idle"; F.vx *= 0.25; F.vz *= 0.25; } }
     else if (F.st === "cast") {
@@ -38533,7 +38552,7 @@ function p99Cam(C, asp) {
   const fv = port ? 0.68 : 0.55, tn = Math.tan(fv / 2), dzs = Math.abs(A.z - B.z), dxs = Math.abs(A.x - B.x);
   const ech = (C.res && !C.res.ring) || C.dec <= 0 && !C.res && (C.clash || C.tEch > 0 || (sep < 60 && !A.out && !B.out)) ? 1 : 0;
   C.zk = C.zk == null ? 0 : C.zk + (ech - C.zk) * Math.min(1, (C.dtc || 0.016) * (ech ? 9 : 2.2));
-  const dFit = Math.max((dxs / 2 + 30) / (tn * asp), (dzs / 2 + 34) / tn * 0.8), dZ = Math.max(port ? 340 : 280, dFit), dO = Math.max(port ? 900 : 640, dFit);
+  const dFit = Math.max((dxs / 2 + 30) / (tn * asp), (dzs / 2 + 34) / tn * 0.8), dZ = Math.max(port ? 390 : 310, dFit), dO = Math.max(port ? 900 : 640, dFit);
   let dist = dO + (dZ - dO) * C.zk;
   if (!ech) { tx += (0 - tx) * (1 - C.zk) * 0.6; tz += (0 - tz) * (1 - C.zk) * 0.6; }
   if (C.dec > 0) dist *= 1 + Math.max(0, C.dec - 1) * 0.08;
@@ -38541,7 +38560,7 @@ function p99Cam(C, asp) {
   if (C.res && C.res.t < 1.5 && !C.res.ring) dist *= 1 - Math.min(0.28, C.res.t * 0.25);
   const K = C.cam || (C.cam = { x: tx, z: tz, d: dist }), k = Math.min(1, (C.dtc || 0.016) * (ech ? 8 : 3.5)); K.x += (tx - K.x) * k; K.z += (tz - K.z) * k; K.d += (dist - K.d) * k;
   if (C.res && C.res.t < 1.5) { const G = C.res.P; K.x += (G.x - K.x) * k; K.z += (G.z - K.z) * k; }
-  const pit = port ? 1.0 : 0.95, sh = P99.shake * 3;
+  const pit = port ? 1.2 : 1.14, sh = P99.shake * 3;
   const eye = [K.x + (Math.random() - 0.5) * sh, Math.sin(pit) * K.d + (Math.random() - 0.5) * sh, K.z + Math.cos(pit) * K.d + 20], tgt = [K.x, 0, K.z + (asp < 1 ? 34 : 12)];
   return { eye, tgt, fov: port ? 0.68 : 0.55 };
 }
@@ -38589,10 +38608,11 @@ function p99D3(C, W, H, dpr, now, dtc) {
     if (!Q) { g3Mesh(U.sph, M4.trs(F.x, FY + 12 + hgt, F.z, 0, 0, 0, 7, 12, 7), { tint: [...g3Col(F.col), 1] }); continue; }
     const sc = 1.12 * (RW > RH ? 1.36 : 1.26); // v50 : tous les combattants ont la même taille
     const at = F.st === "att" ? Math.sin(Math.min(1, F.t / F.dur) * Math.PI) : F.st === "dive" ? 1 : F.st === "clash" ? Math.abs(Math.sin(F.t * 31)) : 0, hk = F.hurt > 0 ? Math.min(1, F.hurt / 0.18) : 0;
-    const lean = F.st === "dive" ? 0.5 : F.st === "dash" ? 0.35 : hk ? -0.35 : 0;
-    const body = M4.trs(F.x, FY + hgt + 0.55 * sc * Math.abs(Math.sin(F.ph)) * F.mv, F.z, F.yaw, lean, 0, sc, sc, sc);
+    const lean = F.st === "dive" ? 0.5 : F.st === "dash" ? 0.35 : hk ? -0.05 * hk : 0;
+    let body = M4.trs(F.x, FY + hgt + 0.55 * sc * Math.abs(Math.sin(F.ph)) * F.mv, F.z, F.yaw, lean, 0, sc, sc, sc);
+    if (F.vol) { const u = Math.min(1, F.vol.t / F.vol.dur); body = M4.mul(body, M4.trs(0, 12, 0, 0, -u * Math.PI * 1.15, 0)); body = M4.mul(body, M4.trs(0, -12, 0)); }
     const tt = hk > 0 ? [1, 0.42, 0.3, 0.4 * hk] : F.inv > 0 && F.y > 0 ? [0.6, 0.85, 1, 0.25] : null;
-    try { if (typeof V41 === "object") { V41.curId = F.id; V41.curD = 0; } e3Figure(Q, !Q.hat, body, { p92: 1, sw: Math.sin(F.ph) * 0.95 * F.mv, att: at, K: F.st === "cast", jump: F.y > 3 ? 1 : 0, tint: tt, ko: !!F.ko && F.y < 1, hero: false, hurt: hk, garde: F.garde, esq: F.st === "dash", ph: 0 }); }
+    try { if (typeof V41 === "object") { V41.curId = F.id; V41.curD = 0; } const pz = p99Pose(F); e3Figure(Q, !Q.hat, body, { p92: 1, pose: pz, sw: Math.sin(F.ph) * 0.95 * F.mv, att: pz ? 0 : at, K: F.st === "cast", jump: F.y > 3 ? 1 : 0, tint: tt, ko: !!F.ko && F.y < 1, hero: false, hurt: hk * 0.5, garde: F.garde, esq: F.st === "dash", ph: 0 }); }
     finally { try { if (typeof V41 === "object") V41.curId = null; } catch (_) { } }
     if (F.boss && G.couronne && !(F.ko && F.y < 1)) g3Mesh(G.couronne, M4.trs(F.x, FY + hgt + 25.4 * sc + 0.55 * sc * Math.abs(Math.sin(F.ph)) * F.mv, F.z, F.yaw, lean, 0, sc * 0.9, sc * 0.9, sc * 0.9));
   }
@@ -38947,7 +38967,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "51.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "51.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
