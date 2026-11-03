@@ -29745,7 +29745,8 @@ function e3Morceau(cx, cy, lod) {
     }
     if (EST_ARBRE(dec)) {
       const v0 = g.v.length;
-      const pal = dec === DECOR.SAPIN ? PAL_PIN : dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE, kv = 0.86 + r * 0.28, cm = e3Sombre(n3U32(pal.m), kv), cl = e3Sombre(n3U32(pal.l), kv), cd = e3Sombre(n3U32(pal.d), kv);
+      const pal = dec === DECOR.SAPIN ? PAL_PIN : dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE, kv = 0.86 + r * 0.28; let cm = e3Sombre(n3U32(pal.m), kv), cl = e3Sombre(n3U32(pal.l), kv), cd = e3Sombre(n3U32(pal.d), kv);
+      if (dec !== DECOR.SAPIN && (AV.monde || 1) !== 4) { const hv2 = p40H(tx * 13 + 7, ty * 17 + 3); const TT = hv2 < 0.07 ? [[0.95, 0.62, 0.72], [1, 0.78, 0.85], [0.8, 0.45, 0.58]] : hv2 < 0.15 ? [[0.86, 0.5, 0.18], [0.95, 0.68, 0.26], [0.7, 0.36, 0.14]] : hv2 < 0.28 ? [[0.5, 0.7, 0.24], [0.66, 0.82, 0.32], [0.36, 0.55, 0.18]] : null; if (TT) { cm = e3Sombre(TT[0], kv); cl = e3Sombre(TT[1], kv); cd = e3Sombre(TT[2], kv); } } /* v51.5 : arbres variés */
       if (lod) { g.cyl(cxm, h, czm, 9, 0, dec === DECOR.SAPIN ? 30 : 24, 4, cm, cl); continue; }
       if (TR.ombre && !E3.shReal) { const ox = cxm + 4, oz = czm + 3, sc = e3Sombre(base, 0.62); for (let q = 0; q < 6; q++) { const a0 = q / 6 * 6.2832, a1 = (q + 1) / 6 * 6.2832; e3T(g, [ox, h + 0.3, oz], [ox + Math.cos(a0) * 11, h + 0.3, oz + Math.sin(a0) * 8], [ox + Math.cos(a1) * 11, h + 0.3, oz + Math.sin(a1) * 8], sc); } }
       const dense = EST_ARBRE(m.decor(tx - 1, ty)) && EST_ARBRE(m.decor(tx + 1, ty)) && EST_ARBRE(m.decor(tx, ty - 1)) && EST_ARBRE(m.decor(tx, ty + 1));
@@ -38990,7 +38991,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "51.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "51.5", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40827,6 +40828,55 @@ function p108Taverne(sc) {
       try { const F = this.feu; if (F && typeof g3Part === "function" && typeof E3 !== "undefined" && E3.sc && Math.random() < 0.3) g3Part(F.x + (Math.random() - 0.5) * 10, 8, F.y, 1.5 + Math.random() * 1.5, 12, 0, 1.4, 6, Math.random() < 0.5 ? "#ffb040" : "#ff7020", { add: true, g: -3, fr: 0.4 }); } catch (_) { }
     };
   } catch (e) { P108.err.push("cls:" + e.message); }
+})();
+
+/* ===== v51.5 — villages plus habillés (Paozu / villages de type SceneVille) + arbres variés dans le monde ===== */
+const P109 = { err: [], n: 0 };
+function p109Habiller(sc) {
+  const W = sc.largeur, H = sc.hauteur, rnd = mulberry32(hacherGraine("p109:" + (sc.lieu && sc.lieu.id || "v")));
+  const M = (w, h, f) => { const c = nouveauCanvas(w, h), g = c.getContext("2d"); f(pinceau(g), g); return knOutline(c); };
+  const IM = {
+    cerisier: M(30, 36, P => { P.r(13, 22, 4, 14, "#6a4428"); P.r(12, 33, 6, 3, "#5a3418"); P.ell(15, 14, 13, 11, "#e88aa8"); P.ell(10, 10, 7, 6, "#f4a8c0"); P.ell(21, 12, 6, 6, "#f8bcd0"); P.ell(15, 7, 6, 4, "#ffd0e0"); P.ell(18, 19, 7, 4, "#d07090"); }),
+    sapin: M(24, 40, P => { P.r(10, 32, 4, 8, "#5a3418"); P.ell(12, 30, 11, 5, "#1e5a2e"); P.ell(12, 22, 9, 5, "#2a6e38"); P.ell(12, 14, 7, 5, "#348044"); P.ell(12, 7, 4, 4, "#40924e"); P.r(11, 1, 2, 3, "#40924e"); }),
+    automne: M(30, 34, P => { P.r(13, 20, 4, 14, "#6a4428"); P.ell(15, 13, 13, 10, "#d8782a"); P.ell(10, 9, 7, 6, "#f0a040"); P.ell(21, 11, 6, 6, "#e8902e"); P.ell(16, 18, 8, 4, "#b85a20"); }),
+    lanterne: M(10, 26, P => { P.r(4, 8, 2, 18, "#4a3a30"); P.r(2, 24, 6, 2, "#3a2a20"); P.r(1, 2, 8, 7, "#e8402a"); P.r(2, 3, 6, 5, "#ffb050"); P.r(1, 1, 8, 1, "#2a1a10"); P.r(1, 9, 8, 1, "#2a1a10"); }),
+    bac: M(22, 12, P => { P.r(0, 5, 22, 7, "#8a5a2a"); P.r(0, 5, 22, 1, "#b07a40"); for (let x = 2; x < 21; x += 4) { P.ell(x + 1, 4, 2, 2, "#3a8a3a"); P.r(x, 1 + (x % 3), 2, 2, ["#ff6080", "#ffd040", "#ffffff", "#c070ff"][(x / 4 | 0) % 4]); } }),
+    banc: M(26, 12, P => { P.r(0, 2, 26, 3, "#a8703a"); P.r(0, 2, 26, 1, "#d8a060"); P.r(0, 6, 26, 2, "#8a5a2a"); P.r(2, 8, 2, 4, "#5a3418"); P.r(22, 8, 2, 4, "#5a3418"); }),
+    tonneaux: M(24, 18, P => { for (const x of [0, 12]) { P.r(x + 1, 2, 10, 16, "#8a5a2a"); P.r(x + 1, 5, 10, 1, "#3a2a1a"); P.r(x + 1, 14, 10, 1, "#3a2a1a"); P.r(x + 2, 2, 8, 2, "#a8783f"); } }),
+    foin: M(24, 16, P => { P.ell(12, 10, 11, 6, "#d8b048"); P.ell(12, 7, 9, 5, "#e8c860"); for (let x = 4; x < 21; x += 3) P.r(x, 5 + (x % 2), 1, 6, "#b89030"); }),
+    cloture: M(40, 14, P => { for (let x = 1; x < 40; x += 9) P.r(x, 0, 3, 14, "#9a6a3a"); P.r(0, 3, 40, 2, "#b07a44"); P.r(0, 9, 40, 2, "#b07a44"); }),
+    puits: M(28, 30, P => { P.r(4, 0, 2, 18, "#5a3418"); P.r(22, 0, 2, 18, "#5a3418"); P.r(2, -1, 24, 3, "#a83a2a"); P.r(13, 2, 2, 8, "#6a5040"); P.r(12, 9, 4, 4, "#8a6a40"); P.r(1, 16, 26, 14, "#8a8a92"); for (let y = 18; y < 30; y += 4) for (let x = 1 + (y % 8 ? 0 : 3); x < 26; x += 6) P.r(x, y, 5, 3, "#a0a0a8"); P.r(4, 16, 20, 3, "#2a3a5a"); }),
+  };
+  const plan = [["cerisier", 7, 34], ["sapin", 6, 30], ["automne", 5, 34], ["lanterne", 10, 22], ["bac", 8, 26], ["banc", 5, 30], ["tonneaux", 5, 28], ["foin", 4, 28], ["cloture", 5, 44], ["puits", 1, 40]];
+  let d; try { d = sc.sx.getImageData(0, 0, W, H).data; } catch (_) { return; }
+  const herbe = (x, y) => { const i = (y * W + x) * 4; return d[i + 1] > d[i] + 40 && d[i + 1] > d[i + 2] + 30; };
+  const pos = []; const PO = sc.porte || [W / 2 - 30, W / 2 + 30];
+  for (const ob of sc.objets) pos.push([ob.x + ob.img.width / 2, ob.base, Math.max(ob.img.width / 2, 12)]);
+  const libre = (x0, y0, w, h, r) => {
+    if (x0 < 24 || y0 < 60 || x0 + w > W - 24 || y0 + h > H - 40) return false;
+    if (Math.abs(x0 + w / 2 - (PO[0] + PO[1]) / 2) < 70 && y0 + h > H - 140) return false;
+    for (let y = y0 - 6; y < y0 + h + 6; y += 3) for (let x = x0 - 6; x < x0 + w + 6; x += 3) { if (sc.solide[y * W + x]) return false; if (y >= y0 + h - 8 && !herbe(x, y)) return false; }
+    for (const [px, py, pr] of pos) if (Math.hypot(px - (x0 + w / 2), py - (y0 + h)) < pr + r) return false;
+    return true;
+  };
+  for (const [k, nb, r] of plan) {
+    const im = IM[k]; let n = 0;
+    for (let essai = 0; essai < 260 && n < nb; essai++) {
+      const x = Math.floor(24 + rnd() * (W - 48 - im.width)), y = Math.floor(60 + rnd() * (H - 100 - im.height));
+      if (!libre(x, y, im.width, im.height, r)) continue;
+      const cw = k === "cloture" || k === "banc" || k === "bac" ? im.width : Math.min(im.width, 10);
+      const cx0 = x + (im.width - cw) / 2;
+      sc.ajouter(im, x, y, y + im.height, k === "foin" || k === "bac" ? null : [cx0, y + im.height - 4, cx0 + cw, y + im.height]);
+      pos.push([x + im.width / 2, y + im.height, r]); n++; P109.n++;
+    }
+  }
+  sc.construireNav(); sc.creerPlan();
+}
+(() => {
+  try {
+    const Base = SceneVille;
+    SceneVille = class extends Base { constructor(l, g) { super(l, g); try { if (this.constructor === SceneVille) p109Habiller(this); } catch (e) { P109.err.push("hab:" + e.message); } } };
+  } catch (e) { P109.err.push("cls:" + e.message); }
 })();
 
 
