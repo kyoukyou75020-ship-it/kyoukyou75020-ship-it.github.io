@@ -32853,7 +32853,9 @@ function kn40Cell(key) {
   for (const D of KN_DECO) {
     if (Math.floor(D.x / 384) + "," + Math.floor(D.y / 384) !== key) continue;
     const x = D.x, z = D.y - 2, h = e3Sol(x, D.y);
-    if (D.type === "arbre") { const s = 0.85 + hsh(x, z) * 0.35; g.cyl(x, h, z, 2.6 * s, 1.8 * s, 16 * s, 6, H("#5a3a20")); g.sph(x, h + 22 * s, z, 13 * s, 10 * s, 13 * s, 8, H("#2a7a2a"), 0.2); g.sph(x - 3 * s, h + 28 * s, z + 3, 9 * s, 7 * s, 9 * s, 7, H("#4a9a3a"), 0.2); g.sph(x + 5 * s, h + 18 * s, z + 5, 7 * s, 5 * s, 7 * s, 6, H("#3a8a32"), 0.2); }
+    if (D.type === "arbre" && hsh(z, x) < 0.3) { const s = 0.85 + hsh(x, z) * 0.35; g.cyl(x, h, z, 2.2 * s, 1.4 * s, 14 * s, 6, H("#6a4030")); for (const [dx, dy, dz, r] of [[0, 20, 0, 11], [-5, 17, 3, 7], [5, 18, 2, 7.5], [1, 25, -1, 7]]) g.sph(x + dx * s, h + dy * s, z + dz, r * s, r * 0.75 * s, r * s, 7, H(r > 10 ? "#f0a0c0" : "#f8c0d6"), 0.25); }
+    else if (D.type === "arbre" && hsh(z, x) < 0.55) { const s = 0.85 + hsh(x, z) * 0.35; g.cyl(x, h, z, 2 * s, 1.6 * s, 8 * s, 6, H("#5a3a20")); for (let k = 0; k < 3; k++) g.cyl(x, h + (6 + k * 7) * s, z, (11 - k * 3) * s, 0.5, 11 * s, 8, H(["#1e5a32", "#27703c", "#2f8446"][k])); }
+    else if (D.type === "arbre") { const s = 0.85 + hsh(x, z) * 0.35; g.cyl(x, h, z, 2.6 * s, 1.8 * s, 16 * s, 6, H("#5a3a20")); g.sph(x, h + 22 * s, z, 13 * s, 10 * s, 13 * s, 8, H("#2a7a2a"), 0.2); g.sph(x - 3 * s, h + 28 * s, z + 3, 9 * s, 7 * s, 9 * s, 7, H("#4a9a3a"), 0.2); g.sph(x + 5 * s, h + 18 * s, z + 5, 7 * s, 5 * s, 7 * s, 6, H("#3a8a32"), 0.2); }
     else if (D.type === "lampe") { g.cyl(x, h, z, 0.9, 0.9, 16, 4, boisF); g.box(x, h + 16, z, 6, 1, 6, boisF); l.box(x, h + 17, z, 4.4, 5.4, 4.4, H("#ffd27a")); g.box(x, h + 22.4, z, 6.4, 1.2, 6.4, H("#c83a2a")); g.cyl(x, h + 23.6, z, 2.4, 0, 2, 4, H("#c83a2a")); }
     else if (D.type === "banc") { g.box(x, h + 4, z, 22, 1.4, 5, bois); g.box(x, h + 5.4, z - 2.6, 22, 5, 1, bois); for (const s of [-1, 1]) g.box(x + s * 9, h, z, 1.4, 4, 4, boisF); }
     else if (D.type === "poteau") { g.cyl(x, h, z, 2.8, 2.8, 20, 8, H("#8a6a40")); g.cyl(x, h + 9, z, 2.9, 2.9, 1.6, 8, H("#c8b088")); g.cyl(x, h + 14, z, 2.9, 2.9, 1.6, 8, H("#c8b088")); }
@@ -38967,7 +38969,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "51.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "51.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40577,6 +40579,159 @@ function p106Radeaux(U, M, t, houle) {
   if (md) e3MerDecor = function (U, M, A, t, now, dt, houle) { const r = md.apply(this, arguments); try { p106Radeaux(U, M, t, houle); } catch (e) { p106Err("rad", e); } return r; };
 }
 function p106En3D() { return (AV.monde || 1) === 2 && typeof N3 !== "undefined" && N3.actif; }
+
+/* ===== v51 étape villages : Konoha plus vivant (marché, balcons, lanternes, jardins, puits, terrain d'entraînement clôturé) ===== */
+const P107 = { err: [], L: null, m: new Map(), obs: [] };
+function p107Err(k, e) { if (P107.err.length < 8) P107.err.push(k + ": " + (e && e.message || e)); }
+function p107H(a, b) { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); }
+/* emplacement libre : hors bâtiments, rues, allées et décors existants */
+function p107Libre(x, y, r) {
+  for (const B of KN_BAT) { const w = (B.w || 60) / 2 + r + 4; if (Math.abs(x - B.x) < w && y > B.y - 46 - r && y < B.y + 10 + r) return false; }
+  for (const Y of KNG.RUES) if (Math.abs(y - Y) < 24 + r) return false;
+  for (const X of KNG.ALLEES) if (Math.abs(x - X) < 28 + r && y > 7270 && y < 7930) return false;
+  for (const D of KN_DECO) if (Math.hypot(D.x - x, D.y - y) < 14 + r) return false;
+  for (const D of P107.L || []) if (Math.hypot(D.x - x, D.y - y) < (D.r || 8) + r) return false;
+  if (x < KNG.X0 + 20 + r || x > KNG.X1 - 20 - r || y < KNG.Y0 + 330 || y > KNG.Y1 - 30 - r) return false;
+  if (Math.abs(x - KNG.CX) < 70 && y > KNG.Y1 - 140) return false;   // devant la porte
+  return true;
+}
+function p107Liste() {
+  if (P107.L) return P107.L;
+  const L = P107.L = [], add = (o) => { L.push(o); return o; };
+  // décor par maison : balcon, lanternes, enseigne, jardin
+  for (const B of KN_BAT) {
+    if (!(B.type === "maison" || B.type === "boutique" || B.type === "immeuble" || B.type === "ichiraku")) continue;
+    const h = p107H(B.x, B.y), w = B.w || 60;
+    add({ t: "facade", x: B.x, y: B.y, w, k: B.type, h, r: 0, nobs: 1 });
+    for (const s of [-1, 1]) { const gx = B.x + s * (w / 2 + 16), gy = B.y - 14; if (p107H(gx, gy) < 0.7 && p107Libre(gx, gy, 10)) add({ t: p107H(gy, gx) < 0.5 ? "jardin" : "tonneaux", x: gx, y: gy, r: 12, h: p107H(gx, s) }); }
+  }
+  // marché : étals à auvent rayé, caisses, tonneaux
+  const cols = ["#d83a2a", "#3a7ad8", "#e0a020", "#3a9a4a", "#c85ab0", "#e07030"];
+  let i = 0;
+  for (const yy of [7590, 7830]) for (let x = KNG.X0 + 90; x < KNG.X1 - 70; x += 64) { if (p107Libre(x, yy, 18)) { add({ t: "etal", x, y: yy, r: 20, c: cols[i++ % cols.length], h: p107H(x, yy) }); const cx = x + 26; if (p107H(cx, yy) < 0.6 && p107Libre(cx, yy + 4, 6)) add({ t: "caisses", x: cx, y: yy + 4, r: 7, h: p107H(yy, cx) }); } }
+  // puits et fontaine de place
+  for (const [x, y] of [[8060, 7420], [8330, 7420], [7700, 7650], [8560, 7650], [8060, 7880]]) { let ok = null; for (let d = 0; d < 80 && !ok; d += 10) for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) if (!ok && p107Libre(x + dx, y + dy, 14)) ok = [x + dx, y + dy]; if (ok) { add({ t: "puits", x: ok[0], y: ok[1], r: 15 }); break; } }
+  // guirlandes de lanternes au-dessus des rues
+  for (const Y of KNG.RUES.slice(0, 3)) for (let x = KNG.X0 + 60; x < KNG.X1 - 160; x += 220) { const x1 = x + 150; if (Math.abs(x - KNG.CX) < 40 || Math.abs(x1 - KNG.CX) < 40) continue; add({ t: "guirlande", x, x1, y: Y + 26, r: 0, nobs: 1 }); }
+  // chemins de pierres sinueux dans les bandes vertes
+  for (const yb of [7420, 7660]) { let px = KNG.X0 + 40; while (px < KNG.X1 - 40) { const py = yb + Math.sin(px * 0.011) * 22 + Math.sin(px * 0.031) * 6; if (p107Libre(px, py, 2)) add({ t: "dalle", x: px + (p107H(py, px) - 0.5) * 4, y: py + (p107H(px, 7) - 0.5) * 5, r: 3, h: p107H(px, py), nobs: 1 }); px += 11 + p107H(px, 3) * 6; } }
+  // buissons, touffes fleuries et petites buttes pour casser les grands aplats
+  for (let gx = KNG.X0 + 40; gx < KNG.X1 - 30; gx += 46) for (let gy = KNG.Y0 + 340; gy < KNG.Y1 - 40; gy += 42) { const u = p107H(gx, gy), x = gx + (p107H(gy, gx) - 0.5) * 30, y = gy + (u - 0.5) * 26; if (u < 0.26 && p107Libre(x, y, 7)) add({ t: u < 0.12 ? "fleurs" : "buisson", x, y, r: u < 0.24 ? 7 : 4, h: p107H(x, y), nobs: 1 }); }
+  // terrain d'entraînement : clôture de rondins, porte vers le village, tas de bûches, cible
+  { const Z = KNG.zones.terrain, cx = T2P(Z.tx), cy = T2P(Z.ty) - 14, R = 92, ag = Math.atan2(KNG.porte.y - cy, KNG.porte.x - cx);
+    for (let k = 0; k < 28; k++) { const a = k / 28 * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a - ag), Math.cos(a - ag))) < 0.32) continue; add({ t: "pieu", x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R * 0.8, a, cx, cy, R, r: 0, camp: 1 }); }
+    add({ t: "buches", x: cx - 56, y: cy + 30, r: 12, camp: 1 }); add({ t: "cible", x: cx + 58, y: cy + 20, r: 8, camp: 1 }); }
+  return L;
+}
+/* obstacles (seulement si la 3D est disponible : sinon ils seraient invisibles en 2D) */
+(() => {
+  const ov = knObstaclesVillage, oc = typeof knObstaclesCampagne === "function" ? knObstaclesCampagne : null;
+  const ok3 = () => { try { return typeof g3Actif === "function" && g3Actif(); } catch (_) { return false; } };
+  knObstaclesVillage = function (m) {
+    const r = ov.apply(this, arguments);
+    try { if (ok3()) for (const D of p107Liste()) { if (D.nobs || D.camp) continue; if (D.t === "etal") obstacle(m, D.x - 18, D.y - 10, D.x + 18, D.y + 2); else if (D.t === "puits") obstacle(m, D.x - 11, D.y - 9, D.x + 11, D.y + 3); else obstacle(m, D.x - 8, D.y - 6, D.x + 8, D.y + 2); } } catch (e) { p107Err("obsV", e); }
+    return r;
+  };
+  if (oc) knObstaclesCampagne = function (m) {
+    const r = oc.apply(this, arguments);
+    try { if (ok3()) for (const D of p107Liste()) if (D.camp && D.t !== "pieu") obstacle(m, D.x - 10, D.y - 6, D.x + 10, D.y + 2); } catch (e) { p107Err("obsC", e); }
+    return r;
+  };
+})();
+function p107Cell(key) {
+  const g = new G3Geo(), l = new G3Geo(), H = kn40Col, cell = (x, y) => Math.floor(x / 384) + "," + Math.floor(y / 384);
+  const bois = H("#8a5a30"), boisF = H("#4a2a14"), boisC = H("#b8864a"), blanc = H("#f4ecdc"), rouge = H("#d8382a"), pierre = H("#a8a094"), pierreF = H("#7a7468"), eau = H("#3a78b8"), terre = H("#7a5230"), lanterne = H("#ff9a50"), corde = H("#3a2a1a");
+  let sx = 0, sz = 0, n = 0;
+  for (const D of p107Liste()) {
+    if (cell(D.x, D.y) !== key) continue;
+    const x = D.x, z = D.y, h = e3Sol(x, z); sx += x; sz += z; n++;
+    if (D.t === "facade") {
+      const w = D.w, zf = z;
+      // lanternes rouges de part et d'autre de la porte
+      for (const s of [-1, 1]) { const lx = x + s * 10.5; g.box(lx, h + 21, zf + 1.6, 0.4, 2.2, 0.4, corde); l.box(lx, h + 15.5, zf + 2.2, 3.4, 5.4, 3.4, D.k === "ichiraku" ? H("#ffb04a") : lanterne); g.box(lx, h + 15, zf + 2.2, 3.8, 0.7, 3.8, boisF); g.box(lx, h + 20.9, zf + 2.2, 3.8, 0.7, 3.8, boisF); }
+      // balcon (maisons larges)
+      if ((D.k === "maison" && w >= 64 && D.h < 0.7) || D.k === "immeuble") {
+        const bw = Math.min(w - 16, 40), bx = x + (D.h < 0.35 ? -1 : 1) * (w / 2 - bw / 2 - 6), by = h + (D.k === "immeuble" ? 27 : 12);
+        g.box(bx, by, zf + 3.2, bw, 1.2, 6.4, bois);
+        for (let k = 0; k <= 6; k++) g.box(bx - bw / 2 + k * bw / 6, by + 1.2, zf + 6.1, 0.8, 4.4, 0.8, boisF);
+        g.box(bx, by + 5.4, zf + 6.1, bw + 0.8, 0.9, 1, boisC);
+        for (const s of [-1, 1]) g.box(bx + s * (bw / 2 - 0.5), by - 3, zf + 5.8, 1, 3, 1, boisF);
+        if (D.h > 0.2) for (let k = 0; k < 3; k++) g.box(bx - 8 + k * 8, by + 1.2, zf + 2, 4, 2.4, 2.6, H(["#d84a7a", "#f0c040", "#5ab0e0"][k]));   // pots de fleurs
+      }
+      // enseigne verticale
+      if (D.k !== "immeuble") { const ex = x + (D.h < 0.5 ? 1 : -1) * (w / 2 - 5); g.box(ex, h + 4, zf + 1.4, 4.6, 15, 1, boisF); g.box(ex, h + 4.8, zf + 2, 3.6, 13.4, 0.5, D.k === "maison" ? H(["#2a5a9a", "#9a2a2a", "#2a7a4a", "#6a3a8a"][Math.floor(D.h * 4)]) : blanc); for (let k = 0; k < 3; k++) g.box(ex, h + 8 + k * 3.6, zf + 2.3, 2, 1, 0.3, D.k === "maison" ? blanc : boisF); }
+      // auvent de toile au-dessus de la porte
+      { const ac = H(["#c8a070", "#8aa0b0", "#c86a4a", "#a0b070"][Math.floor(D.h * 4)]); e3T(g, [x - 9, h + 19, zf + 0.4], [x + 9, h + 19, zf + 0.4], [x + 9, h + 16.5, zf + 6], ac); e3T(g, [x - 9, h + 19, zf + 0.4], [x + 9, h + 16.5, zf + 6], [x - 9, h + 16.5, zf + 6], ac); }
+    } else if (D.t === "etal") {
+      const c = H(D.c), w = 34, d = 16;
+      g.box(x, h, z - 6, w, 7, d - 4, bois); g.box(x, h + 7, z - 6, w + 1, 1, d - 3, boisC);
+      for (const sx2 of [-1, 1]) for (const sz2 of [-1, 1]) g.box(x + sx2 * (w / 2 - 1), h, z - 6 + sz2 * (d / 2 - 1.5), 1.2, 18, 1.2, boisF);
+      for (let k = 0; k < 6; k++) { const a0 = x - w / 2 - 1 + k * (w + 2) / 6, a1 = a0 + (w + 2) / 6, cc = k & 1 ? blanc : c; e3T(g, [a0, h + 21, z - 13], [a1, h + 21, z - 13], [a1, h + 17, z + 4], cc); e3T(g, [a0, h + 21, z - 13], [a1, h + 17, z + 4], [a0, h + 17, z + 4], cc); g.box((a0 + a1) / 2, h + 15.6, z + 4, (w + 2) / 6, 1.6, 0.4, cc); }
+      const marchandise = [["#e04030", "#f0a020", "#80c040"], ["#f0e0b0", "#d0b080", "#a07040"], ["#60a0e0", "#e0e0f0", "#4070b0"], ["#e07aa0", "#f0f0a0", "#a0e0a0"]][Math.floor(D.h * 4)];
+      for (let k = 0; k < 6; k++) { const mx = x - 13 + k * 5.2, mz = z - 6 + (k & 1 ? 2 : -2); if (k % 3 === 0) g.box(mx, h + 8, mz, 4.4, 2.2, 4.4, H(marchandise[k % 3])); else g.sph(mx, h + 9.8, mz, 2.1, 1.8, 2.1, 5, H(marchandise[k % 3])); }
+      g.box(x + w / 2 + 3, h, z - 2, 5, 5, 5, boisC);
+    } else if (D.t === "caisses") {
+      g.box(x, h, z, 8, 7, 8, boisC, D.h); g.box(x, h + 7, z, 8.2, 0.6, 8.2, bois, D.h); g.box(x + 3, h + 7.4, z - 1, 6, 5.6, 6, boisC, -D.h);
+      g.cyl(x - 8, h, z + 2, 3.4, 3.4, 8, 8, bois); g.cyl(x - 8, h + 1.5, z + 2, 3.6, 3.6, 0.8, 8, boisF); g.cyl(x - 8, h + 6, z + 2, 3.6, 3.6, 0.8, 8, boisF);
+    } else if (D.t === "tonneaux") {
+      for (let k = 0; k < 3; k++) { const bx = x - 5 + (k % 2) * 8, bz = z - 2 + (k > 1 ? 6 : 0); g.cyl(bx, h, bz, 3.4, 3.4, 8.5, 8, bois); g.cyl(bx, h + 1.4, bz, 3.6, 3.6, 0.8, 8, boisF); g.cyl(bx, h + 6.4, bz, 3.6, 3.6, 0.8, 8, boisF); g.cyl(bx, h + 8.5, bz, 3, 3, 0.4, 8, boisC); }
+    } else if (D.t === "jardin") {
+      g.box(x, h, z, 22, 1.6, 14, terre);
+      const fl = ["#e84a6a", "#f0d040", "#ffffff", "#a050d0", "#ff8a30"];
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 4; b++) { const fx = x - 8 + b * 5.4, fz = z - 4 + a * 4.2; g.box(fx, h + 1.6, fz, 0.6, 2.4, 0.6, H("#3a8a3a")); g.sph(fx, h + 4.4, fz, 1.5, 1.2, 1.5, 4, H(fl[(a * 4 + b + Math.floor(D.h * 5)) % 5])); }
+      for (let k = 0; k <= 6; k++) { g.box(x - 12 + k * 4, h, z + 8, 0.8, 5, 0.8, boisC); }
+      g.box(x, h + 3.6, z + 8, 24.8, 0.8, 0.6, boisC); g.box(x, h + 1.6, z + 8, 24.8, 0.8, 0.6, boisC);
+      for (const s of [-1, 1]) { for (let k = 0; k <= 3; k++) g.box(x + s * 12, h, z - 6 + k * 4.6, 0.8, 5, 0.8, boisC); g.box(x + s * 12, h + 3.6, z + 1, 0.6, 0.8, 14, boisC); }
+    } else if (D.t === "puits") {
+      g.cyl(x, h, z - 3, 9, 9.4, 7, 12, pierre); g.cyl(x, h + 7, z - 3, 9.6, 9.6, 1.2, 12, pierreF); l.cyl(x, h + 5.6, z - 3, 7.4, 7.4, 0.4, 12, eau);
+      for (const s of [-1, 1]) g.box(x + s * 8.4, h + 7, z - 3, 1.4, 12, 1.4, boisF);
+      g.box(x, h + 18, z - 3, 19, 1.2, 1.2, bois); g.cyl(x, h + 12, z - 3, 0.2, 0.2, 6, 3, corde); g.box(x, h + 10.6, z - 3, 3, 2.6, 3, boisC);
+      e3T(g, [x - 11, h + 19, z - 10], [x + 11, h + 19, z - 10], [x + 11, h + 24, z - 3], rouge); e3T(g, [x - 11, h + 19, z - 10], [x + 11, h + 24, z - 3], [x - 11, h + 24, z - 3], rouge);
+      e3T(g, [x - 11, h + 24, z - 3], [x + 11, h + 24, z - 3], [x + 11, h + 19, z + 4], rouge); e3T(g, [x - 11, h + 24, z - 3], [x + 11, h + 19, z + 4], [x - 11, h + 19, z + 4], rouge);
+    } else if (D.t === "guirlande") {
+      const x0 = D.x, x1 = D.x1, h0 = e3Sol(x0, z), h1 = e3Sol(x1, z);
+      g.cyl(x0, h0, z, 1, 1, 30, 5, boisF); g.cyl(x1, h1, z, 1, 1, 30, 5, boisF);
+      const N = 14; for (let k = 0; k <= N; k++) { const u = k / N, px = x0 + (x1 - x0) * u, py = h0 + 29 - Math.sin(u * Math.PI) * 6; if (k < N) g.box(px + (x1 - x0) / N / 2, py - 0.2, z, (x1 - x0) / N + 0.4, 0.4, 0.4, corde); if (k % 2 === 1) { l.box(px, py - 5, z, 3, 4, 3, k % 4 === 1 ? lanterne : H("#fff0b0")); g.box(px, py - 1.2, z, 0.3, 1.6, 0.3, corde); } }
+    } else if (D.t === "dalle") {
+      g.box(x, h - 0.4, z, 6.5 + D.h * 3.5, 0.7, 4.5 + D.h * 2.5, D.h < 0.4 ? H("#8e877a") : D.h < 0.75 ? H("#a39b8b") : H("#7f7a6e"), D.h * 2.4);
+    } else if (D.t === "buisson") {
+      const s2 = 0.8 + D.h * 0.5, c = D.h < 0.5 ? H("#2f7a34") : H("#3c8a3a"); g.sph(x, h + 3.5 * s2, z, 7 * s2, 5 * s2, 6 * s2, 7, c, 0.25); g.sph(x + 4 * s2, h + 3 * s2, z + 2, 5 * s2, 4 * s2, 5 * s2, 6, H("#4a9a40"), 0.25);
+    } else if (D.t === "fleurs") {
+      const fl = ["#f05a7a", "#f0d040", "#ffffff", "#b060e0"]; for (let k = 0; k < 7; k++) { const fx = x + (p107H(k, x) - 0.5) * 14, fz = z + (p107H(z, k) - 0.5) * 10; g.box(fx, h, fz, 0.5, 2.2, 0.5, H("#3a8a3a")); g.sph(fx, h + 2.6, fz, 1.3, 1, 1.3, 4, H(fl[(k + Math.floor(D.h * 4)) % 4])); }
+    } else if (D.t === "butte") {
+      g.sph(x, h - 1.2, z, 24 + D.h * 14, 3.4, 16 + D.h * 9, 9, H(D.h < 0.5 ? "#66b844" : "#5eb23e"), 0.1);
+    } else if (D.t === "pieu") {
+      const ht = 9 + p107H(x, z) * 3; g.cyl(x, h, z, 1.6, 1.4, ht, 6, bois); g.cyl(x, h + ht, z, 1.4, 0.4, 1.4, 6, boisC);
+      const a2 = D.a + Math.PI * 2 / 28, nx = D.cx + Math.cos(a2) * D.R, nz = D.cy + Math.sin(a2) * D.R * 0.8, L2 = Math.hypot(nx - x, nz - z), ry = Math.atan2(nx - x, nz - z);
+      for (const yy of [3.4, 7]) { g.box((x + nx) / 2, h + yy, (z + nz) / 2, 1, 1.1, L2, boisC, ry); }
+    } else if (D.t === "buches") {
+      for (let k = 0; k < 6; k++) { const row = k < 3 ? 0 : k < 5 ? 1 : 2, i2 = k < 3 ? k : k < 5 ? k - 3 : 0, bx = x - 6 + i2 * 6 + row * 3; g.box(bx, h + row * 4.6, z, 4.6, 4.4, 18, k & 1 ? bois : boisC); g.box(bx, h + row * 4.6 + 0.6, z + 9.1, 3.4, 3.2, 0.3, H("#e0c090")); }
+      g.box(x + 14, h, z + 4, 6, 4, 6, boisF); g.box(x + 14, h + 4, z + 4, 0.8, 6, 0.8, H("#8a9aa8"));
+    } else if (D.t === "cible") {
+      g.cyl(x, h, z, 1.4, 1.4, 14, 5, boisF); for (const [r, c, k] of [[7, blanc, 0], [5.2, rouge, 1], [3.4, blanc, 2], [1.6, rouge, 3]]) g.sph(x, h + 17, z + 1 + k * 0.35, r, r, 0.5, 10, c);
+    }
+  }
+  if (!n) return null;
+  return { g: g.build(), l: l.build(), x: sx / n, z: sz / n, r: 340 };
+}
+(() => {
+  const base = E3X[4];
+  E3X[4] = function (U, A, Pl, I, TR, gy, now, dt) {
+    const r = base.apply(this, arguments);
+    try {
+      const cx = E3.cx, cz = E3.cz; if (!(cx > KNG.X0 - 900 && cx < KNG.X1 + 600 && cz > KNG.Y0 - 600 && cz < KNG.Y1 + 900)) return r;
+      const c0 = Math.floor((cx - TR.R - 200) / 384), c1 = Math.floor((cx + TR.R + 200) / 384), r0 = Math.floor((cz - TR.R - 200) / 384), r1 = Math.floor((cz + TR.R + 200) / 384);
+      let built = 0;
+      for (let i = c0; i <= c1; i++) for (let j = r0; j <= r1; j++) {
+        const k = i + "," + j; let o = P107.m.get(k);
+        if (o === undefined) { if (built++ > 0) continue; o = p107Cell(k); P107.m.set(k, o); }
+        if (!o || !e3Vu(Pl, o.x, 20, o.z, o.r)) continue;
+        g3Mesh(o.g, I); g3Mesh(o.l, I, { e: Math.min(1, 0.45 + (A.nu || 0) * 0.8) });
+      }
+    } catch (e) { p107Err("rendu", e); }
+    return r;
+  };
+})();
 
 
 /* ===== fin du module aventure ===== */
