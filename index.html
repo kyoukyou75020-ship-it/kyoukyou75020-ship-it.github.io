@@ -30025,7 +30025,7 @@ function e3Rendu() {
   const Hr = E3.hero, CN = E3.cn = e3CineOK(AV.cine) ? AV.cine : null, px = CN ? camera.x : perso.x, pz = CN ? camera.y : perso.y;
   if (!E3.pret || Math.hypot(px - E3.cx, pz - E3.cz) > 400) { E3.cx = px; E3.cz = pz; }
   const k = 1 - Math.exp(-dt * 11); E3.cx += (px - E3.cx) * k; E3.cz += (pz - E3.cz) * k;
-  const zk = CONFIG.ZOOMS[camera.iZoom] / CONFIG.ZOOMS[CONFIG.ZOOM_DEFAUT], cD = (jeu.scene && jeu.scene.camD) || 1, D = Math.max(80, Math.min(340 * cD, (E3.sc && !(jeu.scene && jeu.scene.ile) ? (port ? 300 : 230) : port ? 250 : 200) * cD / Math.pow(zk, 0.9)));
+  const zk = CONFIG.ZOOMS[camera.iZoom] / CONFIG.ZOOMS[CONFIG.ZOOM_DEFAUT], cD = (jeu.scene && jeu.scene.camD) || 1, D = (CN || typeof p104Zk !== "function" ? 1 : 1 / p104Zk()) * Math.max(80, Math.min(340 * cD, (E3.sc && !(jeu.scene && jeu.scene.ile) ? (port ? 300 : 230) : port ? 250 : 200) * cD / Math.pow(zk, 0.9)));
   const INT = E3.sc && !(jeu.scene && jeu.scene.ile), pitch = INT ? (port ? 1.0 : 0.9) : port ? 1.02 : 0.95, fov = INT ? (port ? 1.04 : 0.86) : port ? 0.98 : 0.8;
   if (INT && jeu.scene && jeu.scene.largeur) { const Sc = jeu.scene, Dv = Math.max(80, Math.min(340, (port ? 300 : 230) / Math.pow(zk, 0.9))), hwv = Dv * Math.tan(fov / 2) * asp * 0.92, lw = Sc.largeur, lh = Sc.hauteur;
     E3.cx = lw <= hwv * 2 ? lw / 2 : Math.max(hwv, Math.min(lw - hwv, E3.cx)); E3.cz = Math.max(Math.min(lh / 2, port ? 130 : 110), Math.min(lh - (port ? 118 : 70), E3.cz)); }
@@ -38284,7 +38284,7 @@ function p99UI(on, pvp) {
 .p99b .kr{position:absolute;inset:-6px;border-radius:50%;pointer-events:none}
 #p99j2 .p99b{transform:rotate(180deg)}#p99j2 .p99b.on{transform:rotate(180deg) scale(.9)}
 #p99js{position:absolute;width:118px;height:118px;border-radius:50%;background:#ffffff1c;border:2px solid #fff6;pointer-events:auto;touch-action:none}#p99js b{position:absolute;left:34px;top:34px;width:50px;height:50px;border-radius:50%;background:#fff8}
-body.p99 > *:not(#ecran):not(#manette):not(#p99ui):not(#p99j2):not(#p99fin):not(script):not(style):not(#p99m){visibility:hidden!important}
+body.p99 > *:not(#ecran):not(#manette):not(#p99ui):not(#p99j2):not(#p99fin):not(#p104ed):not(script):not(style):not(#p99m){visibility:hidden!important}
 body.p99 #manette{visibility:visible!important}
 #p99fin{position:fixed;inset:0;z-index:62;display:flex;align-items:flex-end;justify-content:center;padding-bottom:max(18px,8vh);pointer-events:none;font-family:system-ui,"Segoe UI",Roboto,sans-serif}
 #p99fin .b{pointer-events:auto;display:flex;gap:12px}#p99fin button{border:0;border-radius:40px;padding:14px 20px;font-size:17px;font-weight:900;color:#fff;background:linear-gradient(#e85a3a,#b8321e);box-shadow:0 4px 14px #0008}#p99fin button.s{background:linear-gradient(#4a4a6a,#2a2a40)}`;
@@ -38902,7 +38902,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "50.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "50.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -39006,6 +39006,7 @@ function p100Html() {
     ${R("🔹", "Petits", "btn", { v: 0.85, on: tb < 0.95 })}${R("🔵", "Normaux", "btn", { v: 1, on: tb >= 0.95 && tb <= 1.05 })}${R("⬤", "Grands", "btn", { v: 1.18, on: tb > 1.05 })}
     ${R("📳", "Vibration", "vib", { on: !!PARAMS.vibration, sub: PARAMS.vibration ? "oui" : "non" })}</div>
   <div class="rg"><div class="lbl">🕹 Joystick</div>${R("⬅", "À gauche", "joy", { v: "gauche", on: j === "gauche" })}${R("🅰", "Auto", "joy", { v: "auto", on: j === "auto" || j === "zone" })}${R("➡", "À droite", "joy", { v: "droite", on: j === "droite" })}</div>
+  <div class="rg">${R("✥", "Déplacer les boutons", "dispo", { sub: "joystick aussi" })}${R("🔍", "Boutons zoom", "zbtn", { on: !!PARAMS.zoomBtn, sub: PARAMS.zoomBtn ? "oui" : "non · pince à 2 doigts" })}${R("🥋", "Combats arène", "stc", { on: PARAMS.styleCombat !== "classique", sub: PARAMS.styleCombat !== "classique" ? "oui" : "classiques" })}</div>
   <div class="sec">🎲 Jeu</div><div class="rg"><div class="lbl">💬 Texte</div>
     ${R("🐢", "Lent", "txt", { v: "lent", on: tx === "lent" })}${R("💬", "Normal", "txt", { v: "normal", on: tx === "normal" })}${R("🐇", "Rapide", "txt", { v: "rapide", on: tx === "rapide" })}</div>
   <div class="rg"><div class="lbl">⚔ Difficulté</div>${[["paisible", "🌸", "Paisible"], ["facile", "🌱", "Débutant"], ["normal", "⚔", "Moyen"], ["difficile", "🔥", "Expert"]].map(([v, i, n]) => R(i, n, "diff", { v, on: PARAMS.difficulte === v })).join("")}</div>
@@ -39057,6 +39058,9 @@ function p100Action(b) {
     case "btn": PARAMS.tailleBtn = +v; sauverParams(); try { L77.cache.clear(); manette.redimensionner(); l77Tick(true); } catch (_) { } break;
     case "vib": PARAMS.vibration = !PARAMS.vibration; sauverParams(); if (PARAMS.vibration) vibrer(60); break;
     case "joy": p37Set("joystick", v); try { L77.cache.clear(); manette.redimensionner(); l77Tick(true); } catch (_) { } break;
+    case "dispo": try { menuReglages.fermer(); setTimeout(() => p104EdOuvrir("e"), 40); } catch (e) { p100Err("dispo", e); } return;
+    case "zbtn": PARAMS.zoomBtn = !PARAMS.zoomBtn; sauverParams(); try { p104ZoomBtns(); } catch (_) { } break;
+    case "stc": PARAMS.styleCombat = PARAMS.styleCombat === "classique" ? "arene" : "classique"; sauverParams(); messageInfo(PARAMS.styleCombat === "classique" ? "Combats classiques (ancienne vue)" : "🥋 Combats dans l'arène"); break;
     case "txt": p100Set("texte", v); break;
     case "diff": p37Set("difficulte", v); break;
     case "langue": messageInfo("🇫🇷 Le jeu est en français"); break;
@@ -40088,6 +40092,242 @@ function p104Basculer(C, o) {
   const pl = p99Lancer;
   p99Lancer = function () { const r = pl.apply(this, arguments); if (r && AV.cine && AV.cine.type === "p99duel") P104.dern = AV.cine; return r; };
 }
+
+/* =====================================================================
+   v50 étape 2 : « Déplacer les boutons » — joystick et boutons ronds
+   déplaçables + taille, par orientation (portrait / paysage), exploration et combat
+   ===================================================================== */
+const P104D = { cle: "jeu.dispo50", d: null, def: new Map(), ouvert: false, ctx: "e", sel: null, k: "", brut: false };
+const P104_NOMS = { joy: ["🕹", "Joystick"], attaque: ["👊", "Frapper"], btnSaut: ["⤒", "Sauter"], special: ["✨", "Kaméha"], actionAv: ["💬", "Action"], btnMenuRapide: ["☰", "Menu"], p104zp: ["➕", "Zoom +"], p104zm: ["➖", "Zoom −"],
+  fr: ["👊", "Frapper"], sa: ["⤒", "Sauter"], da: ["💨", "Dash"], ki: ["⚡", "Ki"], sp: ["🌟", "Spécial"], ga: ["🛡", "Garde"] };
+const P104_CB = { fr: [0, 0, 84], sa: [10, 96, 64], da: [96, 6, 56], ki: [84, 76, 58], ga: [158, 46, 52], sp: [70, 146, 56] };
+function p104DL() {
+  if (!P104D.d) { try { P104D.d = JSON.parse(localStorage.getItem(P104D.cle) || "null"); } catch (_) { P104D.d = null; } if (!P104D.d || typeof P104D.d !== "object") P104D.d = { p: {}, l: {} }; }
+  return P104D.d;
+}
+function p104Or() { return innerWidth > innerHeight ? "l" : "p"; }
+function p104Ctx() { return document.body.classList.contains("p99") ? "c" : "e"; }
+function p104G(id, ctx) { if (P104D.brut) return null; const D = p104DL(), o = D[p104Or()] || {}, c = o[ctx || p104Ctx()] || {}; return c[id] || null; }
+function p104S(id, ctx, v) { const D = p104DL(), O = p104Or(); D[O] = D[O] || {}; D[O][ctx] = D[O][ctx] || {}; if (v) D[O][ctx][id] = v; else delete D[O][ctx][id]; }
+function p104Sauver() { try { localStorage.setItem(P104D.cle, JSON.stringify(p104DL())); } catch (_) { } }
+function p104Id(el) {
+  if (!el) return null; if (el.id) return el.id;
+  try { for (const k in PadCombat.btn) if (PadCombat.btn[k] === el) return "pad:" + k; } catch (_) { }
+  return null;
+}
+function p104Nom(id) {
+  if (P104_NOMS[id]) return P104_NOMS[id];
+  if (id.startsWith("pad:")) { let t = ""; try { const b = PadCombat.btn[id.slice(4)], s = b && b.querySelector("small"); t = (s ? s.textContent : b.textContent || "").trim(); } catch (_) { } return ["🔘", (t || id.slice(4)).slice(0, 10)]; }
+  return ["🔘", id];
+}
+// exploration : tous les boutons placés par l77Put
+{
+  const put = l77Put;
+  l77Put = function (el, x, y, w, h) {
+    const id = p104Id(el);
+    if (id) {
+      P104D.def.set(id, { x, y, w, h: h || w, el });
+      const g = p104G(id, "e");
+      if (g) { const s = g.s || 1; h = (h || w) * s; w *= s; x = g.x * innerWidth; y = g.y * innerHeight; }
+    }
+    return put.call(this, el, x, y, w, h);
+  };
+}
+// joystick (exploration et combat)
+{
+  const pf = manette.posFixe, dz = manette.dansZone, rd = manette.redimensionner;
+  manette.posFixe = function () { const g = this.mode() !== "flottant" ? p104G("joy") : null; if (g) return { x: g.x * innerWidth, y: g.y * innerHeight }; return pf.apply(this, arguments); };
+  if (dz) manette.dansZone = function (x, y) { const g = p104G("joy"); if (g) { const p = this.posFixe(); return Math.hypot(x - p.x, y - p.y) < this.taille * 1.25; } return dz.apply(this, arguments); };
+  manette.redimensionner = function () {
+    const r = rd.apply(this, arguments); const g = p104G("joy"), s = g && g.s || 1;
+    this.taille0 = this.taille; if (s !== 1) { this.taille = this.taille0 * s; this.el.style.width = this.el.style.height = this.taille + "px"; try { this.placer(); } catch (_) { } }
+    return r;
+  };
+}
+function p104DefJoy() { P104D.brut = true; try { const t = manette.taille; manette.taille = manette.taille0 || t; const p = manette.posFixe(), w = manette.taille; manette.taille = t; return { x: p.x, y: p.y, w, h: w }; } finally { P104D.brut = false; } }
+function p104DefCombat(id) {
+  const W = innerWidth, H = innerHeight, gau = PARAMS.boutons === "gauche", pay = W > H, sb = pay ? 14 : 26, sr = pay ? 18 : 12, q = P104_CB[id];
+  const r = sr + q[0], bt = sb + q[1], w = q[2];
+  return { x: gau ? r + w / 2 : W - r - w / 2, y: H - bt - w / 2, w, h: w };
+}
+// combat : appelé par p99Placer après le placement par défaut
+function p104Disposer(q) {
+  if (q !== "combat" || typeof P99 === "undefined" || !P99.btn) return;
+  const W = innerWidth, H = innerHeight;
+  for (const id of Object.keys(P104_CB)) {
+    const b = P99.btn[id]; if (!b) continue; const w0 = P104_CB[id][2], g = p104G(id, "c"), s = (g && g.s) || 1;
+    b.style.width = b.style.height = Math.round(w0 * s) + "px";
+    if (!b.dataset.f0) { b.style.fontSize = ""; b.dataset.f0 = parseFloat(getComputedStyle(b).fontSize) || 16; }
+    b.style.fontSize = s !== 1 ? (b.dataset.f0 * s).toFixed(1) + "px" : "";
+    if (g) { const w = w0 * s; b.style.left = Math.round(g.x * W - w / 2) + "px"; b.style.top = Math.round(g.y * H - w / 2) + "px"; b.style.right = b.style.bottom = ""; }
+  }
+  // bouton ✥ (déplacer) à côté du ✖
+  let e = document.getElementById("p104cb");
+  if (!e && P99.btn.x && P99.btn.x.parentNode) {
+    e = document.createElement("button"); e.id = "p104cb"; e.className = "p99b x"; e.innerHTML = "<i>✥</i>"; e.title = "Déplacer les boutons";
+    e.style.width = e.style.height = "38px";
+    e.addEventListener("pointerdown", ev => { ev.preventDefault(); ev.stopPropagation(); });
+    e.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); p104EdOuvrir("c"); });
+    P99.btn.x.parentNode.appendChild(e);
+  }
+  if (e) setTimeout(() => { try { const x = P99.btn.x.style; e.style.top = x.top; e.style.bottom = ""; if (x.left) { e.style.left = "56px"; e.style.right = ""; } else { e.style.right = "56px"; e.style.left = ""; } } catch (_) { } }, 0);
+  try { manette.redimensionner(); } catch (_) { }
+}
+function p104Appliquer() {
+  try { L77.cache.clear(); } catch (_) { }
+  try { manette.redimensionner(); } catch (_) { }
+  try { l77Tick(true); } catch (_) { }
+  try { if (document.body.classList.contains("p99")) p99Placer(); } catch (_) { }
+  try { p104ZoomBtns(); } catch (_) { }
+}
+// pause du combat pendant l'édition
+{
+  const mj = p99Maj;
+  p99Maj = function (C, dt) { if (P104D.ouvert) return; return mj.apply(this, arguments); };
+}
+function p104Vis(el) {
+  if (!el || !el.isConnected) return false; const r = el.getBoundingClientRect(); if (!(r.width > 0)) return false;
+  const cs = getComputedStyle(el); return cs.display !== "none";
+}
+function p104Items(ctx) {
+  const L = [];
+  const dj = p104DefJoy(); L.push({ id: "joy", def: dj });
+  if (ctx === "c") { for (const id of ["fr", "sa", "da", "ki", "sp", "ga"]) L.push({ id, def: p104DefCombat(id) }); }
+  else for (const [id, d] of P104D.def) { if (id === "btnMenuRapide") continue; if (p104Ctx() === "e" && !p104Vis(d.el)) continue; L.push({ id, def: d }); }
+  return L;
+}
+function p104EdOuvrir(ctx) {
+  try {
+    p104DL(); P104D.ouvert = true; P104D.ctx = ctx || p104Ctx(); P104D.sel = null;
+    P104D.pj = false; if (typeof jeu !== "undefined" && jeu && p104Ctx() === "e") { P104D.pj = true; jeu.pause = true; }
+    try { if (menuReglages.ouvert()) menuReglages.panneau.hidden = true; } catch (_) { }
+    let E = document.getElementById("p104ed");
+    if (!E) {
+      const st = document.createElement("style"); st.textContent = `
+#p104ed{position:fixed;inset:0;z-index:9000;background:rgba(10,14,30,.42);font-family:system-ui,"Segoe UI",Roboto,sans-serif;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none}
+#p104ed .pn{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);background:rgba(20,24,44,.94);border:2px solid #ffd84a;border-radius:16px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;justify-content:center;width:min(94vw,560px);box-shadow:0 6px 20px #0008;z-index:2}
+#p104ed .pn b{width:100%;text-align:center;font-size:15px}
+#p104ed .pn button{border:0;border-radius:20px;padding:8px 12px;font-weight:800;font-size:14px;color:#fff;background:#3a4470}
+#p104ed .pn button.on{background:#e8a020;color:#1a1014}#p104ed .pn button.ok{background:linear-gradient(#3ac85a,#1e8a32)}#p104ed .pn button.rs{background:#8a3030}
+#p104ed .pn .nm{font-size:13px;min-width:90px;text-align:center;opacity:.9}#p104ed .pn input{width:130px;accent-color:#ffd84a}
+#p104ed .px{position:absolute;border-radius:50%;border:3px dashed rgba(255,255,255,.9);background:rgba(255,216,74,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;text-shadow:0 2px 2px #000;box-sizing:border-box;touch-action:none;z-index:3}
+#p104ed .px i{font-style:normal;font-size:20px}#p104ed .px small{font-size:10px}
+#p104ed .px.sel{border:3px solid #ffd84a;background:rgba(255,216,74,.42);box-shadow:0 0 14px #ffd84a}
+#p104ed .aide{position:absolute;left:0;right:0;bottom:46%;text-align:center;font-size:13px;opacity:.85;text-shadow:0 2px 3px #000;pointer-events:none}`;
+      document.head.appendChild(st);
+      E = document.createElement("div"); E.id = "p104ed"; document.body.appendChild(E);
+      E.addEventListener("pointerdown", e => e.stopPropagation());
+      addEventListener("resize", () => { if (P104D.ouvert) setTimeout(p104EdRendu, 120); });
+    }
+    E.hidden = false; p104EdRendu(); return true;
+  } catch (e) { p104Err("edOuvrir", e); return false; }
+}
+function p104EdRendu() {
+  const E = document.getElementById("p104ed"); if (!E) return; const ctx = P104D.ctx, W = innerWidth, H = innerHeight;
+  const items = p104Items(ctx); P104D.items = items;
+  const sel = items.find(i => i.id === P104D.sel), gs = sel ? (p104G(sel.id, ctx) || {}).s || 1 : 1, nm = sel ? p104Nom(sel.id) : null;
+  E.innerHTML = `<div class="pn"><b>✥ Déplacer les boutons · ${p104Or() === "p" ? "portrait" : "paysage"}</b>
+  <button data-a="e" class="${ctx === "e" ? "on" : ""}">🗺 Exploration</button><button data-a="c" class="${ctx === "c" ? "on" : ""}">⚔ Combat</button>
+  <span class="nm">${nm ? nm[0] + " " + nm[1] : "Touche un bouton"}</span><input type="range" min="60" max="160" step="5" value="${Math.round(gs * 100)}" ${sel ? "" : "disabled"} aria-label="Taille">
+  <button data-a="rs" class="rs">↺ Réinitialiser</button><button data-a="ok" class="ok">✔ OK</button></div>
+  <div class="aide">Fais glisser un bouton pour le déplacer · la barre change sa taille</div>`;
+  for (const it of items) {
+    const g = p104G(it.id, ctx), s = (g && g.s) || 1, d = it.def, w = Math.max(40, d.w * s), h = Math.max(40, (d.h || d.w) * s), x = g ? g.x * W : d.x, y = g ? g.y * H : d.y, n = p104Nom(it.id);
+    const p = document.createElement("div"); p.className = "px" + (it.id === P104D.sel ? " sel" : ""); p.dataset.id = it.id;
+    Object.assign(p.style, { left: (x - w / 2) + "px", top: (y - h / 2) + "px", width: w + "px", height: h + "px" });
+    p.innerHTML = `<i>${n[0]}</i><small>${n[1]}</small>`; E.appendChild(p);
+    let pid = null, ox = 0, oy = 0;
+    p.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); pid = e.pointerId; try { p.setPointerCapture(pid); } catch (_) { } const r = p.getBoundingClientRect(); ox = e.clientX - (r.left + r.width / 2); oy = e.clientY - (r.top + r.height / 2);
+      if (P104D.sel !== it.id) { P104D.sel = it.id; for (const q of E.querySelectorAll(".px")) q.classList.toggle("sel", q === p); const sg = (p104G(it.id, ctx) || {}).s || 1, R = E.querySelector("input"), N = E.querySelector(".nm"); R.disabled = false; R.value = Math.round(sg * 100); N.textContent = n[0] + " " + n[1]; } });
+    p.addEventListener("pointermove", e => { if (e.pointerId !== pid) return; const r = p.getBoundingClientRect(), hw = r.width / 2, hh = r.height / 2;
+      const cx = Math.max(hw, Math.min(W - hw, e.clientX - ox)), cy = Math.max(hh, Math.min(H - hh, e.clientY - oy));
+      p.style.left = (cx - hw) + "px"; p.style.top = (cy - hh) + "px"; const o = p104G(it.id, ctx) || {}; p104S(it.id, ctx, { x: +(cx / W).toFixed(4), y: +(cy / H).toFixed(4), s: o.s || 1 }); p104Appliquer(); });
+    const fin = e => { if (e.pointerId === pid) { pid = null; p104Appliquer(); } }; p.addEventListener("pointerup", fin); p.addEventListener("pointercancel", fin);
+  }
+  const R = E.querySelector("input");
+  R.addEventListener("input", () => {
+    const it = items.find(i => i.id === P104D.sel); if (!it) return; const s = +R.value / 100, g = p104G(it.id, ctx), d = it.def;
+    p104S(it.id, ctx, { x: g ? g.x : +(d.x / W).toFixed(4), y: g ? g.y : +(d.y / H).toFixed(4), s });
+    const p = E.querySelector(`.px[data-id="${CSS.escape(it.id)}"]`); if (p) { const r = p.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, w = Math.max(40, d.w * s), h = Math.max(40, (d.h || d.w) * s); Object.assign(p.style, { left: (cx - w / 2) + "px", top: (cy - h / 2) + "px", width: w + "px", height: h + "px" }); }
+    p104Appliquer();
+  });
+  E.querySelector(".pn").addEventListener("click", e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return; try { son.jouer("clic"); } catch (_) { }
+    const a = b.dataset.a;
+    if (a === "e" || a === "c") { P104D.ctx = a; P104D.sel = null; p104EdRendu(); }
+    else if (a === "rs") { const D = p104DL(), O = p104Or(); if (D[O]) delete D[O][ctx]; P104D.sel = null; p104Appliquer(); p104EdRendu(); }
+    else if (a === "ok") p104EdFermer(true);
+  });
+}
+function p104EdFermer(ok) {
+  const E = document.getElementById("p104ed"); if (E) { E.hidden = true; E.innerHTML = ""; }
+  P104D.ouvert = false; if (ok !== false) p104Sauver();
+  try { if (typeof jeu !== "undefined" && jeu && P104D.pj) jeu.pause = false; } catch (_) { }
+  try { if (menuReglages.ouvert()) menuReglages.fermer(); } catch (_) { }
+  p104Appliquer();
+  try { if (ok !== false) messageInfo("✔ Boutons enregistrés (" + (p104Or() === "p" ? "portrait" : "paysage") + ")"); } catch (_) { }
+}
+
+/* =====================================================================
+   v50 étape 3 : zoom à deux doigts en exploration (le doigt du joystick
+   est ignoré), niveau mémorisé, boutons +/− optionnels ; combat = caméra auto
+   ===================================================================== */
+const P104Z = { z: 1, min: 0.62, max: 1.45, pts: new Map(), d0: 0, z0: 1, on: false };
+function p104Zk() { return P104Z.z; }
+function p104Z3D() { try { return g3Actif() && !(AV && AV.cine); } catch (_) { return false; } }
+function p104ZSet(z, sauve) { P104Z.z = Math.max(P104Z.min, Math.min(P104Z.max, z)); if (sauve) { PARAMS.zoom3 = +P104Z.z.toFixed(3); sauverParams(); } }
+try { if (+PARAMS.zoom3 > 0) P104Z.z = Math.max(P104Z.min, Math.min(P104Z.max, +PARAMS.zoom3)); } catch (_) { }
+{
+  const zo = zoomer;
+  zoomer = function (delta) {
+    if (P104Z.on) return;                                   // pincement continu déjà en cours
+    if (p104Z3D()) { p104ZSet(P104Z.z * Math.pow(1.15, delta || 0), true); return; }
+    return zo.apply(this, arguments);
+  };
+}
+try {
+  const cv = typeof ecran !== "undefined" ? ecran : null;
+  if (cv) {
+    const act = () => { const L = []; for (const [id, q] of P104Z.pts) if (!manette || id !== manette.id) L.push(q); return L; };
+    const dep = () => { const L = act(); if (L.length === 2 && p104Z3D() && !(jeu && jeu.pause)) { P104Z.d0 = Math.max(20, Math.hypot(L[0].x - L[1].x, L[0].y - L[1].y)); P104Z.z0 = P104Z.z; P104Z.on = true; P104Z.paire = L; } };
+    cv.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse") return;
+      P104Z.pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); dep();
+    });
+    cv.addEventListener("pointermove", e => {
+      const p = P104Z.pts.get(e.pointerId); if (!p) return; p.x = e.clientX; p.y = e.clientY;
+      if (!P104Z.on) return; const L = act(); if (L.length !== 2) return;
+      if (L[0] !== P104Z.paire[0] || L[1] !== P104Z.paire[1]) { dep(); return; }   // le joystick a pris un doigt : on repart
+      p104ZSet(P104Z.z0 * Math.hypot(L[0].x - L[1].x, L[0].y - L[1].y) / P104Z.d0, false);
+    });
+    const fin = e => { P104Z.pts.delete(e.pointerId); if (P104Z.on && act().length < 2) { P104Z.on = false; p104ZSet(P104Z.z, true); } };
+    cv.addEventListener("pointerup", fin); cv.addEventListener("pointercancel", fin);
+  }
+} catch (e) { p104Err("pince", e); }
+function p104ZoomBtns() {
+  let P = document.getElementById("p104zp"), M = document.getElementById("p104zm");
+  if (!PARAMS.zoomBtn) { if (P) P.hidden = M.hidden = true; return; }
+  if (!P) {
+    const st = document.createElement("style"); st.textContent = `#p104zp,#p104zm{position:fixed;z-index:4;left:calc(var(--x) - var(--w) / 2);top:calc(var(--y) - var(--h) / 2);width:var(--w);height:var(--h);border-radius:50%;border:3px solid #1a1014;background:rgba(40,50,80,.82);color:#fff;font:900 20px system-ui,sans-serif;padding:0;touch-action:none;box-shadow:0 3px 8px #0006}
+#p104zp:active,#p104zm:active{filter:brightness(1.3)}body.cine #p104zp,body.cine #p104zm,body.p99 #p104zp,body.p99 #p104zm,body.tbcombat #p104zp,body.tbcombat #p104zm,body.accueil #p104zp,body.accueil #p104zm,body.traverse #p104zp,body.traverse #p104zm{visibility:hidden!important}`;
+    document.head.appendChild(st);
+    const mk = (id, t, d) => { const b = document.createElement("button"); b.id = id; b.textContent = t; b.setAttribute("aria-label", d > 0 ? "Zoomer" : "Dézoomer");
+      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); try { son.jouer("clic"); } catch (_) { } zoomer(d); }); document.body.appendChild(b); return b; };
+    P = mk("p104zp", "+", 1); M = mk("p104zm", "−", -1);
+  }
+  P.hidden = M.hidden = false;
+  let D = null; try { D = l77D(); } catch (_) { }
+  const s = 42, left = D ? D.left : false, x = left ? (D.sl + 12 + s / 2) : innerWidth - (D ? D.sr : 0) - 12 - s / 2, y0 = (D ? D.st + D.mm : 120) + 34 + s / 2;
+  l77Put(P, x, y0, s, s); l77Put(M, x, y0 + s + 10, s, s);
+}
+// suivi orientation / contexte : réappliquer la bonne disposition
+setInterval(() => {
+  try {
+    const k = p104Or() + p104Ctx() + innerWidth + "x" + innerHeight;
+    if (k !== P104D.k) { P104D.k = k; p104Appliquer(); }
+    else if (PARAMS.zoomBtn || document.getElementById("p104zp")) p104ZoomBtns();
+  } catch (_) { }
+}, 400);
 
 
 /* ===== fin du module aventure ===== */
