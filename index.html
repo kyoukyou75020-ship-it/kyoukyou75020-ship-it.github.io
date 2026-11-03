@@ -38024,6 +38024,626 @@ function p98Max3D(U, A, now, dt) {
 }
 (() => { const x1 = E3X[1]; E3X[1] = function (U, A) { if (x1) x1.apply(this, arguments); try { p98Max3D(U, A, arguments[6], arguments[7]); } catch (e) { p98Err("max3d", e); } }; })();
 
+/* ===== v48 : ARÈNE DUEL — grand terrain de dalles vu de dessus, petits combattants 3D, sauts, chocs ===== */
+const P99 = { err: [], geo: null, fx: [], hs: 0, shake: 0, hype: 0, g: [false, false], j2v: { x: 0, y: 0 }, keys: new Set(), dern: null };
+const P99A = { x: 146, z: 108, FY: 1.6 };
+function p99Err(w, e) { if (P99.err.length < 8) P99.err.push(w + ": " + (e && e.message || e)); }
+function p99Son(n) { try { son.jouer(n); } catch (_) { } }
+function p99Now() { return performance.now() / 1000; }
+function p99H(i, j) { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); }
+
+/* ---------- géométrie de l'arène (une seule fois) ---------- */
+function p99Geo() {
+  if (P99.geo && P99.geo.gl === G3.gl) return P99.geo;
+  const R = { gl: G3.gl }, g = new G3Geo();
+  // herbe tout autour (bandes tondues)
+  for (let i = -8; i < 8; i++) { const c = i & 1 ? [0.34, 0.6, 0.26] : [0.39, 0.66, 0.3]; g.q([i * 60, 0, 380], [i * 60 + 60, 0, 380], [i * 60 + 60, 0, -340], [i * 60, 0, -340], [0, 1, 0], c); }
+  // dalle + carreaux gris clair
+  g.box(0, 0, 0, 312, 1, 232, [0.36, 0.36, 0.35]);
+  const nx = 12, nz = 9, tw = 312 / nx, td = 232 / nz;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const r = p99H(i, j), k = 0.9 + r * 0.12, c = [0.66 * k, 0.66 * k, 0.64 * k]; g.box(-156 + (i + 0.5) * tw, 1, -116 + (j + 0.5) * td, tw - 1.8, 0.6, td - 1.8, c); }
+  // chemin clair vers l'entrée
+  for (let j = 0; j < 4; j++) for (let i = -1; i <= 1; i++) { const r = p99H(i + 9, j + 4); g.box(i * 13, 0, -126 - j * 12, 12, 0.5, 11, [0.86 + r * 0.06, 0.84 + r * 0.06, 0.78]); }
+  // mur de briques rouges en haut, avec l'entrée au milieu
+  const zW = -176;
+  for (let row = 0; row < 6; row++) for (let i = -21; i <= 21; i++) {
+    const x = i * 11 + (row & 1 ? 5.5 : 0); if (Math.abs(x) < 26) continue;
+    const r = p99H(i, row + 20), c = [0.66 + r * 0.12, 0.2 + r * 0.06, 0.15 + r * 0.04]; g.box(x, row * 4, zW, 10.4, 3.6, 8, c);
+  }
+  g.box(-128, 24, zW, 210, 2, 9.5, [0.78, 0.72, 0.64]); g.box(128, 24, zW, 210, 2, 9.5, [0.78, 0.72, 0.64]);
+  for (const s of [-1, 1]) { g.box(s * 30, 0, zW, 8, 32, 11, [0.72, 0.66, 0.58]); g.cyl(s * 30, 32, zW, 4.5, 3, 4, 8, [0.8, 0.74, 0.66]); }
+  g.box(0, 28, zW, 68, 4, 10, [0.75, 0.68, 0.6]); g.box(0, 32, zW, 40, 7, 3, [0.92, 0.82, 0.3]);
+  // arbres derrière le mur et sur les côtés
+  const arbre = (x, z, s) => { g.cyl(x, 0, z, 2.6 * s, 2 * s, 16 * s, 6, [0.45, 0.3, 0.18]); g.sph(x, 22 * s, z, 13 * s, 11 * s, 13 * s, 7, [0.22, 0.5, 0.2], 0.25); g.sph(x + 4 * s, 29 * s, z - 2, 8 * s, 7 * s, 8 * s, 6, [0.28, 0.58, 0.24], 0.25); };
+  for (let i = 0; i < 9; i++) arbre(-220 + i * 55 + p99H(i, 3) * 20, -205 - p99H(i, 5) * 40, 1 + p99H(i, 7) * 0.4);
+  for (const s of [-1, 1]) for (let i = 0; i < 4; i++) arbre(s * (205 + p99H(i, s + 3) * 30), -120 + i * 80, 0.9 + p99H(i, 9) * 0.3);
+  // haies basses le long des côtés
+  for (const s of [-1, 1]) g.box(s * 172, 0, -10, 8, 6, 250, [0.2, 0.46, 0.2]);
+  // piliers-torches aux 4 coins
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { g.box(sx * 166, 0, sz * 126, 9, 22, 9, [0.7, 0.66, 0.6]); g.cyl(sx * 166, 22, sz * 126, 5.5, 4, 3, 8, [0.5, 0.42, 0.34]); }
+  // gradins en bas
+  for (let k = 0; k < 4; k++) g.box(0, 0, 158 + k * 14 + 7, 500, 3 + k * 5, 14, [0.62 - k * 0.03, 0.6 - k * 0.03, 0.58 - k * 0.03]);
+  g.box(0, 0, 150, 500, 4, 2, [0.85, 0.82, 0.76]);
+  R.sol = g.build();
+  // public : 4 groupes qui bougent à des rythmes différents
+  const peau = [[1, 0.82, 0.66], [0.86, 0.64, 0.46], [0.6, 0.42, 0.3], [0.98, 0.76, 0.6]], cheveux = [[0.1, 0.08, 0.06], [0.5, 0.3, 0.12], [0.9, 0.78, 0.3], [0.2, 0.2, 0.25], [0.8, 0.35, 0.1]];
+  const habits = [[0.9, 0.2, 0.2], [0.2, 0.4, 0.9], [0.95, 0.8, 0.2], [0.3, 0.75, 0.35], [0.95, 0.5, 0.15], [0.7, 0.3, 0.8], [0.95, 0.95, 0.95], [0.2, 0.75, 0.85], [1, 0.45, 0.6]];
+  R.foule = [];
+  for (let q = 0; q < 4; q++) {
+    const f = new G3Geo();
+    for (let k = 0; k < 4; k++) for (let i = 0; i < 46; i++) {
+      if (((i * 7 + k * 3) & 3) !== q) continue; const r = p99H(i, k + 40); if (r < 0.08) continue;
+      const x = -230 + i * 10 + (r - 0.5) * 4, y = 3 + k * 5, z = 158 + k * 14 + 7 + (r - 0.5) * 3;
+      const H = habits[(i * 5 + k * 11 + q) % habits.length];
+      f.box(x, y, z, 5.2, 7, 4, H); f.sph(x, y + 9.4, z, 2.7, 2.9, 2.7, 6, peau[(i + k) % 4]); f.box(x, y + 11, z + 0.4, 5.6, 1.6, 5.4, cheveux[(i * 3 + k) % 5]);
+      if (r > 0.7) { f.box(x - 3.4, y + 7, z, 1.4, 6, 1.4, H); f.box(x + 3.4, y + 7, z, 1.4, 6, 1.4, H); } // bras levés
+    }
+    R.foule.push(f.build());
+  }
+  return P99.geo = R;
+}
+
+/* ---------- combattants ---------- */
+function p99Look(id) {
+  const H = TB_HEROS[id]; if (H) return { id, nom: H.nom, col: H.couleur || "#ffd84a", sprite: f => H.sprite(f), spiky: null };
+  return null;
+}
+function p99Fighter(o, cote) {
+  const F = { id: o.id || "", nom: o.nom, col: o.col || "#fff", sprite: o.sprite, x: cote * 62, z: 10, y: 0, vx: 0, vz: 0, vy: 0, mx: 0, mz: 0, yaw: cote < 0 ? Math.PI / 2 : -Math.PI / 2,
+    pv: o.pv, pvMax: o.pv, atk: o.atk, ki: 20, st: "idle", t: 0, dur: 0, combo: 0, comboT: 0, buf: 0, inv: 0, stun: 0, hurt: 0, garde: false, cd: { d: 0, j: 0, k: 0 }, ko: 0, hit: 0, air: 0, ph: 0, mv: 0,
+    hum: o.hum, J: o.J, ia: { t: 0, mx: 0, mz: 0, g: 0 }, lvl: o.lvl == null ? 0.5 : o.lvl, cc: 0, ccT: 0, ombre: 1, txt: null, techs: o.techs || [], img: null };
+  return F;
+}
+function p99Foe(F) { const C = AV.cine; return C.A === F ? C.B : C.A; }
+function p99Libre(F) { return !F.ko && F.stun <= 0 && (F.st === "idle"); }
+function p99Face(F, O) { F.yaw = Math.atan2(O.x - F.x, O.z - F.z); }
+function p99Fx(k, o) { o.k = k; o.t = 0; P99.fx.push(o); if (P99.fx.length > 60) P99.fx.shift(); return o; }
+
+function p99Action(F, a) {
+  const C = AV.cine; if (!C || C.type !== "p99duel" || C.dec > 0 || C.res || !F || F.ko) return;
+  const O = p99Foe(F);
+  if (a === "frap") {
+    if (F.y > 5 && F.st === "idle" && !F.air && F.stun <= 0) { F.air = 1; F.st = "dive"; F.t = 0; F.hit = 0; F.vy = -330; const dx = O.x - F.x, dz = O.z - F.z, d = Math.hypot(dx, dz) || 1, v = Math.min(200, d * 3.2); F.vx = dx / d * v; F.vz = dz / d * v; F.yaw = Math.atan2(dx, dz); p99Son("bond"); return; }
+    if (F.st === "att" && F.t > 0.1) { F.buf = 1; return; }
+    if (!p99Libre(F) || F.y > 1) return;
+    F.garde = false; F.combo = F.comboT > 0 ? F.combo % 3 + 1 : 1; F.comboT = 0.6; F.st = "att"; F.t = 0; F.hit = 0; F.dur = F.combo === 3 ? 0.34 : 0.24;
+    p99Face(F, O); const d = Math.hypot(O.x - F.x, O.z - F.z);
+    if (d > 22 && d < 80) { const T = 0.1, s = (d - 17) / T; F.vx = Math.sin(F.yaw) * s; F.vz = Math.cos(F.yaw) * s; F.lunge = T; p99Fx("trait", { x: F.x, z: F.z, x1: F.x + Math.sin(F.yaw) * (d - 17), z1: F.z + Math.cos(F.yaw) * (d - 17), vie: 0.25, col: g3Col(F.col) }); }
+    p99Son("baton"); return;
+  }
+  if (a === "saut") { if (F.y > 0.5 || F.ko || F.stun > 0 || F.cd.j > 0 || (F.st !== "idle" && F.st !== "att")) return; F.st = "idle"; F.garde = false; F.vy = 235; F.inv = Math.max(F.inv, 0.34); F.cd.j = 0.45; F.air = 0; p99Fx("onde", { x: F.x, z: F.z, vie: 0.35, r: 12, col: [1, 1, 1] }); p99Son("bond"); return; }
+  if (a === "dash") {
+    if (F.cd.d > 0 || F.ko || F.stun > 0 || (F.st !== "idle" && F.st !== "att")) return;
+    let dx = F.mx, dz = F.mz; if (Math.hypot(dx, dz) < 0.2) { dx = O.x - F.x; dz = O.z - F.z; }
+    const l = Math.hypot(dx, dz) || 1; F.st = "dash"; F.t = 0; F.dur = 0.17; F.vx = dx / l * 430; F.vz = dz / l * 430; F.yaw = Math.atan2(dx, dz); F.inv = Math.max(F.inv, 0.22); F.cd.d = 0.55; F.garde = false;
+    p99Fx("trait", { x: F.x, z: F.z, x1: F.x + dx / l * 73, z1: F.z + dz / l * 73, vie: 0.3, col: g3Col(F.col) }); p99Fx("onde", { x: F.x, z: F.z, vie: 0.3, r: 14, col: [1, 1, 1] }); p99Son("bond"); return;
+  }
+  if (a === "ki") {
+    if (!p99Libre(F) || F.y > 1 || F.ki < 30 || F.cd.k > 0) { if (F.hum && F.ki < 30) F.txt = { s: "Pas assez de ki", t: 0 }; return; }
+    const sup = F.ki >= 100; F.ki -= sup ? 100 : 30; F.st = "cast"; F.t = 0; F.dur = sup ? 0.5 : 0.3; F.sup = sup; F.tir = 0; F.cd.k = 0.5; p99Face(F, O); F.garde = false;
+    const T = F.techs && F.techs.length ? F.techs[sup ? F.techs.length - 1 : 0] : null; F.txt = { s: (T && T.nom) || (sup ? "Kaméhaméha" : "Boule de ki"), t: 0 }; p99Son(sup ? "kame" : "orbe");
+  }
+}
+function p99Coup(F, O, mult, kb, pop, x, z) {
+  if (O.ko) return false;
+  if (O.inv > 0) { p99Fx("txt", { x: O.x, z: O.z, y: O.y + 34, s: "ESQUIVE !", col: "#bfe8ff", vie: 0.7 }); return false; }
+  const C = AV.cine; let dmg = F.atk * mult * (0.9 + Math.random() * 0.2), gard = O.garde && O.y < 1 && O.stun <= 0;
+  if (gard) { dmg *= 0.2; kb *= 0.3; pop = 0; }
+  O.pv = Math.max(0, O.pv - dmg); const dx = O.x - (x != null ? x : F.x), dz = O.z - (z != null ? z : F.z), l = Math.hypot(dx, dz) || 1;
+  O.vx = dx / l * kb; O.vz = dz / l * kb; if (pop) O.vy = Math.max(O.vy, pop);
+  if (!gard) { O.st = "hurt"; O.t = 0; O.stun = kb > 150 ? 0.5 : 0.24; O.hurt = 0.22; O.combo = 0; O.buf = 0; O.yaw = Math.atan2(-dx, -dz); }
+  F.ki = Math.min(100, F.ki + 7); O.ki = Math.min(100, O.ki + 4);
+  const mx = (O.x + F.x) / 2, mz = (O.z + F.z) / 2, my = Math.max(O.y, F.y) + 14;
+  P99.hs = Math.max(P99.hs, gard ? 0.03 : kb > 150 ? 0.11 : 0.06); P99.shake = Math.max(P99.shake, gard ? 0.15 : kb > 150 ? 0.7 : 0.32);
+  p99Fx("flash", { x: O.x - dx / l * 5, z: O.z - dz / l * 5, y: my, vie: kb > 150 ? 0.26 : 0.17, r: kb > 150 ? 15 : 9, col: gard ? [0.5, 0.8, 1] : [1, 0.92, 0.6] });
+  if (kb > 150) { p99Fx("onde", { x: O.x, z: O.z, vie: 0.5, r: 40, col: [1, 1, 1] }); p99Fx("onde", { x: O.x, z: O.z, vie: 0.6, r: 26, col: g3Col(F.col) }); }
+  p99Fx("txt", { x: O.x, z: O.z, y: O.y + 30, s: gard ? "GARDE" : String(Math.round(dmg)), col: gard ? "#9fd8ff" : kb > 150 ? "#ffcf40" : "#ffffff", vie: 0.7 });
+  F.cc = F.ccT > 0 ? F.cc + 1 : 1; F.ccT = 1.1; P99.hype = Math.min(1.5, P99.hype + (kb > 150 ? 0.6 : 0.25));
+  p99Son(gard ? "touche" : kb > 150 ? "boum" : "aie"); try { vibrer(kb > 150 ? [25, 15, 50] : 14); } catch (_) { }
+  try { if (g3Actif()) g3Burst(mx, my, mz, kb > 150 ? 14 : 6, gard ? "#9fd8ff" : "#fff2b0", 70, 0.35, 2.2); } catch (_) { }
+  if (O.pv <= 0) { O.ko = 1; O.st = "ko"; O.vy = 160; O.vx *= 1.5; O.vz *= 1.5; C.res = { t: 0, G: F, P: O }; P99.hs = 0.2; P99.shake = 1; p99Son("vaincu"); P99.hype = 1.5; }
+  return true;
+}
+
+/* ---------- intelligence de l'adversaire ---------- */
+function p99IA(F, dt) {
+  const O = p99Foe(F), I = F.ia, dx = O.x - F.x, dz = O.z - F.z, d = Math.hypot(dx, dz) || 1, L = F.lvl;
+  I.t -= dt; if (I.g > 0) { I.g -= dt; if (I.g <= 0) F.garde = false; }
+  if (F.y > 8 && F.vy < 60 && !F.air && d < 70 && Math.random() < dt * 8) p99Action(F, "frap");
+  const menace = (O.st === "att" && O.t < 0.12 && d < 46) || (O.st === "dive" && d < 70) || AV.cine.proj.some(p => p.o === O && Math.hypot(p.x - F.x, p.z - F.z) < 70);
+  if (menace && !F.__vu) { F.__vu = 1; const r = Math.random(); if (r < 0.18 + 0.32 * L) { const q = Math.random(); if (q < 0.45) p99Action(F, "saut"); else if (q < 0.8) { F.mx = -dz / d * (Math.random() < 0.5 ? 1 : -1); F.mz = dx / d; p99Action(F, "dash"); } else if (F.y < 1 && p99Libre(F)) { F.garde = true; I.g = 0.45; } } }
+  if (!menace) F.__vu = 0;
+  if (I.t > 0) return; I.t = 0.1 + Math.random() * (0.28 - L * 0.12);
+  if (F.garde && I.g > 0) { I.mx = 0; I.mz = 0; return; }
+  const ux = dx / d, uz = dz / d, perp = Math.random() < 0.5 ? 1 : -1;
+  if (d > 95) { I.mx = ux + -uz * 0.3 * perp; I.mz = uz + ux * 0.3 * perp; if (Math.random() < 0.06 + L * 0.06) p99Action(F, "dash"); else if (F.ki >= 30 && Math.random() < 0.08 + L * 0.06) p99Action(F, "ki"); }
+  else if (d > 26) { I.mx = ux - uz * 0.5 * perp; I.mz = uz + ux * 0.5 * perp; if (Math.random() < 0.05 + L * 0.05) p99Action(F, "saut"); else if (d < 60 && Math.random() < 0.28 + L * 0.3) p99Action(F, "frap"); }
+  else { I.mx = -uz * perp * 0.6; I.mz = ux * perp * 0.6; if (Math.random() < 0.35 + L * 0.35) { p99Action(F, "frap"); if (Math.random() < 0.4 + L * 0.4) F.buf = 1; } else if (Math.random() < 0.25) { I.mx = -ux; I.mz = -uz; } }
+  if (F.pv < F.pvMax * 0.3 && F.ki >= 100) p99Action(F, "ki");
+}
+
+/* ---------- entrées ---------- */
+function p99EntreeJ(F, C) {
+  let x = 0, z = 0;
+  if (F.J === 0) {
+    if (Math.hypot(manette.vx || 0, manette.vy || 0) > 0.12) { x = manette.vx; z = manette.vy; }
+    else for (const k of touches) { if (C.pvp && k.indexOf("Arrow") === 0) continue; const D = DIRECTIONS[k]; if (D) { x += D[0]; z += D[1]; } }
+    F.garde = (P99.g[0] || P99.keys.has("g1")) && F.y < 1 && (F.st === "idle");
+  } else {
+    if (Math.hypot(P99.j2v.x, P99.j2v.y) > 0.12) { x = P99.j2v.x; z = P99.j2v.y; }
+    else { for (const k of touches) if (k.indexOf("Arrow") === 0) { const D = DIRECTIONS[k]; x += D[0]; z += D[1]; } try { if (!x && !z) { const e = j2Entree(); x = e.x || 0; z = e.y || 0; } } catch (_) { } }
+    F.garde = (P99.g[1] || P99.keys.has("g2")) && F.y < 1 && (F.st === "idle");
+  }
+  const l = Math.hypot(x, z); if (l > 1) { x /= l; z /= l; } F.mx = x; F.mz = z;
+}
+function p99Clavier(e, bas) {
+  const C = AV.cine; if (!C || C.type !== "p99duel") return;
+  const k = e.code, A = C.A, B = C.B, J2 = C.pvp ? B : null;
+  const map1 = { KeyJ: "frap", Space: "frap", KeyK: "saut", KeyL: "dash", ShiftLeft: "dash", KeyU: "ki", KeyE: "ki" }, map2 = { Enter: "frap", NumpadEnter: "frap", Period: "saut", Slash: "ki", ShiftRight: "dash", Numpad0: "saut" };
+  if (k === "KeyI") { e.preventDefault(); e.stopImmediatePropagation(); if (bas) P99.keys.add("g1"); else P99.keys.delete("g1"); return; }
+  if (k === "Comma" && J2) { e.preventDefault(); e.stopImmediatePropagation(); if (bas) P99.keys.add("g2"); else P99.keys.delete("g2"); return; }
+  const a1 = map1[k], a2 = J2 ? map2[k] : null;
+  if (a1 || a2) { e.preventDefault(); e.stopImmediatePropagation(); if (bas && !e.repeat) p99Action(a1 ? A : J2, a1 || a2); }
+}
+addEventListener("keydown", e => p99Clavier(e, true), true); addEventListener("keyup", e => p99Clavier(e, false), true);
+
+/* ---------- boutons ronds ---------- */
+function p99UI(on, pvp) {
+  let U = document.getElementById("p99ui");
+  if (!U) {
+    const st = document.createElement("style");
+    st.textContent = `#p99ui,#p99j2{position:fixed;inset:0;pointer-events:none;z-index:40;font-family:system-ui,"Segoe UI",Roboto,sans-serif}
+#p99ui[hidden],#p99j2[hidden],#p99fin[hidden]{display:none}
+.p99b{position:absolute;pointer-events:auto;border-radius:50%;border:3px solid rgba(255,255,255,.85);color:#fff;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 4px 12px #0007,inset 0 -6px 10px #0004;text-shadow:0 2px 2px #0008;padding:0;-webkit-tap-highlight-color:transparent}
+.p99b i{font-style:normal;font-size:1.55em}.p99b small{font-size:10px;margin-top:2px;letter-spacing:.3px}
+.p99b.on{transform:scale(.9);filter:brightness(1.35)}.p99b.off{opacity:.45}
+.p99b.fr{background:radial-gradient(circle at 35% 30%,#ff8a5a,#d8321e 70%)}.p99b.sa{background:radial-gradient(circle at 35% 30%,#7ad8ff,#1e78d8 70%)}
+.p99b.da{background:radial-gradient(circle at 35% 30%,#b0ff8a,#3a9a28 70%)}.p99b.ki{background:radial-gradient(circle at 35% 30%,#fff08a,#e0a010 70%)}.p99b.ga{background:radial-gradient(circle at 35% 30%,#c8c8d8,#5a5a78 70%)}
+.p99b.x{background:#0008;border-width:2px;font-size:16px}
+.p99b .kr{position:absolute;inset:-6px;border-radius:50%;pointer-events:none}
+#p99j2 .p99b{transform:rotate(180deg)}#p99j2 .p99b.on{transform:rotate(180deg) scale(.9)}
+#p99js{position:absolute;width:118px;height:118px;border-radius:50%;background:#ffffff1c;border:2px solid #fff6;pointer-events:auto;touch-action:none}#p99js b{position:absolute;left:34px;top:34px;width:50px;height:50px;border-radius:50%;background:#fff8}
+body.p99 > *:not(#ecran):not(#manette):not(#p99ui):not(#p99j2):not(#p99fin):not(script):not(style):not(#p99m){visibility:hidden!important}
+body.p99 #manette{visibility:visible!important}
+#p99fin{position:fixed;inset:0;z-index:62;display:flex;align-items:flex-end;justify-content:center;padding-bottom:max(18px,8vh);pointer-events:none;font-family:system-ui,"Segoe UI",Roboto,sans-serif}
+#p99fin .b{pointer-events:auto;display:flex;gap:12px}#p99fin button{border:0;border-radius:40px;padding:14px 20px;font-size:17px;font-weight:900;color:#fff;background:linear-gradient(#e85a3a,#b8321e);box-shadow:0 4px 14px #0008}#p99fin button.s{background:linear-gradient(#4a4a6a,#2a2a40)}`;
+    document.head.appendChild(st);
+    U = document.createElement("div"); U.id = "p99ui"; document.body.appendChild(U);
+    const mk = (par, cls, ic, lab, act, J, sz, hold) => { const b = document.createElement("button"); b.className = "p99b " + cls; b.innerHTML = `<i>${ic}</i><small>${lab}</small>`; b.style.width = b.style.height = sz + "px"; b.dataset.a = act; par.appendChild(b);
+      const C = () => AV.cine && AV.cine.type === "p99duel" ? AV.cine : null;
+      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); b.classList.add("on"); try { b.setPointerCapture(e.pointerId); } catch (_) { } const c = C(); if (!c) return; if (act === "quit") { p99Quitter(); return; } if (hold) { P99.g[J] = true; return; } p99Action(J ? c.B : c.A, act); });
+      const up = e => { b.classList.remove("on"); if (hold) P99.g[J] = false; }; b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up);
+      b.addEventListener("contextmenu", e => e.preventDefault()); return b; };
+    P99.btn = { fr: mk(U, "fr", "👊", "FRAPPER", "frap", 0, 84), sa: mk(U, "sa", "⤒", "SAUTER", "saut", 0, 64), da: mk(U, "da", "💨", "DASH", "dash", 0, 56), ki: mk(U, "ki", "⚡", "KI", "ki", 0, 58), ga: mk(U, "ga", "🛡", "GARDE", "garde", 0, 52, true), x: mk(U, "x", "✖", "", "quit", 0, 38) };
+    P99.btn.ki.insertAdjacentHTML("beforeend", `<span class="kr"></span>`);
+    const J = document.createElement("div"); J.id = "p99j2"; J.hidden = true; document.body.appendChild(J);
+    P99.btn2 = { fr: mk(J, "fr", "👊", "J2", "frap", 1, 64), sa: mk(J, "sa", "⤒", "SAUT", "saut", 1, 52), da: mk(J, "da", "💨", "", "dash", 1, 46), ki: mk(J, "ki", "⚡", "", "ki", 1, 46), ga: mk(J, "ga", "🛡", "", "garde", 1, 44, true) };
+    const S = document.createElement("div"); S.id = "p99js"; S.innerHTML = "<b></b>"; J.appendChild(S);
+    const kn = S.firstChild; let pid = null;
+    const mv = e => { const r = S.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2; let x = (e.clientX - cx) / 46, y = (e.clientY - cy) / 46; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } P99.j2v.x = x; P99.j2v.y = y; kn.style.transform = `translate(${x * 34}px,${y * 34}px)`; };
+    S.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); pid = e.pointerId; try { S.setPointerCapture(pid); } catch (_) { } mv(e); });
+    S.addEventListener("pointermove", e => { if (e.pointerId === pid) mv(e); });
+    const fin = () => { pid = null; P99.j2v.x = P99.j2v.y = 0; kn.style.transform = ""; }; S.addEventListener("pointerup", fin); S.addEventListener("pointercancel", fin);
+    addEventListener("resize", () => { try { if (document.body.classList.contains("p99")) p99Placer(); } catch (_) { } });
+  }
+  U.hidden = !on; document.getElementById("p99j2").hidden = !(on && pvp);
+  document.body.classList.toggle("p99", !!on);
+  if (on) p99Placer();
+}
+function p99Placer() {
+  const W = innerWidth, H = innerHeight, gau = PARAMS.boutons === "gauche", B = P99.btn, pay = W > H;
+  const sb = pay ? 14 : 26, sr = pay ? 18 : 12;
+  const put = (b, r, bt) => { const s = parseFloat(b.style.width); if (gau) { b.style.left = r + "px"; b.style.right = ""; } else { b.style.right = r + "px"; b.style.left = ""; } b.style.bottom = bt + "px"; b.style.top = ""; };
+  put(B.fr, sr, sb); put(B.sa, sr + 10, sb + 96); put(B.da, sr + 96, sb + 6); put(B.ki, sr + 84, sb + 76); put(B.ga, sr + 158, sb + 46);
+  B.x.style.top = (pay ? 46 : 64) + "px"; B.x.style.bottom = ""; if (gau) { B.x.style.left = "10px"; B.x.style.right = ""; } else { B.x.style.right = "10px"; B.x.style.left = ""; }
+  const Q = P99.btn2, tp = (b, l, t) => { b.style.left = l + "px"; b.style.top = t + "px"; b.style.right = b.style.bottom = ""; };
+  // J2 : de l'autre côté du téléphone posé à plat (boutons retournés en haut à gauche, joystick en haut à droite)
+  tp(Q.fr, 12, 70 + (pay ? 0 : 20)); tp(Q.sa, 84, 66 + (pay ? 0 : 20)); tp(Q.da, 14, 142 + (pay ? 0 : 20)); tp(Q.ki, 70, 128 + (pay ? 0 : 20)); tp(Q.ga, 130, 118 + (pay ? 0 : 20));
+  const S = document.getElementById("p99js"); S.style.right = "14px"; S.style.top = (pay ? 60 : 96) + "px";
+}
+
+/* ---------- lancement ---------- */
+function p99Lancer(opt) {
+  try {
+    if (AV.cine) return false;
+    try { if (AV.nuageActif) finNuage(true); } catch (_) { }
+    const n = prog.niveau || 1;
+    const j1 = opt.j1 && TB_HEROS[opt.j1] ? opt.j1 : coopHeroJ1(), L1 = p99Look(j1) || p99Look("sangoku");
+    const pvJ = Math.round(130 + n * 11), atkJ = 7 + n * 0.9;
+    let o2;
+    if (opt.adv) o2 = Object.assign({}, opt.adv);
+    else { const L = p99Look(opt.j2 || "naruto") || p99Look("luffy"); o2 = { id: L.id, nom: L.nom, col: L.col, sprite: L.sprite }; }
+    const pvp = !!opt.pvp, lvl = opt.lvl == null ? 0.5 : opt.lvl;
+    if (!o2.pv) o2.pv = pvp ? pvJ : Math.round(pvJ * (0.75 + lvl * 0.5)); if (!o2.atk) o2.atk = pvp ? atkJ : atkJ * (0.5 + lvl * 0.45);
+    const A = p99Fighter({ id: L1.id, nom: L1.nom, col: L1.col, sprite: L1.sprite, pv: pvJ, atk: atkJ, hum: true, J: 0, techs: (TB_HEROS[L1.id] || {}).techs }, -1);
+    const B = p99Fighter(Object.assign(o2, { hum: pvp, J: pvp ? 1 : null, lvl }), 1);
+    P99.fx = []; P99.hs = 0; P99.shake = 0; P99.hype = 0.6; P99.g = [false, false]; P99.keys.clear(); P99.dern = opt;
+    try { if (G3.parts) G3.parts.length = 0; } catch (_) { }
+    try { manette.relacher(); } catch (_) { }
+    AV.cine = { type: "p99duel", t: 0, plein: true, cacherHUD: true, particules: false, A, B, pvp, opt, dec: 3.4, res: null, proj: [], cam: null,
+      maj(dt) { try { p99Maj(this, dt); } catch (e) { p99Err("maj", e); } },
+      passer() { },
+      dessiner(W, H, dpr) { try { p99Dessiner(this, W, H, dpr); } catch (e) { p99Err("dess", e); } } };
+    p99UI(true, pvp); p99Son("combat");
+    return true;
+  } catch (e) { p99Err("lancer", e); return false; }
+}
+function p99Quitter() { const C = AV.cine; if (!C || C.type !== "p99duel") return; C.abandon = true; p99Terminer(C, false); }
+function p99Terminer(C, gagne) {
+  p99UI(false); const F = document.getElementById("p99fin"); if (F) F.hidden = true;
+  try { manette.relacher(); } catch (_) { }
+  AV.cine = null; try { finCine(); } catch (_) { }
+  try { jeu.pause = false; } catch (_) { }
+  const o = C.opt || {};
+  try {
+    if (C.abandon) { if (o.abandon) o.abandon(); return; }
+    if (gagne) { if (o.victoire) o.victoire(); else if (!C.pvp) { const n = prog.niveau || 1; gagnerXP(30 + n * 6); gagnerZenis(50 + n * 6); } }
+    else if (o.defaite) o.defaite();
+  } catch (e) { p99Err("fin", e); }
+}
+function p99FinUI(C) {
+  let F = document.getElementById("p99fin");
+  if (!F) { F = document.createElement("div"); F.id = "p99fin"; document.body.appendChild(F); F.addEventListener("pointerdown", e => e.stopPropagation()); }
+  const gagne = C.res.G === C.A;
+  F.innerHTML = `<div class="b"><button data-f="re" class="s">↻ Revanche</button><button data-f="ok">▶ Continuer</button></div>`;
+  F.hidden = false;
+  F.onclick = e => { const b = e.target.closest("[data-f]"); if (!b) return; p99Son("clic"); const o = C.opt; if (b.dataset.f === "re") { if (o.tour != null && gagne) { p99Terminer(C, true); return; } p99UI(false); F.hidden = true; AV.cine = null; setTimeout(() => p99Lancer(o), 30); } else p99Terminer(C, gagne || (C.pvp && false)); };
+}
+
+/* ---------- mise à jour ---------- */
+function p99Maj(C, dt) {
+  dt = Math.min(dt, 0.05);
+  if (C.res) { C.res.t += dt; if (C.res.t > 1.6 && !C.res.ui) { C.res.ui = 1; p99FinUI(C); } dt *= C.res.t < 1.2 ? 0.35 : 1; }
+  P99.shake = Math.max(0, P99.shake - dt * 2.2); P99.hype = Math.max(0, P99.hype - dt * 0.35);
+  for (const f of P99.fx) f.t += dt; P99.fx = P99.fx.filter(f => f.t < f.vie);
+  if (P99.hs > 0) { P99.hs -= dt; return; }
+  if (C.dec > -1) { const a = Math.ceil(C.dec); C.dec -= dt; const b = Math.ceil(C.dec); if (a !== b && a > 0) p99Son(b > 0 ? "clic" : "fanfare"); }
+  const A = C.A, B = C.B, go = C.dec <= 0 && !C.res;
+  for (const F of [A, B]) {
+    const O = F === A ? B : A;
+    for (const k in F.cd) F.cd[k] = Math.max(0, F.cd[k] - dt);
+    F.inv = Math.max(0, F.inv - dt); F.hurt = Math.max(0, F.hurt - dt); F.comboT = Math.max(0, F.comboT - dt); F.ccT = Math.max(0, F.ccT - dt); if (F.txt) { F.txt.t += dt; if (F.txt.t > 1.1) F.txt = null; }
+    if (go && !F.ko) { F.ki = Math.min(100, F.ki + dt * 3.2); if (F.hum) p99EntreeJ(F, C); else { p99IA(F, dt); F.mx = F.ia.mx; F.mz = F.ia.mz; const l = Math.hypot(F.mx, F.mz); if (l > 1) { F.mx /= l; F.mz /= l; } F.mx *= 0.86; F.mz *= 0.86; } }
+    else { F.mx = F.mz = 0; if (!F.ko) F.garde = false; }
+    if (F.stun > 0) { F.stun -= dt; if (F.stun <= 0 && F.st === "hurt") F.st = "idle"; }
+    // états
+    if (F.st === "att") {
+      F.t += dt; if (F.lunge > 0) { F.lunge -= dt; if (F.lunge <= 0) { F.vx *= 0.15; F.vz *= 0.15; } }
+      if (!F.hit && F.t >= (F.combo === 3 ? 0.12 : 0.08)) { F.hit = 1; const d = Math.hypot(O.x - F.x, O.z - F.z); if (d < 27 && Math.abs(O.y - F.y) < 18) { p99Face(F, O); const c3 = F.combo === 3; p99Coup(F, O, c3 ? 1.7 : 1, c3 ? 240 : 70, c3 ? 110 : 0); F.vx *= 0.2; F.vz *= 0.2; } }
+      if (F.t >= F.dur) { F.st = "idle"; if (F.buf) { F.buf = 0; p99Action(F, "frap"); } }
+    } else if (F.st === "dash") { F.t += dt; if (F.t >= F.dur) { F.st = "idle"; F.vx *= 0.25; F.vz *= 0.25; } }
+    else if (F.st === "cast") {
+      F.t += dt; p99Face(F, O);
+      if (!F.tir && F.t >= F.dur * 0.55) { F.tir = 1; const s = F.sup, yw = F.yaw; C.proj.push({ o: F, x: F.x + Math.sin(yw) * 12, z: F.z + Math.cos(yw) * 12, y: F.y + 14, vx: Math.sin(yw) * (s ? 300 : 340), vz: Math.cos(yw) * (s ? 300 : 340), r: s ? 11 : 5.5, mult: s ? 3.2 : 1.5, t: 0, col: g3Col(F.col) }); P99.shake = Math.max(P99.shake, s ? 0.5 : 0.15); }
+      if (F.t >= F.dur) F.st = "idle";
+    } else if (F.st === "dive") { F.t += dt; }
+    // déplacement
+    const libre = (F.st === "idle") && F.stun <= 0 && !F.ko, sp = F.garde ? 38 : 104, ac = F.y > 1 ? 0.8 : 1;
+    let wx = 0, wz = 0; if (libre) { wx = F.mx * sp * ac; wz = F.mz * sp * ac; if (Math.hypot(F.mx, F.mz) > 0.2 && !F.garde) F.yaw += angDiff(Math.atan2(F.mx, F.mz), F.yaw) * Math.min(1, dt * 14); else if (F.st === "idle" && F.y < 1) F.yaw += angDiff(Math.atan2(O.x - F.x, O.z - F.z), F.yaw) * Math.min(1, dt * 5); }
+    const mv = Math.hypot(wx, wz) > 10 ? 1 : 0; F.mv += (mv - F.mv) * Math.min(1, dt * 12); if (mv) F.ph += dt * 13;
+    F.x += (wx + F.vx) * dt; F.z += (wz + F.vz) * dt;
+    if (F.y > 0 || F.vy > 0) { F.vy -= (F.st === "dive" ? 900 : 720) * dt; F.y += F.vy * dt; if (F.y <= 0) { F.y = 0; F.vy = 0; p99Atterrit(C, F, O); } }
+    const fr = F.st === "dash" || F.lunge > 0 || F.st === "dive" ? 0 : (F.y > 0 ? 120 : (F.ko ? 260 : 520)), v = Math.hypot(F.vx, F.vz);
+    if (v > 0) { const nv = Math.max(0, v - fr * dt); F.vx *= nv / v; F.vz *= nv / v; if (v > 120 && F.y < 1 && Math.random() < 0.6) p99Fx("poussiere", { x: F.x + (Math.random() - 0.5) * 6, z: F.z + (Math.random() - 0.5) * 6, vie: 0.5, r: 3 + Math.random() * 3 }); }
+    // bords de l'arène
+    for (const [c, lim, vk] of [["x", P99A.x, "vx"], ["z", P99A.z, "vz"]]) if (Math.abs(F[c]) > lim) { F[c] = Math.sign(F[c]) * lim; if (Math.abs(F[vk]) > 140) { P99.shake = Math.max(P99.shake, 0.35); p99Fx("onde", { x: F.x, z: F.z, vie: 0.35, r: 18, col: [1, 0.9, 0.7] }); p99Son("rebond"); } F[vk] *= -0.35; }
+  }
+  // séparation des deux corps
+  { const dx = B.x - A.x, dz = B.z - A.z, d = Math.hypot(dx, dz); if (d < 13 && Math.abs(A.y - B.y) < 16 && !A.ko && !B.ko) { const p = (13 - d) / 2, ux = d ? dx / d : 1, uz = d ? dz / d : 0; A.x -= ux * p; A.z -= uz * p; B.x += ux * p; B.z += uz * p; } }
+  // projectiles de ki
+  for (const p of C.proj) {
+    p.t += dt; const O = p.o === A ? B : A, dx = O.x - p.x, dz = O.z - p.z, d = Math.hypot(dx, dz) || 1;
+    if (p.t < 0.6) { const s = Math.hypot(p.vx, p.vz), ax = dx / d * s, az = dz / d * s; p.vx += (ax - p.vx) * Math.min(1, dt * 1.6); p.vz += (az - p.vz) * Math.min(1, dt * 1.6); }
+    p.x += p.vx * dt; p.z += p.vz * dt;
+    if (d < p.r + 9 && Math.abs(O.y + 12 - p.y) < p.r + 14) { p.mort = 1; const ok = p99Coup(p.o, O, p.mult, 190, 70, p.x - p.vx * 0.05, p.z - p.vz * 0.05); p99Fx("flash", { x: p.x, z: p.z, y: p.y, vie: 0.35, r: p.r * 2.4, col: p.col }); p99Fx("onde", { x: p.x, z: p.z, vie: 0.5, r: p.r * 4, col: p.col }); if (!ok && O.inv > 0) p.mort = 0; }
+    if (p.t > 1.6 || Math.abs(p.x) > 175 || Math.abs(p.z) > 140) { p.mort = 1; p99Fx("flash", { x: p.x, z: p.z, y: p.y, vie: 0.3, r: p.r * 2, col: p.col }); }
+  }
+  C.proj = C.proj.filter(p => !p.mort);
+}
+function p99Atterrit(C, F, O) {
+  if (F.st === "dive") {
+    F.st = "idle"; F.vx = F.vz = 0; F.stun = 0.16; F.air = 0; p99Fx("onde", { x: F.x, z: F.z, vie: 0.45, r: 34, col: [1, 1, 1] }); P99.shake = Math.max(P99.shake, 0.35); p99Son("boum");
+    const d = Math.hypot(O.x - F.x, O.z - F.z); if (d < 34 && O.y < 14) p99Coup(F, O, 1.9, 210, 150);
+    for (let i = 0; i < 6; i++) p99Fx("poussiere", { x: F.x + (Math.random() - 0.5) * 20, z: F.z + (Math.random() - 0.5) * 20, vie: 0.6, r: 4 + Math.random() * 4 });
+  } else { F.air = 0; if (F.ko) { P99.shake = Math.max(P99.shake, 0.4); p99Fx("onde", { x: F.x, z: F.z, vie: 0.5, r: 26, col: [1, 0.95, 0.85] }); } else p99Fx("poussiere", { x: F.x, z: F.z, vie: 0.4, r: 4 }); }
+}
+
+/* ---------- caméra & projection ---------- */
+function p99Cam(C, asp) {
+  const A = C.A, B = C.B, port = asp < 1, sep = Math.hypot(A.x - B.x, A.z - B.z);
+  let tx = (A.x + B.x) / 2, tz = (A.z + B.z) / 2;
+  tx = Math.max(-(port ? 75 : 35), Math.min(port ? 75 : 35, tx)); tz = Math.max(-45, Math.min(50, tz));
+  const fv = port ? 0.68 : 0.55, tn = Math.tan(fv / 2), dzs = Math.abs(A.z - B.z), dxs = Math.abs(A.x - B.x);
+  let dist = Math.min(port ? 820 : 700, Math.max(port ? 470 : 440, (dxs / 2 + 34) / (tn * asp) * 0.95, (dzs / 2 + 40) / tn * 0.75));
+  if (C.dec > 0) dist *= 1 + Math.max(0, C.dec - 1) * 0.22;
+  if (C.res && C.res.t < 1.5) dist *= 1 - Math.min(0.28, C.res.t * 0.25);
+  const K = C.cam || (C.cam = { x: tx, z: tz, d: dist }), k = Math.min(1, (C.dtc || 0.016) * 4); K.x += (tx - K.x) * k; K.z += (tz - K.z) * k; K.d += (dist - K.d) * k;
+  if (C.res && C.res.t < 1.5) { const G = C.res.P; K.x += (G.x - K.x) * k; K.z += (G.z - K.z) * k; }
+  const pit = port ? 1.0 : 0.95, sh = P99.shake * 3;
+  const eye = [K.x + (Math.random() - 0.5) * sh, Math.sin(pit) * K.d + (Math.random() - 0.5) * sh, K.z + Math.cos(pit) * K.d + 20], tgt = [K.x, 0, K.z + (asp < 1 ? 34 : 12)];
+  return { eye, tgt, fov: port ? 0.68 : 0.55 };
+}
+function p99Proj(VP, x, y, z, W, H) { const q = M4.proj(VP, x, y, z); if (q[2] <= 1) return null; return [(q[0] * 0.5 + 0.5) * W, (0.5 - q[1] * 0.5) * H, q[2]]; }
+
+/* ---------- dessin ---------- */
+function p99Dessiner(C, W, H, dpr) {
+  const now = p99Now(), dtc = Math.min(0.05, Math.max(0.001, now - (C.tp || now))); C.tp = now; C.dtc = dtc;
+  let VP = null;
+  if (g3Actif()) { try { VP = p99D3(C, W, H, dpr, now, dtc); } catch (e) { p99Err("3d", e); VP = null; } }
+  if (!VP) VP = p99D2(C, W, H, dpr, now);
+  p99Overlay(C, W, H, dpr, VP, now);
+}
+function p99Pal(F) {
+  let im = null; try { im = F.sprite(F.st === "att" ? 1 : 0); } catch (_) { }
+  if (F.__pal) return F.__pal; if (!im) return null; F.img = im;
+  const P = e3Palette(im); if (!P || !(P.h > 12)) return null;
+  const key = [P.skin, P.hair, P.torso, P.legs, P.belt, P.boots].map(c => c.map(v => Math.round(v * 14)).join(",")).join("|") + P.hat; E3.models = E3.models || new Map(); let Q = E3.models.get(key); if (!Q) { Q = P; E3.models.set(key, Q); }
+  return F.__pal = Q;
+}
+function p99D3(C, W, H, dpr, now, dtc) {
+  const G = p99Geo(), U = g3Unit();
+  if (E3.tier < 0) E3.tier = e3Tier0(); if (window.__e3fixe != null) E3.tier = window.__e3fixe;
+  const TR = E3_TIERS[Math.max(0, E3.tier)]; let RW = Math.round(W / dpr), RH = Math.round(H / dpr); { const f = Math.sqrt(TR.px / (RW * RH)); if (f < 1) { RW = Math.round(RW * f); RH = Math.round(RH * f); } }
+  RW = Math.max(160, RW); RH = Math.max(120, RH);
+  const asp = RW / RH, cam = p99Cam(C, asp), V = M4.look(cam.eye, cam.tgt), Pm = M4.persp(cam.fov, asp, 4, 3000), VP = M4.mul(Pm, V);
+  let L = [0.42, 0.82, 0.38]; { const l = Math.hypot(...L); L = L.map(v => v / l); }
+  const hor = [0.74, 0.86, 0.96], top = [0.3, 0.56, 0.9];
+  g3Debut(RW, RH, { VP, cam: cam.eye, fov: cam.fov, L, amb: [0.6, 0.62, 0.66], sun: [0.62, 0.58, 0.5], fog: [900, 2600], fogC: hor, ciel: [hor, top], hz: 0.5 });
+  const I = M4.trs(0, 0, 0); g3Mesh(G.sol, I);
+  const hy = P99.hype;
+  for (let q = 0; q < 4; q++) { const b = Math.max(0, Math.sin(now * (7 + q * 1.3) + q * 1.7)) * (0.8 + hy * 2.2); g3Mesh(G.foule[q], M4.trs(0, b, 0)); }
+  // flammes des torches
+  if (E3.tier >= 1) for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const f = 0.85 + 0.15 * Math.sin(now * 13 + sx * 3 + sz); e3Lueur(sx * 166, 28, sz * 126, 4.2 * f, [1, 0.6, 0.2], 0.85); e3Lueur(sx * 166, 30, sz * 126, 7 * f, [1, 0.4, 0.1], 0.3); }
+  const FY = P99A.FY;
+  for (const F of [C.A, C.B]) {
+    const Q = p99Pal(F), hgt = Math.max(0, F.y), so = Math.max(0.35, 1 - hgt / 70);
+    g3Mesh(U.ombre, M4.trs(F.x, FY + 0.15, F.z, 0, 0, 0, 8.5 * so, 1, 6 * so), { a: 0.42 * so, tint: [0, 0, 0, 1] });
+    if (F.garde) e3Lueur(F.x, FY + 14 + hgt, F.z, 15, [0.45, 0.75, 1], 0.22);
+    if (F.st === "cast") { const u = Math.min(1, F.t / (F.dur * 0.55)); e3Lueur(F.x + Math.sin(F.yaw) * 9, FY + 15 + hgt, F.z + Math.cos(F.yaw) * 9, (F.sup ? 7 : 4) * u, g3Col(F.col), 0.9); }
+    if (F.inv > 0 && F.st === "dash") for (let k = 1; k <= 3; k++) e3Lueur(F.x - F.vx * 0.018 * k, FY + 12 + hgt, F.z - F.vz * 0.018 * k, 5 - k, g3Col(F.col), 0.35 / k);
+    if (!Q) { g3Mesh(U.sph, M4.trs(F.x, FY + 12 + hgt, F.z, 0, 0, 0, 7, 12, 7), { tint: [...g3Col(F.col), 1] }); continue; }
+    const sc = Math.max(0.95, Q.h / 26 * 1.12) * (RW > RH ? 1.36 : 1.26);
+    const at = F.st === "att" ? Math.sin(Math.min(1, F.t / F.dur) * Math.PI) : F.st === "dive" ? 1 : 0, hk = F.hurt > 0 ? Math.min(1, F.hurt / 0.18) : 0;
+    const lean = F.st === "dive" ? 0.5 : F.st === "dash" ? 0.35 : hk ? -0.35 : 0;
+    const body = M4.trs(F.x, FY + hgt + 0.55 * sc * Math.abs(Math.sin(F.ph)) * F.mv, F.z, F.yaw, lean, 0, sc, sc, sc);
+    const tt = hk > 0 ? [1, 0.42, 0.3, 0.4 * hk] : F.inv > 0 && F.y > 0 ? [0.6, 0.85, 1, 0.25] : null;
+    try { if (typeof V41 === "object") { V41.curId = F.id; V41.curD = 0; } e3Figure(Q, !Q.hat, body, { p92: 1, sw: Math.sin(F.ph) * 0.95 * F.mv, att: at, K: F.st === "cast", jump: F.y > 3 ? 1 : 0, tint: tt, ko: !!F.ko && F.y < 1, hero: false, hurt: hk, garde: F.garde, esq: F.st === "dash", ph: 0 }); }
+    finally { try { if (typeof V41 === "object") V41.curId = null; } catch (_) { } }
+  }
+  for (const p of C.proj) { e3Lueur(p.x, FY + p.y, p.z, p.r, [1, 1, 1], 1); e3Lueur(p.x, FY + p.y, p.z, p.r * 1.9, p.col, 0.5); if (Math.random() < 0.8) g3Part(p.x, FY + p.y, p.z, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.35, p.r * 0.5, p.col); }
+  for (const f of P99.fx) {
+    const u = f.t / f.vie;
+    if (f.k === "flash") { e3Lueur(f.x, FY + f.y, f.z, f.r * (0.5 + u), [1, 1, 1], (1 - u)); e3Lueur(f.x, FY + f.y, f.z, f.r * (1 + u * 1.4), f.col, (1 - u) * 0.6); }
+    else if (f.k === "onde") g3Mesh(U.sph, M4.trs(f.x, FY + 0.4, f.z, 0, 0, 0, f.r * (0.3 + u), 0.6, f.r * (0.3 + u)), { tint: [f.col[0], f.col[1], f.col[2], 1], a: (1 - u) * (1 - u) * 0.3, add: true, e: 1 });
+    else if (f.k === "poussiere") g3Mesh(U.sph, M4.trs(f.x, FY + 2 + u * 5, f.z, 0, 0, 0, f.r * (0.6 + u), f.r * (0.5 + u * 0.6), f.r * (0.6 + u)), { tint: [0.86, 0.84, 0.78, 1], a: (1 - u) * 0.5 });
+    else if (f.k === "trait") { for (let k = 0; k < 5; k++) { const s = k / 4; e3Lueur(f.x + (f.x1 - f.x) * s, FY + 12, f.z + (f.z1 - f.z) * s, 2.4 * (1 - u), f.col, (1 - u) * 0.5); } }
+  }
+  g3MajParts(dtc); g3DessinerParts(RH);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(G3.cv, 0, 0, W, H); ctx.restore();
+  try { E3.fx = E3.fx || {}; const g0 = E3.fx.glow; E3.fx.glow = 0.35 + Math.min(0.4, P99.shake * 0.4); e3Bloom(W, H); E3.fx.glow = g0; } catch (_) { }
+  return VP;
+}
+/* repli 2D (sans WebGL) : même arène vue de dessus */
+function p99D2(C, W, H, dpr, now) {
+  const port = W < H, sc = Math.min(W / (port ? 340 : 420), H / (port ? 520 : 300)), cx = W / 2, cy = H / 2 + (port ? 0 : 10 * dpr);
+  const sh = P99.shake * 4 * dpr, ox = cx + (Math.random() - 0.5) * sh, oy = cy + (Math.random() - 0.5) * sh, X = x => ox + x * sc, Y = z => oy + z * sc * 0.82;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#5aa040"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#7a7a76"; ctx.fillRect(X(-156), Y(-116), 312 * sc, 232 * sc * 0.82);
+  for (let i = 0; i < 12; i++) for (let j = 0; j < 9; j++) { const r = p99H(i, j), k = Math.round(196 + r * 26); ctx.fillStyle = `rgb(${k},${k},${k - 4})`; ctx.fillRect(X(-156 + i * 26 + 0.7), Y(-116 + j * 25.8 + 0.7), 24.6 * sc, 24.4 * sc * 0.82); }
+  ctx.fillStyle = "#b8483a"; ctx.fillRect(X(-240), Y(-182), (240 - 26) * sc, 14 * sc); ctx.fillRect(X(26), Y(-182), (240 - 26) * sc, 14 * sc);
+  ctx.fillStyle = "#e0d8c8"; ctx.fillRect(X(-20), Y(-170), 40 * sc, 54 * sc * 0.82);
+  for (let k = 0; k < 4; k++) for (let i = 0; i < 46; i++) { const r = p99H(i, k + 40); if (r < 0.08) continue; const b = Math.max(0, Math.sin(now * (7 + ((i * 7 + k * 3) & 3) * 1.3))) * 2 * sc; ctx.fillStyle = ["#e04040", "#3a6ae0", "#f0c030", "#40b050", "#f08030", "#a050d0", "#f0f0f0"][(i * 5 + k * 11) % 7]; ctx.beginPath(); ctx.arc(X(-230 + i * 10), Y(158 + k * 14) - b, 3.4 * sc, 0, 6.29); ctx.fill(); }
+  for (const F of [C.A, C.B]) {
+    ctx.globalAlpha = 0.35; ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(X(F.x), Y(F.z), 8 * sc, 4 * sc, 0, 0, 6.29); ctx.fill(); ctx.globalAlpha = 1;
+    let im = null; try { im = F.sprite(F.st === "att" || F.st === "dive" ? 1 : (Math.floor(F.ph / 1.6) & 1) * 2 * F.mv); } catch (_) { }
+    if (im) { const h = 40 * sc, w = h * im.width / im.height; ctx.save(); ctx.translate(X(F.x), Y(F.z) - F.y * sc); if (Math.sin(F.yaw) < 0) ctx.scale(-1, 1); if (F.hurt > 0) ctx.filter = "brightness(1.8)"; ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore(); }
+  }
+  for (const p of C.proj) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(X(p.x), Y(p.z) - p.y * sc, p.r * sc, 0, 6.29); ctx.fill(); }
+  ctx.restore();
+  return { d2: true, X, Y, sc };
+}
+/* éclairs d'impact, barres de vie, compte à rebours, victoire */
+function p99Overlay(C, W, H, dpr, VP, now) {
+  const P = (x, y, z) => VP.d2 ? [VP.X(x), VP.Y(z) - y * VP.sc, 200] : p99Proj(VP, x, y + P99A.FY, z, W, H);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // éclairs en étoile + chiffres
+  for (const f of P99.fx) {
+    const u = f.t / f.vie;
+    if (f.k === "flash") { const s = P(f.x, f.y, f.z); if (!s) continue; const r = f.r * dpr * (1.2 + u * 1.6) * (VP.d2 ? 1 : 260 / Math.max(120, s[2])); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 1 - u;
+      const g = ctx.createRadialGradient(s[0], s[1], 0, s[0], s[1], r * 1.6); g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.35, `rgba(${f.col.slice(0, 3).map(v => Math.round(v * 255)).join(",")},0.8)`); g.addColorStop(1, "rgba(255,200,80,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(s[0], s[1], r * 1.6, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283 + f.x, R = k & 1 ? r * 0.35 : r * 1.9; ctx.lineTo(s[0] + Math.cos(a) * R, s[1] + Math.sin(a) * R); } ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
+    else if (f.k === "txt") { const s = P(f.x, f.y + u * 14, f.z); if (!s) continue; ctx.globalAlpha = Math.min(1, (1 - u) * 2); const fs = Math.round(15 * dpr); ctx.font = `900 ${fs}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.lineWidth = fs * 0.22; ctx.strokeStyle = "#000a"; ctx.strokeText(f.s, s[0], s[1]); ctx.fillStyle = f.col; ctx.fillText(f.s, s[0], s[1]); }
+  }
+  ctx.globalAlpha = 1;
+  // noms au-dessus des têtes + texte de technique
+  for (const F of [C.A, C.B]) { const s = P(F.x, F.y + 36, F.z); if (!s) continue; const fs = Math.round(10 * dpr); ctx.font = `800 ${fs}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "#000b";
+    const lab = F === C.A ? (C.pvp ? "J1" : "TOI") : (C.pvp ? "J2" : ""); if (lab) { ctx.strokeText(lab, s[0], s[1]); ctx.fillStyle = F === C.A ? "#ffe060" : "#ff8a70"; ctx.fillText(lab, s[0], s[1]); }
+    if (F.txt) { const f2 = Math.round(13 * dpr); ctx.font = `900 ${f2}px system-ui,sans-serif`; ctx.globalAlpha = Math.min(1, (1.1 - F.txt.t) * 3); ctx.strokeText(F.txt.s, s[0], s[1] - 14 * dpr); ctx.fillStyle = "#fff"; ctx.fillText(F.txt.s, s[0], s[1] - 14 * dpr); ctx.globalAlpha = 1; }
+    if (F.ccT > 0 && F.cc >= 2) { const f3 = Math.round(14 * dpr); ctx.font = `900 italic ${f3}px system-ui,sans-serif`; ctx.strokeText(F.cc + " COUPS !", s[0], s[1] - 28 * dpr); ctx.fillStyle = "#ffcf40"; ctx.fillText(F.cc + " COUPS !", s[0], s[1] - 28 * dpr); } }
+  // barres de vie (joueur à gauche en jaune, adversaire à droite en rouge)
+  const port = W < H, top = (port ? 16 : 8) * dpr, bw = Math.min(W * 0.4, 300 * dpr), bh = 13 * dpr, gap = 10 * dpr;
+  const barre = (F, gauche, col) => {
+    const x0 = gauche ? gap : W - gap - bw, k = F.pv / F.pvMax, lag = F.__lag == null ? k : F.__lag; F.__lag = lag + (k - lag) * 0.06;
+    ctx.fillStyle = "#000a"; rr(x0 - 2 * dpr, top - 2 * dpr, bw + 4 * dpr, bh + 4 * dpr, 7 * dpr); ctx.fill();
+    ctx.fillStyle = "#fff8"; const lw = bw * Math.max(0, F.__lag); rr(gauche ? x0 : x0 + bw - lw, top, lw, bh, 6 * dpr); ctx.fill();
+    const w = bw * k, g = ctx.createLinearGradient(0, top, 0, top + bh); g.addColorStop(0, col[0]); g.addColorStop(1, col[1]); ctx.fillStyle = g; rr(gauche ? x0 : x0 + bw - w, top, w, bh, 6 * dpr); ctx.fill();
+    const kw = bw * 0.62 * F.ki / 100, ky = top + bh + 4 * dpr; ctx.fillStyle = "#0008"; ctx.fillRect(gauche ? x0 : x0 + bw * 0.38, ky, bw * 0.62, 4 * dpr); ctx.fillStyle = F.ki >= 100 ? "#7af0ff" : "#3aa8ff"; ctx.fillRect(gauche ? x0 : x0 + bw - kw, ky, kw, 4 * dpr);
+    const fs = Math.round(12 * dpr); ctx.font = `900 ${fs}px system-ui,sans-serif`; ctx.textAlign = gauche ? "left" : "right"; ctx.textBaseline = "top"; ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "#000c";
+    const nm = String(F.nom).toUpperCase(); ctx.strokeText(nm, gauche ? x0 + 2 * dpr : x0 + bw - 2 * dpr, ky + 7 * dpr); ctx.fillStyle = "#fff"; ctx.fillText(nm, gauche ? x0 + 2 * dpr : x0 + bw - 2 * dpr, ky + 7 * dpr); ctx.textBaseline = "alphabetic";
+  };
+  function rr(x, y, w, h, r) { ctx.beginPath(); r = Math.min(r, h / 2, Math.max(0, w) / 2); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  barre(C.A, true, ["#fff080", "#e8b020"]); barre(C.B, false, ["#ff8a6a", "#d02818"]);
+  { const fs = Math.round(13 * dpr); ctx.font = `900 ${fs}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "#000c"; ctx.strokeText("VS", W / 2, top + bh); ctx.fillStyle = "#ffe070"; ctx.fillText("VS", W / 2, top + bh); }
+  // compte à rebours
+  if (C.dec > -0.8) {
+    const n = Math.ceil(C.dec), s = n > 0 ? String(n) : "COMBAT !", u = C.dec > 0 ? 1 - (C.dec - Math.floor(C.dec)) : -C.dec / 0.8;
+    const fs = Math.round(Math.min(W, H) * (n > 0 ? 0.22 : 0.12) * (1.25 - Math.min(1, u) * 0.25)); ctx.font = `900 ${fs}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.globalAlpha = n > 0 ? Math.min(1, (1 - u) * 3 + 0.2) : 1 - u;
+    ctx.lineWidth = fs * 0.12; ctx.strokeStyle = "#000c"; const yy = H * (n > 0 ? 0.42 : 0.3); ctx.strokeText(s, W / 2, yy); ctx.fillStyle = n > 0 ? "#ffffff" : "#ffd84a"; ctx.fillText(s, W / 2, yy);
+    if (C.dec > 2.2) { const f2 = Math.round(Math.min(W, H) * 0.05); ctx.font = `900 ${f2}px system-ui,sans-serif`; ctx.globalAlpha = 1; ctx.lineWidth = f2 * 0.2; const t = "ARÈNE DUEL"; ctx.strokeText(t, W / 2, H * 0.26); ctx.fillStyle = "#ffe070"; ctx.fillText(t, W / 2, H * 0.26); }
+    ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+  }
+  // victoire / défaite
+  if (C.res && C.res.t > 0.5) {
+    const g = C.res.G === C.A, s = C.pvp ? (g ? "JOUEUR 1 GAGNE !" : "JOUEUR 2 GAGNE !") : g ? "VICTOIRE !" : "K.O.…", u = Math.min(1, (C.res.t - 0.5) * 3);
+    ctx.fillStyle = `rgba(0,0,0,${0.25 * u})`; ctx.fillRect(0, 0, W, H);
+    const fs = Math.round(Math.min(W, H) * 0.13 * (1.4 - 0.4 * u)); ctx.font = `900 ${fs}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.globalAlpha = u; ctx.lineWidth = fs * 0.12; ctx.strokeStyle = "#000d";
+    ctx.strokeText(s, W / 2, H * 0.4); ctx.fillStyle = g || C.pvp ? "#ffd84a" : "#ff7a6a"; ctx.fillText(s, W / 2, H * 0.4);
+    const f2 = Math.round(Math.min(W, H) * 0.045); ctx.font = `800 ${f2}px system-ui,sans-serif`; ctx.lineWidth = f2 * 0.2; const sub = C.res.G.nom + " l'emporte";
+    ctx.strokeText(sub, W / 2, H * 0.4 + fs * 0.75); ctx.fillStyle = "#fff"; ctx.fillText(sub, W / 2, H * 0.4 + fs * 0.75); ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+  }
+  ctx.restore();
+  // état des boutons
+  try { const B = P99.btn, F = C.A; B.ki.classList.toggle("off", F.ki < 30); B.ki.querySelector(".kr").style.background = `conic-gradient(#7af0ff ${F.ki * 3.6}deg, transparent 0)`; B.ki.querySelector(".kr").style.opacity = 0.75; B.ki.querySelector(".kr").style.mask = B.ki.querySelector(".kr").style.webkitMask = "radial-gradient(circle, transparent 62%, #000 63%)";
+    if (C.pvp) P99.btn2.ki.classList.toggle("off", C.B.ki < 30); } catch (_) { }
+}
+
+/* ---------- menu de l'Arène Duel ---------- */
+const P99_ADV = () => { const L = []; try { for (let i = 0; i < P97_TOUR.length; i++) { const T = P97_TOUR[i]; L.push({ k: "t" + i, nom: T.nom, col: T.col, lvl: 0.3 + i * 0.2, techs: T.techs, look: T.L }); } } catch (_) { } return L; };
+function p99AdvObj(k) {
+  if (k && k[0] === "t") { const T = P99_ADV().find(a => a.k === k); if (T) { let L = null; try { L = T.look(); } catch (_) { } if (!L) L = LX_PNJ.jackie; return { id: "", nom: T.nom, col: T.col, techs: T.techs, sprite: f => imageKPNJ(L, 2, f & 3, true, false) }; } }
+  const H = p99Look(k) || p99Look("naruto"); return { id: H.id, nom: H.nom, col: H.col, sprite: H.sprite, techs: (TB_HEROS[H.id] || {}).techs };
+}
+const P99M = { j1: null, adv: "t0", mode: "ia", lvl: 0.5 };
+function p99Menu() {
+  let M = document.getElementById("p99m");
+  if (!M) {
+    M = document.createElement("div"); M.id = "p99m"; document.body.appendChild(M);
+    const st = document.createElement("style"); st.textContent = `#p99m{position:fixed;inset:0;z-index:61;background:rgba(8,6,16,.74);display:flex;align-items:center;justify-content:center;font-family:system-ui,"Segoe UI",Roboto,sans-serif}#p99m[hidden]{display:none}
+#p99m .b{width:min(94vw,460px);max-height:92vh;overflow:auto;background:linear-gradient(#2a2238,#17121f);border:2px solid #e8c060;border-radius:18px;padding:12px 14px;color:#fff}
+#p99m h2{margin:0 0 2px;text-align:center;color:#ffe070;font-size:20px}#p99m h3{margin:10px 0 4px;font-size:13px;opacity:.8}#p99m p{margin:2px 0 6px;font-size:12px;opacity:.8;text-align:center}
+#p99m .g{display:flex;flex-wrap:wrap;gap:6px}#p99m .g button{flex:1 1 30%;min-width:84px;padding:8px 4px;border-radius:12px;border:2px solid #fff2;background:#3a3050;color:#fff;font-weight:800;font-size:12px}#p99m .g button.on{border-color:#ffe070;background:#5a4a20}
+#p99m .go{display:block;width:100%;margin:12px 0 6px;padding:14px;border-radius:30px;border:0;font-size:18px;font-weight:900;color:#fff;background:linear-gradient(#e85a3a,#b8321e)}#p99m .x{display:block;width:100%;padding:10px;border-radius:30px;border:0;background:#3a3050;color:#fff;font-weight:800}`;
+    document.head.appendChild(st);
+    M.addEventListener("pointerdown", e => e.stopPropagation());
+    M.addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) { if (e.target === M) p99MenuFermer(); return; } p99Son("clic"); const [t, v] = b.dataset.k.split(":");
+      if (t === "j1") P99M.j1 = v; else if (t === "adv") P99M.adv = v; else if (t === "mode") P99M.mode = v; else if (t === "lvl") P99M.lvl = +v;
+      else if (t === "go") { p99MenuFermer(); const pvp = P99M.mode === "pvp"; setTimeout(() => p99Lancer({ j1: P99M.j1, adv: p99AdvObj(P99M.adv), pvp, lvl: P99M.lvl }), 60); return; }
+      else if (t === "x") { p99MenuFermer(); return; }
+      p99Menu(); });
+  }
+  let H = []; try { H = coopChoix(); } catch (_) { H = ["sangoku"]; } if (!P99M.j1 || !H.includes(P99M.j1)) P99M.j1 = coopHeroJ1();
+  const advs = P99_ADV().concat(H.filter(id => id !== P99M.j1).map(id => ({ k: id, nom: TB_HEROS[id].nom })));
+  if (!advs.find(a => a.k === P99M.adv)) P99M.adv = advs[0] ? advs[0].k : "naruto";
+  const bt = (k, lab, on) => `<button data-k="${k}" class="${on ? "on" : ""}">${lab}</button>`;
+  M.innerHTML = `<div class="b"><h2>⚔️ ARÈNE DUEL</h2><p>Grand terrain de dalles · joystick pour bouger · 👊 frapper (3 coups) · ⤒ sauter (esquive, puis 👊 en l'air = plongeon) · 💨 dash · ⚡ ki · 🛡 garde</p>
+    <h3>Ton héros</h3><div class="g">${H.map(id => bt("j1:" + id, TB_HEROS[id].nom, id === P99M.j1)).join("")}</div>
+    <h3>Mode</h3><div class="g">${bt("mode:ia", "🤖 Contre l'ordi", P99M.mode === "ia")}${bt("mode:pvp", "👥 2 joueurs (même appareil)", P99M.mode === "pvp")}</div>
+    <h3>Adversaire${P99M.mode === "pvp" ? " (joué par le joueur 2)" : ""}</h3><div class="g">${advs.map(a => bt("adv:" + a.k, a.nom, a.k === P99M.adv)).join("")}</div>
+    ${P99M.mode === "ia" ? `<h3>Difficulté</h3><div class="g">${bt("lvl:0.2", "Facile", P99M.lvl < 0.3)}${bt("lvl:0.5", "Normal", P99M.lvl >= 0.3 && P99M.lvl < 0.7)}${bt("lvl:0.85", "Fort", P99M.lvl >= 0.7)}</div>` : `<p>Joueur 2 : pose le téléphone à plat, assieds-toi en face (boutons retournés en haut) — ou clavier : flèches + Entrée / . / ⇧ droite / ; manette de jeu aussi.</p>`}
+    <button class="go" data-k="go">⚔ COMBATTRE !</button><button class="x" data-k="x">✖ Fermer</button></div>`;
+  M.hidden = false; try { jeu.pause = true; P99M.pause = true; } catch (_) { }
+}
+function p99MenuFermer() { const M = document.getElementById("p99m"); if (M) M.hidden = true; if (P99M.pause) { P99M.pause = false; try { jeu.pause = false; } catch (_) { } } }
+
+/* ---------- branchements : menu ☰, tournoi du Budokaï ---------- */
+try {
+  const mr = p37MR;
+  p37MR = function () {
+    const M = mr.apply(this, arguments);
+    try { const G = M.querySelector(".mr") || M; const t = M.querySelector('[data-mr="p97"]'); if (t) { t.className = "tile"; t.innerHTML = "<b>🥋</b>Tournoi<small>Budokaï</small>"; }
+      const tile = (a, ic, nom, sub) => { const old = M.querySelector(`[data-mr="${a}"]`); if (old && a !== "p97") old.remove(); const b = old && a === "p97" ? old : document.createElement("button"); b.className = "tile"; b.dataset.mr = a; b.innerHTML = `<b>${ic}</b>${nom}<small>${sub}</small>`; const ref = G.querySelector('[data-mr="succes"]'); if (ref) ref.before(b); else G.appendChild(b); };
+      tile("p99", "⚔️", "Arène Duel", "1 contre 1"); tile("p97", "🥋", "Tournoi", "Budokaï"); } catch (e) { p99Err("menu", e); }
+    return M;
+  };
+  const am = p37ActionMR;
+  p37ActionMR = function (a) { if (a === "p99") { try { p37FermerMR(); } catch (_) { } setTimeout(p99Menu, 40); return; } return am.apply(this, arguments); };
+} catch (e) { p99Err("menu0", e); }
+// le tournoi 1 contre 1 se joue désormais dans l'arène
+try {
+  const lancer0 = p97Lancer;
+  window.p97LancerRing = lancer0;
+  p97Lancer = function (i) {
+    const T = P97_TOUR[i]; if (!T) return false;
+    let L = null; try { L = T.L(); } catch (_) { } if (!L) L = LX_PNJ.jackie;
+    const n = prog.niveau || 1, pvJ = Math.round(130 + n * 11);
+    return p99Lancer({ tour: i, lvl: 0.3 + i * 0.18, adv: { id: "", nom: T.nom, col: T.col, techs: T.techs, pv: Math.round(pvJ * (0.7 + T.pvF * 0.4)), atk: 4 + T.atk * 0.25 + n * 0.75, sprite: f => imageKPNJ(L, 2, f & 3, true, false) },
+      victoire: () => { try { gagnerXP(180 + n * 30 + i * 60); } catch (_) { } p97Gagne(i); }, defaite: () => { P97.apres = { i, gagne: false }; }, abandon: () => { P97.apres = null; } });
+  };
+  // bouton « 2 joueurs » du menu du tournoi → Arène Duel à deux
+  const pm = p97Menu;
+  p97Menu = function () {
+    const r = pm.apply(this, arguments);
+    try { const M = document.getElementById("p97m"), d = M.querySelector("button[disabled]"); if (d) { d.disabled = false; d.dataset.p99 = "pvp"; d.innerHTML = `👥 1 contre 1 entre deux joueurs<small>Arène Duel sur le même téléphone</small>`; }
+      if (!M.querySelector("[data-p99=libre]")) { const b = document.createElement("button"); b.dataset.p99 = "libre"; b.innerHTML = `⚔️ Arène Duel libre<small>choisis ton héros et ton adversaire</small>`; (d || M.querySelector("[data-p97=x]")).before(b); }
+      if (!M.__p99) { M.__p99 = 1; M.addEventListener("click", e => { const b = e.target.closest("[data-p99]"); if (!b) return; e.stopImmediatePropagation(); p97MenuFermer(); if (b.dataset.p99 === "pvp") P99M.mode = "pvp"; setTimeout(p99Menu, 50); }, true); }
+    } catch (e) { p99Err("p97m", e); }
+    return r;
+  };
+} catch (e) { p99Err("tour", e); }
+
+/* ===== v48 : les 7 Dragon Balls dans le monde de Sangoku, Shenron en 3D, vœu « objet rare » ===== */
+try { EX_BOULE_MONDE.fill(1); } catch (e) { p99Err("boules", e); }
+try {
+  const ls = lancerShenron;
+  lancerShenron = function () { const r = ls.apply(this, arguments); try { const C = AV.cine; if (C && C.type === "shenron") { const d0 = C.dessiner; C.dessiner = function (W, H, dpr) { if (g3Actif()) { try { this.plein = true; document.body.classList.add("p99sh"); p99Shenron3D(this, W, H, dpr); return; } catch (e) { p99Err("shen3d", e); } } this.plein = false; return d0.apply(this, arguments); }; } } catch (e) { p99Err("shen", e); } return r; };
+  const pv = exPanneauVoeu;
+  exPanneauVoeu = function () { const r = pv.apply(this, arguments); try { const P = document.getElementById("panneau"), b = P && P.querySelector('[data-action=exVoeu][data-id="3"]'); if (b && !P.querySelector('[data-id="4"][data-action=exVoeu]')) b.insertAdjacentHTML("afterend", `<button data-action="exVoeu" data-id="4" class="large">🌟 Un objet rare (3 Graines de vigueur + 5 000 XP)</button>`); } catch (_) { } return r; };
+  const ev = exVoeu;
+  exVoeu = function (id) {
+    const C = AV.cine; if (id === 4 && C && C.type === "shenron" && !C.voeu) { C.voeu = 4; C.tV = C.t; try { EX.stats.voeux++; } catch (_) { } try { prog.inv.senzu = Math.min(99, (prog.inv.senzu || 0) + 3); gagnerXP(5000); } catch (_) { } p99Son("fanfare"); try { sauvegarder(false); } catch (_) { } const P = document.getElementById("panneau"); if (P) P.hidden = true; jeu.pause = false; return; }
+    return ev.apply(this, arguments);
+  };
+} catch (e) { p99Err("shenron", e); }
+let P99SH = null;
+function p99ShGeo() {
+  if (P99SH && P99SH.gl === G3.gl) return P99SH;
+  const g = new G3Geo();
+  for (let i = 0; i < 16; i++) { const a0 = i / 16 * 6.2832, a1 = (i + 1) / 16 * 6.2832, c = i & 1 ? [0.16, 0.3, 0.16] : [0.19, 0.34, 0.18]; g.t([0, 0, 0], [Math.cos(a1) * 600, 0, Math.sin(a1) * 600], [Math.cos(a0) * 600, 0, Math.sin(a0) * 600], [0, 1, 0], c); }
+  for (let i = 0; i < 26; i++) { const a = i / 26 * 6.283, r = 170 + p99H(i, 1) * 200; g.cyl(Math.cos(a) * r, 0, Math.sin(a) * r - 60, 3, 2, 14, 5, [0.3, 0.22, 0.14]); g.sph(Math.cos(a) * r, 20, Math.sin(a) * r - 60, 11, 10, 11, 6, [0.12, 0.26, 0.12], 0.3); }
+  const tete = new G3Geo();
+  tete.sph(0, 0, 0, 13, 10, 15, 10, [0.2, 0.62, 0.26]); tete.box(0, -6, 13, 15, 8, 16, [0.24, 0.66, 0.3]); tete.box(0, -9, 13, 14, 3, 15, [0.92, 0.86, 0.6]);
+  tete.box(0, -3, 22, 10, 6, 4, [0.2, 0.58, 0.26]); for (const s of [-1, 1]) { tete.cyl(s * 7, 5, -4, 2, 0.4, 20, 6, [0.92, 0.8, 0.36]); tete.box(s * 7, 2, 6, 4, 3, 3, [1, 0.12, 0.08]); tete.box(s * 13, -6, 4, 3, 2, 9, [0.2, 0.55, 0.24]); }
+  return P99SH = { gl: G3.gl, sol: g.build(), tete: tete.build() };
+}
+function p99Shenron3D(C, W, H, dpr) {
+  const U = g3Unit(), G = p99ShGeo(), now = p99Now(), dt = Math.min(0.05, Math.max(0.001, now - (C.tp || now))); C.tp = now;
+  if (E3.tier < 0) E3.tier = e3Tier0(); if (window.__e3fixe != null) E3.tier = window.__e3fixe;
+  const TR = E3_TIERS[Math.max(0, E3.tier)]; let RW = Math.round(W / dpr), RH = Math.round(H / dpr); { const f = Math.sqrt(TR.px / (RW * RH)); if (f < 1) { RW = Math.round(RW * f); RH = Math.round(RH * f); } }
+  RW = Math.max(160, RW); RH = Math.max(120, RH);
+  const t = C.t, asp = RW / RH, port = asp < 1;
+  let k = Math.max(0, Math.min(1, (t - 2) / 2.4)); const part = C.voeu ? Math.max(0, (C.t - C.tV - 1.4) / 1.4) : 0; const env = C.voeu ? Math.max(0, C.t - C.tV - 2.2) : 0;
+  const ang = 0.3 + t * 0.05, D = port ? 330 : 400, eye = [Math.sin(ang) * D, 40 + k * 40, Math.cos(ang) * D], tgt = [0, 60 + k * 85, 0];
+  const fov = port ? 1.1 : 0.85, V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 2, 3000), VP = M4.mul(Pm, V);
+  const ec = (t > 2 && (Math.sin(t * 7.3) > 0.97 || (t > 2 && t < 2.15))) ? 1 : 0, lum = C.voeu ? Math.min(1, part) : 0;
+  const hor = [0.1 + lum * 0.5 + ec * 0.3, 0.12 + lum * 0.55 + ec * 0.3, 0.22 + lum * 0.6 + ec * 0.35], top = [0.03 + lum * 0.25, 0.05 + lum * 0.4, 0.12 + lum * 0.6];
+  let L = [0.3, 0.8, 0.5]; { const l = Math.hypot(...L); L = L.map(v => v / l); }
+  g3Debut(RW, RH, { VP, cam: eye, fov, L, amb: [0.28 + lum * 0.3, 0.32 + lum * 0.3, 0.42 + lum * 0.3], sun: [0.4 + ec, 0.42 + ec, 0.5 + ec], fog: [400, 1400], fogC: hor, ciel: [hor, top], hz: 0.5 });
+  g3Mesh(G.sol, M4.trs(0, 0, 0));
+  // les 7 boules
+  for (let i = 0; i < 7; i++) { const a = i / 7 * 6.2832 + t * 0.6, r = 16 + env * 200, x = Math.cos(a) * r, z = Math.sin(a) * r, y = 4 + env * env * 120;
+    g3Mesh(U.sph, M4.trs(x, y, z, 0, 0, 0, 3.4, 3.4, 3.4), { tint: [1, 0.62, 0.12, 1], e: 0.6 }); e3Lueur(x, y, z, 7 + Math.sin(t * 8 + i), [1, 0.7, 0.2], 0.5); }
+  if (t > 1 && !C.voeu) e3Lueur(0, 160, 0, 9, [1, 0.92, 0.55], 0.16 + 0.05 * Math.sin(t * 9), 14);
+  // le dragon : un long corps qui serpente jusqu'au ciel
+  const kk = k * (C.voeu ? Math.max(0, 1 - part) : 1);
+  if (kk > 0) {
+    const N = 64, pts = [];
+    for (let i = 0; i <= N; i++) { const u = i / N * kk, m = Math.min(1, u * 3); pts.push([Math.sin(u * 9 + t * 1.2) * 70 * m, 6 + u * 230, Math.cos(u * 7 + t * 0.9) * 50 * m - 20 * u]); }
+    for (let i = 0; i < pts.length - 1; i++) { const u = i / N, r = 4 + 7 * Math.sin(Math.min(1, u * 1.4) * Math.PI * 0.9), [x, y, z] = pts[i];
+      g3Mesh(U.sph, M4.trs(x, y, z, 0, 0, 0, r, r, r), { tint: i & 1 ? [0.18, 0.58, 0.24, 1] : [0.22, 0.66, 0.28, 1] });
+      if (i % 4 === 0) g3Mesh(U.cone, M4.trs(x, y + r * 0.8, z, 0, 0, 0, r * 0.35, r * 0.7, r * 0.35), { tint: [0.92, 0.78, 0.3, 1] });
+      if (i % 9 === 4) for (const s of [-1, 1]) g3Mesh(U.cube, M4.trs(x + s * r, y - r * 0.6, z, 0, 0, s * 0.6, r * 0.5, r * 0.9, r * 0.5), { tint: [0.2, 0.55, 0.24, 1] }); }
+    const [hx, hy, hz] = pts[pts.length - 1], yaw = Math.atan2(eye[0] - hx, eye[2] - hz), s = 1.5 + 0.6 * kk;
+    g3Mesh(G.tete, M4.trs(hx, hy, hz, yaw, 0.25, 0, s, s, s));
+    for (const q of [-1, 1]) { const ex = hx + Math.cos(yaw) * q * 7 * s + Math.sin(yaw) * 8 * s, ez = hz - Math.sin(yaw) * q * 7 * s + Math.cos(yaw) * 8 * s; e3Lueur(ex, hy + 2 * s, ez, 3.4 * s, [1, 0.15, 0.1], 0.9); }
+    if (Math.random() < 0.5) g3Part(hx + (Math.random() - 0.5) * 40, hy + (Math.random() - 0.5) * 30, hz, (Math.random() - 0.5) * 10, -10, (Math.random() - 0.5) * 10, 1.4, 2.4, "#ffe890");
+  }
+  if (C.voeu && part > 0 && part < 1.4) e3Lueur(0, 170, 0, 60 * part, [1, 0.95, 0.7], Math.max(0, 0.6 - part * 0.4));
+  g3MajParts(dt); g3DessinerParts(RH);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(G3.cv, 0, 0, W, H);
+  try { E3.fx = E3.fx || {}; const g0 = E3.fx.glow; E3.fx.glow = 0.6; e3Bloom(W, H); E3.fx.glow = g0; } catch (_) { }
+  if (ec) { ctx.fillStyle = "rgba(220,230,255,0.25)"; ctx.fillRect(0, 0, W, H); }
+  const txt = C.voeu ? (C.t - C.tV < 2.4 ? "TON VOEU EST EXAUCÉ… ADIEU !" : "") : t > 4.4 ? "JE SUIS SHENRON… FAIS TON VOEU !" : t > 0.5 ? "LES DRAGON BALLS S'ILLUMINENT…" : "";
+  if (txt) { const p = Math.max(2, Math.round(2.2 * dpr)), pp = Math.max(2, Math.min(p, Math.floor(W * 0.92 / imageTexte(txt).width))); textePixel(ctx, txt, W / 2, Math.round(H * 0.8), pp, "#ffe070", "#140a0c", 0.5); }
+  ctx.restore();
+}
+/* bouton « Passer » rond (Reverse Mountain, cinématiques) */
+{ const st = document.createElement("style"); st.textContent = `body.p99sh > *:not(#ecran):not(#panneau):not(#passerCine):not(script):not(style){visibility:hidden!important}
+#passerCine{width:64px!important;height:64px!important;min-width:0!important;padding:0!important;border-radius:50%!important;font-size:12px!important;font-weight:900!important;line-height:1.05!important;display:flex;align-items:center;justify-content:center;text-align:center;border:3px solid rgba(255,255,255,.85)!important;box-shadow:0 4px 12px #0007!important;white-space:normal!important;overflow:hidden}
+#passerCine[hidden]{display:none!important}`; document.head.appendChild(st); }
+
+setInterval(() => { try { if (document.body.classList.contains("p99sh") && !(AV.cine && AV.cine.type === "shenron")) document.body.classList.remove("p99sh"); } catch (_) { } }, 300);
+
 
 /* ===== fin du module aventure ===== */
 const persoActif = () => !!(jeu && jeu.persoPret);
