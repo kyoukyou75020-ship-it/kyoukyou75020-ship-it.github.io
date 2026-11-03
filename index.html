@@ -38744,7 +38744,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "49.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "49.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -38938,6 +38938,698 @@ document.addEventListener("click", e => {
 #panneau .p100v { font-size: 12px; color: #ffe9a0; opacity: .75; }
 #panneau .p100 button.p100go { margin-top: 2px; min-height: 50px; font-size: 17px; border-radius: 26px; }
 @media (orientation: landscape) and (max-height: 500px) { #panneau .p100 button.rd { width: 70px; } #panneau .p100 button.rd b { width: 48px; height: 48px; font-size: 22px; } #panneau .p100 .val { height: 52px; } }`; document.head.appendChild(st); }
+
+/* =====================================================================
+   v49 — QUÊTES DES MONDES (Q49) : saga principale + quêtes secondaires
+   par monde, quotidiennes, journal à onglets, PNJ « ! » / « ? »,
+   marqueur carte/minimap, toast, trophées, album, bestiaire, secrets.
+   Couche ajoutée par-dessus l'existant (missions d'origine intactes).
+   ===================================================================== */
+const Q49 = { s: null, err: {}, pos: {}, t: 0, tA: 0, course: null, pkQ: null, spr: {}, nav: new WeakSet(), lastV: null, walk: null };
+function q49Err(k, e) { if (!Q49.err[k]) { Q49.err[k] = String(e && e.message || e); try { console.warn("q49", k, e); } catch (_) { } } }
+function q49Neuf() { return { q: {}, suivi: null, c: { v: {}, nav: 0, cap: 0, pkv: 0, peche: 0, course: 0, enig: 0, constr: 0, duel: 0, jourF: 0, etapes: 0, marche: 0 }, jour: { d: "", l: [], f: {}, b: {} }, constr: {}, secret: {}, album: {}, pos1: null }; }
+function q49S() { if (!Q49.s) Q49.s = q49Neuf(); return Q49.s; }
+(() => {
+  const es = etatSauvegarde;
+  etatSauvegarde = function () { const d = es.apply(this, arguments); try { if (d) d.q49 = JSON.parse(JSON.stringify(q49S())); } catch (e) { q49Err("sv", e); } return d; };
+  const re = restaurer;
+  restaurer = function (d) { try { const n = q49Neuf(), x = d && d.q49; if (x) { Object.assign(n, x); n.c = Object.assign(q49Neuf().c, x.c || {}); n.jour = Object.assign(q49Neuf().jour, x.jour || {}); } Q49.s = n; Q49.pos = {}; Q49.course = null; Q49.lastV = null; } catch (e) { q49Err("re", e); Q49.s = q49Neuf(); } return re.apply(this, arguments); };
+})();
+const Q49_MONDES = { 1: "🐉 Monde de Sangoku", 2: "🏴‍☠️ Grand Line", 3: "⚡ Monde Pokémon", 4: "🍥 Konoha", 5: "🗡️ Britannia" };
+const q49W = () => AV.monde || 1;
+const q49P = () => (AV.nav && AV.merry) ? AV.merry : perso;
+const q49Libre = () => { try { return jeu && jeu.scene === sceneMonde && !AV.cine && !jeu.pause && !jeu.transition && !perso.ko && !(typeof grandeCarte !== "undefined" && grandeCarte.ouvert); } catch (_) { return false; } };
+const q49T2 = (tx, ty) => ({ x: tx * 16 + 8, y: ty * 16 + 8 });
+function q49Poi(f) { try { return p98Pois().find(f) || null; } catch (_) { return null; } }
+function q49Rnd(s) { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function q49Ok(x, y) { if (q49W() === 2) return true; try { return perso.libre(x, y) && perso.libre(x + 9, y) && perso.libre(x - 9, y) && perso.libre(x, y + 8) && perso.libre(x, y - 10); } catch (_) { return false; } }
+function q49Zones() { try { return (typeof P60_Z !== "undefined" && P60_Z[q49W()]) || []; } catch (_) { return []; } }
+function q49DansZone(x, y) { for (const Z of q49Zones()) { if (Math.hypot(x - Z.x, y - Z.y) < Z.r + 30) return Z; } return null; }
+function q49Spot(x, y, max = 420) {
+  const Z = q49DansZone(x, y); if (Z) { const a = Math.atan2(y - Z.y, x - Z.x) || 1.57; x = Z.x + Math.cos(a) * (Z.r + 70); y = Z.y + Math.sin(a) * (Z.r + 70); }
+  const ok0 = q49Ok; const q49Ok2 = (px, py) => ok0(px, py) && !q49DansZone(px, py);
+  return q49Spot2(x, y, max, q49Ok2);
+}
+function q49Spot2(x, y, max, q49Ok) {
+  if (q49Ok(x, y)) return { x: Math.round(x), y: Math.round(y) };
+  for (let r = 12; r <= max; r += 12) for (let a = 0; a < 6.283; a += 12 / r) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (q49Ok(px, py)) return { x: Math.round(px), y: Math.round(py) }; }
+  return null;
+}
+/* ---------- ancres des mondes (indépendantes de la graine quand c'est possible) ---------- */
+function q49Ancre(w, k) {
+  const P = q49P(), S = q49S();
+  if (w === 1) {
+    const dep = AV.crater ? { x: AV.crater.x, y: AV.crater.y + 70 } : (S.pos1 || (S.pos1 = { x: Math.round(P.x), y: Math.round(P.y) }));
+    if (k === "dep") return dep;
+    if (k === "kame") { const o = q49Poi(o => o.nom === "Kame House"); return o ? { x: o.x + 60, y: o.y + 80 } : { x: dep.x - 520, y: dep.y - 600 }; }
+    if (k === "tour") return AV.tour ? { x: AV.tour.x + 70, y: AV.tour.y + 90 } : { x: dep.x + 700, y: dep.y - 300 };
+    if (k === "ville") { const L = (jeu.monde.lieux || [])[0]; return L && L.devant ? { x: L.devant.x, y: L.devant.y + 40 } : { x: dep.x + 900, y: dep.y + 300 }; }
+    if (k === "port") { const B = jeu.monde.bateau; return B && B.devant ? { x: B.devant.x - 40, y: B.devant.y + 30 } : { x: dep.x + 400, y: dep.y + 500 }; }
+    if (k === "plaine") return { x: dep.x + 380, y: dep.y + 260 };
+    if (k === "foret") return { x: dep.x - 420, y: dep.y + 320 };
+    if (k === "secret") return { x: dep.x + 1500, y: dep.y - 1100 };
+  }
+  if (w === 2) {
+    let a = { x: P.x, y: P.y }; try { a = arriveeM2(); } catch (_) { }
+    const I = AV.iles || [];
+    const ile = i => { const J = I[i % Math.max(1, I.length)]; return J ? { x: J.x, y: J.y + 330 } : { x: a.x - 900 * (i + 1), y: a.y + 600 }; };
+    if (k === "dep") return { x: a.x - 260, y: a.y + 120 };
+    if (k === "i0") return ile(0); if (k === "i1") return ile(1); if (k === "i2") return ile(2);
+    if (k === "large") return { x: a.x - 1600, y: a.y - 900 };
+    if (k === "secret") return { x: a.x - 2600, y: a.y + 1900 };
+  }
+  if (w === 3) {
+    const V = id => { const v = PKG.villages.find(v => v.id === id); return q49T2(v.tx, v.ty); };
+    if (k === "bourg") { const p = V("bourg"); return { x: p.x + 40, y: p.y + 70 }; }
+    if (k === "azur") { const p = V("azur"); return { x: p.x - 70, y: p.y + 90 }; }
+    if (k === "granit") { const p = V("granit"); return { x: p.x + 60, y: p.y + 90 }; }
+    if (k === "route1") return q49T2(560, 626); if (k === "route2") return q49T2(440, 500);
+    if (k === "etang") return q49T2(553, 670);
+    if (k === "secret") return q49T2(700, 470);
+  }
+  if (w === 4) {
+    if (k === "acad") return { x: 7880, y: 7320 }; if (k === "place") return { x: 8192, y: 7400 }; if (k === "porte") return { x: 8192, y: 8090 };
+    if (k === "ichiraku") return { x: 8400, y: 7540 };
+    const Z = id => { const z = KNG.zones[id]; return q49T2(z.tx, z.ty); };
+    if (k === "foretD") return Z("foretD"); if (k === "foretM") { const p = Z("foretM"); return { x: p.x + 300, y: p.y - 300 }; }
+    if (k === "cascade") { const p = Z("cascade"); return { x: p.x - 60, y: p.y + 60 }; } if (k === "vallee") { const p = Z("vallee"); return { x: p.x, y: p.y + 120 }; }
+    if (k === "pont") { const p = Z("pont"); return { x: p.x - 100, y: p.y - 40 }; }
+    if (k === "secret") return q49T2(750, 400);
+  }
+  if (w === 5) {
+    const Z = id => { const z = BRG.zones[id]; return z ? q49T2(z.tx, z.ty) : { x: 8192, y: 8192 }; };
+    if (k === "liones") { const p = Z("liones"); return { x: p.x + 40, y: p.y + 160 }; }
+    if (k === "boar") { const o = q49Poi(o => o.ty === "taverne"); return o ? { x: o.x + 70, y: o.y + 50 } : { x: 8192, y: 10060 }; }
+    if (k === "vaizel") { const p = Z("vaizel"); return { x: p.x + 50, y: p.y + 80 }; } if (k === "bernia") { const p = Z("bernia"); return { x: p.x - 40, y: p.y + 80 }; }
+    if (k === "dalmary") return Z("dalmary"); if (k === "fees") return Z("fees");
+    if (k === "donjon") { const p = Z("donjon"); return { x: p.x, y: p.y + 260 }; } if (k === "marais") return Z("marais");
+    if (k === "secret") return q49T2(720, 520);
+  }
+  return null;
+}
+function q49Pos(w, k, dx = 0, dy = 0) {
+  const ck = w + ":" + ((jeu && jeu.monde && jeu.monde.graineTexte) || "") + ":" + k + ":" + dx + ":" + dy;
+  if (jeu && Q49.posM !== jeu.monde) { Q49.pos = {}; Q49.posM = jeu.monde; Q49.posNul = {}; }
+  if (ck in Q49.pos) return Q49.pos[ck];
+  if (q49W() !== w || !jeu || jeu.scene !== sceneMonde || jeu.transition || (AV.cine && /portes|arrivee|voyage/i.test(AV.cine.type || ""))) return null;
+  const now = performance.now(); if (Q49.posNul && Q49.posNul[ck] > now) return null;
+  let a = null; try { a = q49Ancre(w, k); } catch (e) { q49Err("ancre" + k, e); }
+  const p = a ? q49Spot(a.x + dx, a.y + dy) : null;
+  if (p) Q49.pos[ck] = p; else (Q49.posNul = Q49.posNul || {})[ck] = now + 3000;
+  return p;
+}
+/* ---------- looks des PNJ (pixel art du jeu) ---------- */
+const q49L = (id, s, h, c, p, x) => Object.assign({ id: "q49" + id, s, h, c, p }, x || {});
+const Q49_LK = {
+  sage: q49L("sage", "#f0c8a0", "#f4f4f4", "#e07a2a", "#6a3a1a", { barbe: true, chapeau: "#d8b040" }), inv: q49L("inv", "#f8d8c0", "#3ab0c8", "#f0f0f0", "#c83a5a"),
+  fermier: q49L("fermier", "#d8a070", "#5a3a1a", "#5a8a3a", "#5a4a2a", { chapeau: "#e0c060" }), pecheur: q49L("pecheur", "#e0b080", "#2a2a2a", "#2a6ab0", "#3a3a5a", { chapeau: "#3a5a8a" }),
+  moine: q49L("moine", "#f0c8a0", "#f0c8a0", "#e8902a", "#e8902a"), bois: q49L("bois", "#c89060", "#8a4a1a", "#a85a2a", "#4a3a2a", { barbe: true }),
+  corbeau: q49L("corbeau", "#e8c0a0", "#1a1a1a", "#3a3a4a", "#1a1a2a", { masque: true }), loup: q49L("loup", "#c89060", "#3a2a1a", "#7a5a3a", "#3a2a1a"),
+  mira: q49L("mira", "#f8d0b0", "#f08a30", "#f0f0f0", "#2a5ab0"), cuist: q49L("cuist", "#f0c8a0", "#f0d040", "#1a1a1a", "#1a1a1a"),
+  perro: q49L("perro", "#d8a070", "#c83a2a", "#3a8a3a", "#5a3a1a", { chapeau: "#1a1a1a" }), barbe: q49L("barbe", "#d8a070", "#9a9aa0", "#5a1a1a", "#2a2a2a", { barbe: true, chapeau: "#1a1a1a" }),
+  charp: q49L("charp", "#c89060", "#3a6aa0", "#d8b070", "#3a3a3a"), scie: q49L("scie", "#8ab0d0", "#2a4a6a", "#2a4a6a", "#1a2a3a"),
+  prof: q49L("prof", "#f0c8a0", "#c8c8c8", "#f0f0f0", "#6a4a3a"), rival: q49L("rival", "#f0c8a0", "#c87a2a", "#3a6ad8", "#2a2a2a"), champ: q49L("champ", "#e0b080", "#5a2a6a", "#8a3ac8", "#2a1a3a"),
+  lili: q49L("lili", "#f8d8c0", "#f07a3a", "#f0d040", "#2a6ab0"), baie: q49L("baie", "#f8d8c0", "#3a2a1a", "#d84a8a", "#5a3a2a", { cheveux: "long" }),
+  velo: q49L("velo", "#e0b080", "#1a1a1a", "#d83a2a", "#2a2a4a", { chapeau: "#d83a2a" }), insecte: q49L("insecte", "#f0c8a0", "#5a3a1a", "#6ab03a", "#e0c060", { chapeau: "#6ab03a" }),
+  quiz: q49L("quiz", "#f0c8a0", "#2a2a2a", "#8a8a9a", "#3a3a4a"),
+  iruko: q49L("iruko", "#d8a070", "#3a2a1a", "#4a6a3a", "#2a3a5a", { bandeau: true }), kaburo: q49L("kaburo", "#f0d0b0", "#c8c8d0", "#6a3aa0", "#3a2a4a", { bandeau: true }),
+  ramen: q49L("ramen", "#f0c8a0", "#2a2a2a", "#f0f0f0", "#3a3a3a", { bandeau: true }), chat: q49L("chat", "#f8d8c0", "#a0522d", "#d85a8a", "#3a3a5a", { cheveux: "long" }),
+  shika: q49L("shika", "#e8c0a0", "#2a2a2a", "#5a6a3a", "#3a3a3a", { chignon: true }), toit: q49L("toit", "#f0c8a0", "#f0d040", "#f07a20", "#1a2a5a", { bandeau: true }),
+  elisa: q49L("elisa", "#f8e0d0", "#d8d8e8", "#e8e8f8", "#5a6ab0", { cheveux: "long" }), hendor: q49L("hendor", "#e8d0c0", "#e8e8e8", "#3a3a4a", "#1a1a2a"),
+  hawk: q49L("hawk", "#f0b0b8", "#f0b0b8", "#f0b0b8", "#e0a0a8"), fee: q49L("fee", "#f8e0d0", "#e8d050", "#58c85a", "#3a8a3a", { cheveux: "long" }),
+  geant: q49L("geant", "#c89060", "#8a3a1a", "#6a4a2a", "#3a2a1a", { barbe: true }), forg: q49L("forg", "#c89060", "#1a1a1a", "#5a5a6a", "#2a2a2a", { barbe: true })
+};
+/* ---------- PNJ des quêtes ---------- */
+const Q49_PNJ = {
+  // monde 1 — Sangoku
+  sage: { w: 1, nom: "Vieil Ermite Kôrin-ji", L: "sage", a: ["dep", 40, -30], ligne: "Les sept étoiles brillent encore… mais pour combien de temps ?" },
+  inv: { w: 1, nom: "Inventeuse Capsula", L: "inv", a: ["ville", 30, 0], ligne: "Mes capsules peuvent tout ranger, même une moto !" },
+  fermier: { w: 1, nom: "Fermier Taro", L: "fermier", a: ["dep", -110, 40], ligne: "Mes champs donnent les meilleurs légumes du pays." },
+  pecheur1: { w: 1, nom: "Pêcheur Kaito", L: "pecheur", a: ["kame", 0, 0], ligne: "La mer est calme, les poissons mordent !" },
+  moine: { w: 1, nom: "Moine Kuri", L: "moine", a: ["tour", -40, 30], ligne: "La sagesse vaut plus que la force… parfois." },
+  bois: { w: 1, nom: "Charpentier Bao", L: "bois", a: ["plaine", 0, 0], ligne: "Un bon abri, c'est un voyageur qui respire." },
+  corbeau: { w: 1, nom: "Général Corbeau", L: "corbeau", a: ["tour", 90, 70], ligne: "L'armée du Ruban Noir aura les étoiles !" },
+  loup: { w: 1, nom: "Le Loup des Plaines", L: "loup", a: ["foret", 0, 0], ligne: "Personne ne traverse ma plaine sans se battre." },
+  // monde 2 — Grand Line (sur des radeaux)
+  mira: { w: 2, nom: "Capitaine Mira", L: "mira", a: ["dep", 0, 0], radeau: 1, ligne: "Le Grand Line ne pardonne pas, matelot !" },
+  cuist: { w: 2, nom: "Chef Toni", L: "cuist", a: ["dep", -340, 260], radeau: 1, ligne: "Un bon cuistot pêche lui-même son poisson." },
+  perro: { w: 2, nom: "Vieux Gabier et son perroquet", L: "perro", a: ["i0", 0, 0], radeau: 1, ligne: "Croâ ! Une devinette, une devinette !" },
+  charp2: { w: 2, nom: "Charpentier Franko", L: "charp", a: ["i1", 0, 0], radeau: 1, ligne: "Mon radeau prend l'eau… pas SUPER du tout !" },
+  barbe: { w: 2, nom: "Capitaine Barbe-Grise", L: "barbe", a: ["i2", 0, 0], radeau: 1, ligne: "Le trésor du Roi des Mers est à moi !" },
+  scie: { w: 2, nom: "Homme-poisson Scie", L: "scie", a: ["large", 0, 0], radeau: 1, ligne: "Les humains n'ont rien à faire dans mes eaux." },
+  // monde 3 — Pokémon
+  prof: { w: 3, nom: "Professeur Sorbier", L: "prof", a: ["bourg", 0, 0], ligne: "Le monde des Pokémon est immense, Théo !" },
+  rival: { w: 3, nom: "Rival Alex", L: "rival", a: ["azur", 0, 0], ligne: "Je serai le meilleur dresseur, pas toi !" },
+  champ: { w: 3, nom: "Championne Roxane", L: "champ", a: ["granit", 0, 0], ligne: "Mon badge se mérite." },
+  lili: { w: 3, nom: "Pêcheuse Lili", L: "lili", a: ["etang", 0, 0], ligne: "Les Ptitard adorent mon étang !" },
+  baie: { w: 3, nom: "Cueilleuse Myrtille", L: "baie", a: ["azur", 80, 20], ligne: "Les baies rendent les Pokémon heureux." },
+  velo: { w: 3, nom: "Cycliste Max", L: "velo", a: ["route1", 0, 0], ligne: "Personne ne va plus vite que moi sur la Route 1 !" },
+  insecte: { w: 3, nom: "Gamin Insecte Tim", L: "insecte", a: ["route2", 0, 0], ligne: "Mes Pokémon Insecte sont les plus forts !" },
+  quiz: { w: 3, nom: "Monsieur Quiz", L: "quiz", a: ["granit", -90, 30], ligne: "Un vrai dresseur connaît les types par cœur." },
+  // monde 4 — Konoha
+  iruko: { w: 4, nom: "Iruko-sensei", L: "iruko", a: ["acad", 0, 40], ligne: "Un ninja ne renonce jamais !" },
+  ramen: { w: 4, nom: "Teuchi-san de l'Ichiraku", L: "ramen", a: ["ichiraku", 0, 30], ligne: "Un bol de ramen, ça te dit ?" },
+  chat: { w: 4, nom: "Dame Shijimi", L: "chat", a: ["place", -120, 20], ligne: "Mon chat Tigrou s'est encore enfui…" },
+  shika: { w: 4, nom: "Shikadai le stratège", L: "shika", a: ["place", 130, 20], ligne: "Quelle galère… mais j'aime les énigmes." },
+  toit: { w: 4, nom: "Ninja des toits Kiba-ru", L: "toit", a: ["porte", 60, -20], ligne: "Une course ? Je te mets au défi !" },
+  pecheur4: { w: 4, nom: "Pêcheur de la cascade", L: "pecheur", a: ["cascade", 0, 0], ligne: "Les truites de la cascade sont rusées." },
+  pont4: { w: 4, nom: "Charpentier Tazuna-ji", L: "bois", a: ["pont", 0, 0], ligne: "Le Grand Pont a besoin de planches neuves." },
+  kaburo: { w: 4, nom: "Kaburo le déserteur", L: "kaburo", a: ["vallee", 0, 0], ligne: "Tes parchemins m'appartiennent, petit." },
+  // monde 5 — Britannia
+  elisa: { w: 5, nom: "Princesse Élisa", L: "elisa", a: ["liones", 0, 0], ligne: "Les Sept Péchés capitaux doivent être réunis." },
+  hawk: { w: 5, nom: "Faucon le cochon parlant", L: "hawk", a: ["boar", 0, 0], ligne: "Je suis le capitaine des restes, groin !" },
+  fee: { w: 5, nom: "Fée Elaine-ette", L: "fee", a: ["fees", 0, 120], ligne: "La forêt des fées aime les visiteurs rapides." },
+  roifee: { w: 5, nom: "Gardien de l'Arbre sacré", L: "fee", a: ["fees", -120, 60], ligne: "Réponds bien, et la forêt te bénira." },
+  pecheur5: { w: 5, nom: "Pêcheur du marais", L: "pecheur", a: ["marais", 0, -60], ligne: "Les brumes cachent les plus gros poissons." },
+  forg: { w: 5, nom: "Forgeron de Vaizel", L: "forg", a: ["vaizel", 0, 0], ligne: "Le festival de Vaizel a besoin d'une nouvelle arène !" },
+  hendor: { w: 5, nom: "Chevalier sacré Hendor", L: "hendor", a: ["donjon", 0, 0], ligne: "Les Péchés seront jugés." },
+  geant: { w: 5, nom: "Géant des collines", L: "geant", a: ["bernia", 0, 120], ligne: "Hé, petit ! Montre-moi ta force !" }
+};
+/* ---------- quêtes ----------
+   étapes : parler / aller / vaincre / ramasser / couler / capture / pkwin / duel / pkduel / peche / course / enigme / construire */
+const Q49_Q = [
+  // ======== MONDE 1 ========
+  { id: "w1m", w: 1, main: 1, titre: "La Légende des sept étoiles", giver: "sage", rec: { xp: 600, z: 1500 }, intro: "Une armée, le Ruban Noir, cherche les boules aux sept étoiles pour faire un vœu terrible. Aide-moi à l'arrêter !",
+    e: [{ t: "ramasser", n: 3, a: ["tour", -260, 120], r: 220, ic: "radar", txt: "Retrouve 3 pièces du radar près de la Tour de Karine" },
+        { t: "parler", p: "inv", txt: "Apporte les pièces à l'Inventeuse Capsula, en ville", dit: "Super ! Avec ces pièces, je répare le radar… Il montre des soldats du Ruban Noir tout autour !" },
+        { t: "vaincre", n: 6, txt: "Bats 6 ennemis du Ruban Noir" },
+        { t: "duel", p: "corbeau", lvl: 0.7, techs: [{ nom: "Lame noire", mult: 1.5 }, { nom: "Rafale", mult: 1.2 }], txt: "Affronte le Général Corbeau au pied de la Tour" },
+        { t: "parler", p: "sage", txt: "Retourne voir l'Ermite", dit: "Le Ruban Noir est vaincu ! Les sept étoiles sont en sécurité grâce à toi." }] },
+  { id: "w1a", w: 1, titre: "Les herbes de Senzu", giver: "fermier", rec: { xp: 160, z: 300 }, intro: "Mes graines magiques se sont envolées avec le vent ! Ramasse-les pour moi.",
+    e: [{ t: "ramasser", n: 4, a: ["dep", -200, 160], r: 190, ic: "herbe", txt: "Ramasse 4 herbes de Senzu près de la ferme" }, { t: "parler", p: "fermier", txt: "Rapporte-les au Fermier Taro", dit: "Merci ! Prends ces zénis, tu les as bien mérités." }] },
+  { id: "w1b", w: 1, titre: "La pêche du jour", giver: "pecheur1", rec: { xp: 140, z: 260 }, intro: "Le festival de Kame House commence ce soir et il me manque du poisson !",
+    e: [{ t: "peche", n: 3, p: "pecheur1", txt: "Pêche 3 poissons avec Kaito" }] },
+  { id: "w1c", w: 1, titre: "L'énigme du moine", giver: "moine", rec: { xp: 150, z: 250 }, intro: "Réponds à mon énigme et je t'enseignerai un secret.",
+    e: [{ t: "enigme", p: "moine", q: "Plus je suis partagé, plus je grandis. Qui suis-je ?", ch: ["Un trésor", "Un gâteau", "Le savoir"], bon: 2, txt: "Résous l'énigme du Moine Kuri" }] },
+  { id: "w1d", w: 1, titre: "Une cabane pour les voyageurs", giver: "bois", rec: { xp: 200, z: 350 }, intro: "J'ai besoin de 4 planches pour bâtir une cabane-relais pour les voyageurs.",
+    e: [{ t: "ramasser", n: 4, a: ["plaine", 120, -90], r: 200, ic: "planche", txt: "Ramasse 4 planches" }, { t: "construire", p: "bois", txt: "Construis la cabane avec Bao", nomC: "Cabane-relais" }] },
+  { id: "w1e", w: 1, titre: "Le défi de la Tortue", giver: "fermier", rec: { xp: 180, z: 320 }, intro: "Le vieux Kamé dit que tu es trop lent… Prouve-lui le contraire : 5 drapeaux en 50 secondes !",
+    e: [{ t: "course", p: "fermier", n: 5, r: 260, lim: 50, txt: "Passe les 5 drapeaux en 50 s" }] },
+  { id: "w1f", w: 1, titre: "Le Loup des Plaines", giver: "loup", rec: { xp: 260, z: 450 }, intro: "Tu veux passer ? Bats-moi d'abord !",
+    e: [{ t: "duel", p: "loup", lvl: 0.55, techs: [{ nom: "Croc du loup", mult: 1.4 }], txt: "Bats le Loup des Plaines" }] },
+  // ======== MONDE 2 ========
+  { id: "w2m", w: 2, main: 1, titre: "Le trésor du Roi des Mers", giver: "mira", rec: { xp: 650, z: 1800 }, intro: "Une vieille carte mène au trésor du Roi des Mers. Elle est déchirée en morceaux, et Barbe-Grise la convoite !",
+    e: [{ t: "ramasser", n: 4, a: ["dep", -700, -400], r: 420, ic: "baril", txt: "Repêche 4 barils avec des morceaux de carte" },
+        { t: "parler", p: "perro", txt: "Fais lire la carte au Vieux Gabier", dit: "Croâ ! La carte montre le repaire de Barbe-Grise ! Mais ses navires gardent la route…" },
+        { t: "couler", n: 3, txt: "Coule 3 navires pirates" },
+        { t: "duel", p: "barbe", lvl: 0.75, techs: [{ nom: "Ancre tournoyante", mult: 1.6 }, { nom: "Canon de poing", mult: 1.3 }], txt: "Affronte le Capitaine Barbe-Grise" },
+        { t: "parler", p: "mira", txt: "Rapporte le trésor à la Capitaine Mira", dit: "Le trésor du Roi des Mers ! Tu es un vrai pirate, matelot !" }] },
+  { id: "w2a", w: 2, titre: "Le poisson géant", giver: "cuist", rec: { xp: 160, z: 320 }, intro: "Il me faut du poisson frais pour mon restaurant flottant !",
+    e: [{ t: "peche", n: 3, p: "cuist", txt: "Pêche 3 poissons avec le Chef Toni" }] },
+  { id: "w2b", w: 2, titre: "La devinette du perroquet", giver: "perro", rec: { xp: 150, z: 280 }, intro: "Croâ ! Réponds et tu auras une pièce d'or !",
+    e: [{ t: "enigme", p: "perro", q: "J'ai des dents mais je ne mords jamais. Qui suis-je ?", ch: ["Un requin", "Un peigne", "Une épave"], bon: 1, txt: "Réponds à la devinette du perroquet" }] },
+  { id: "w2c", w: 2, titre: "Le radeau de Franko", giver: "charp2", rec: { xp: 200, z: 380 }, intro: "Mon radeau prend l'eau ! Ramène-moi 3 planches qui flottent par ici.",
+    e: [{ t: "ramasser", n: 3, a: ["i1", 0, -200], r: 320, ic: "planche", txt: "Repêche 3 planches" }, { t: "construire", p: "charp2", txt: "Répare le radeau avec Franko", nomC: "Cabane flottante" }] },
+  { id: "w2d", w: 2, titre: "La régate du Grand Line", giver: "mira", rec: { xp: 200, z: 400 }, intro: "Une course de bateaux ! Passe les 5 bouées en 70 secondes.",
+    e: [{ t: "course", p: "mira", n: 5, r: 700, lim: 70, txt: "Passe les 5 bouées en 70 s" }] },
+  { id: "w2e", w: 2, titre: "L'homme-poisson Scie", giver: "scie", rec: { xp: 280, z: 520 }, intro: "Tu veux naviguer dans mes eaux ? Bats-moi !",
+    e: [{ t: "duel", p: "scie", lvl: 0.6, techs: [{ nom: "Nez-scie", mult: 1.5 }], txt: "Bats l'homme-poisson Scie" }] },
+  // ======== MONDE 3 ========
+  { id: "w3m", w: 3, main: 1, titre: "La route du Badge Roche", giver: "prof", rec: { xp: 300, z: 1500 }, intro: "Pour devenir un grand dresseur, il te faut le Badge Roche de Cité-Granit. Mais d'abord, agrandis ton équipe !",
+    e: [{ t: "capture", n: 2, txt: "Capture 2 Pokémon sauvages" },
+        { t: "aller", a: ["azur", 0, 0], txt: "Va au Village-Azur" },
+        { t: "pkduel", p: "rival", eq: [["roucool", 8], ["abo", 9]], txt: "Bats ton rival Alex" },
+        { t: "pkwin", n: 3, txt: "Gagne 3 combats contre des Pokémon sauvages" },
+        { t: "pkduel", p: "champ", eq: [["nidorino", 12], ["arbok", 13]], txt: "Défie la Championne Roxane à Cité-Granit" },
+        { t: "parler", p: "prof", txt: "Montre ton badge au Professeur Sorbier", dit: "Le Badge Roche ! Je suis fier de toi, Théo. La Ligue t'attend !" }] },
+  { id: "w3a", w: 3, titre: "La pêche à l'étang", giver: "lili", rec: { xp: 140, z: 260 }, intro: "Aide-moi à pêcher 3 poissons, mes Ptitard ont faim !",
+    e: [{ t: "peche", n: 3, p: "lili", txt: "Pêche 3 poissons avec Lili" }] },
+  { id: "w3b", w: 3, titre: "Baies sauvages", giver: "baie", rec: { xp: 150, z: 280 }, intro: "Ramasse 5 baies autour du village, pour les Pokémon du Centre de soin.",
+    e: [{ t: "ramasser", n: 5, a: ["azur", 0, 160], r: 240, ic: "baie", txt: "Ramasse 5 baies" }, { t: "parler", p: "baie", txt: "Rapporte les baies à Myrtille", dit: "Merci ! Les Pokémon vont se régaler." }] },
+  { id: "w3c", w: 3, titre: "Le défi du vélo", giver: "velo", rec: { xp: 170, z: 300 }, intro: "Je te parie que tu ne passes pas les 5 drapeaux en 45 secondes !",
+    e: [{ t: "course", p: "velo", n: 5, r: 240, lim: 45, txt: "Passe les 5 drapeaux en 45 s" }] },
+  { id: "w3d", w: 3, titre: "Le gamin des insectes", giver: "insecte", rec: { xp: 180, z: 320 }, intro: "Un combat Pokémon ? Mes insectes sont prêts !",
+    e: [{ t: "pkduel", p: "insecte", eq: [["chenipan", 7], ["aspicot", 8]], txt: "Bats Gamin Insecte Tim" }] },
+  { id: "w3e", w: 3, titre: "Le grand quiz des types", giver: "quiz", rec: { xp: 150, z: 300 }, intro: "Une question, une seule ! Trouve la bonne réponse.",
+    e: [{ t: "enigme", p: "quiz", q: "Quel type est super efficace contre un Pokémon de type Eau ?", ch: ["Feu", "Électrik", "Normal"], bon: 1, txt: "Réponds au quiz des types" }] },
+  { id: "w3f", w: 3, titre: "Nouveaux amis", giver: "prof", rec: { xp: 200, z: 400 }, intro: "Pour mon Pokédex, capture encore 3 Pokémon, n'importe lesquels !",
+    e: [{ t: "capture", n: 3, txt: "Capture 3 Pokémon" }, { t: "parler", p: "prof", txt: "Retourne voir le Professeur", dit: "Formidable, le Pokédex se remplit !" }] },
+  // ======== MONDE 4 ========
+  { id: "w4m", w: 4, main: 1, titre: "L'examen des parchemins", giver: "iruko", rec: { xp: 600, z: 1600 }, intro: "Les parchemins de l'examen ont été volés par un déserteur ! Retrouve-les et ramène-les à l'Académie.",
+    e: [{ t: "ramasser", n: 4, a: ["foretD", 0, 0], r: 260, ic: "parchemin", txt: "Retrouve 4 parchemins dans la Forêt des Déserteurs" },
+        { t: "vaincre", n: 5, txt: "Bats 5 ennemis" },
+        { t: "aller", a: ["vallee", 0, 0], txt: "Suis la piste jusqu'à la Vallée de la Fin" },
+        { t: "duel", p: "kaburo", lvl: 0.75, techs: [{ nom: "Scalpel de chakra", mult: 1.6 }, { nom: "Clone d'ombre", mult: 1.2 }], txt: "Affronte Kaburo le déserteur" },
+        { t: "parler", p: "iruko", txt: "Ramène les parchemins à Iruko-sensei", dit: "Tu as réussi ! Tu es digne du bandeau de Konoha !" }] },
+  { id: "w4a", w: 4, titre: "Le chat Tigrou", giver: "chat", rec: { xp: 150, z: 300 }, intro: "Mon chat Tigrou s'est enfui vers la Forêt de la Mort ! Mission de rang D, petit ninja.",
+    e: [{ t: "ramasser", n: 1, a: ["foretM", 0, 0], r: 160, ic: "chat", txt: "Retrouve le chat Tigrou" }, { t: "parler", p: "chat", txt: "Ramène Tigrou à Dame Shijimi", dit: "Mon Tigrou ! Merci, voici ta récompense." }] },
+  { id: "w4b", w: 4, titre: "Livraison de ramen", giver: "ramen", rec: { xp: 140, z: 260 }, intro: "Le garde de la porte a commandé un bol. Livre-le vite avant qu'il refroidisse !",
+    e: [{ t: "aller", a: ["porte", -60, 0], txt: "Livre le ramen au poste de garde" }, { t: "parler", p: "ramen", txt: "Reviens chez Teuchi-san", dit: "Le garde était ravi ! Voici ta part." }] },
+  { id: "w4c", w: 4, titre: "L'énigme du stratège", giver: "shika", rec: { xp: 160, z: 280 }, intro: "Quelle galère… Bon. Une énigme.",
+    e: [{ t: "enigme", p: "shika", q: "Un ninja regarde vers l'est, fait demi-tour, puis tourne à gauche. Où regarde-t-il ?", ch: ["Au nord", "Au sud", "À l'ouest"], bon: 1, txt: "Résous l'énigme de Shikadai" }] },
+  { id: "w4d", w: 4, titre: "La course des toits", giver: "toit", rec: { xp: 180, z: 320 }, intro: "5 drapeaux, 50 secondes. Prêt ?",
+    e: [{ t: "course", p: "toit", n: 5, r: 260, lim: 50, txt: "Passe les 5 drapeaux en 50 s" }] },
+  { id: "w4e", w: 4, titre: "Pêche à la cascade", giver: "pecheur4", rec: { xp: 140, z: 260 }, intro: "Attrape 3 truites, c'est un bon entraînement de réflexes !",
+    e: [{ t: "peche", n: 3, p: "pecheur4", txt: "Pêche 3 truites" }] },
+  { id: "w4f", w: 4, titre: "L'abri du Grand Pont", giver: "pont4", rec: { xp: 200, z: 380 }, intro: "Ramène 4 planches et je bâtirai un abri pour les gardes du pont.",
+    e: [{ t: "ramasser", n: 4, a: ["pont", -160, -160], r: 220, ic: "planche", txt: "Ramasse 4 planches" }, { t: "construire", p: "pont4", txt: "Construis l'abri avec Tazuna-ji", nomC: "Abri du pont" }] },
+  // ======== MONDE 5 ========
+  { id: "w5m", w: 5, main: 1, titre: "Le réveil des Péchés", giver: "elisa", rec: { xp: 650, z: 1700 }, intro: "Les Chevaliers sacrés ont pris le royaume. Retrouve les fragments de l'armure sacrée et arrête Hendor !",
+    e: [{ t: "aller", a: ["vaizel", 0, 0], txt: "Va au Village de Vaizel" },
+        { t: "ramasser", n: 3, a: ["dalmary", 0, 0], r: 260, ic: "armure", txt: "Trouve 3 fragments d'armure dans la Forêt de Dalmary" },
+        { t: "vaincre", n: 6, txt: "Bats 6 ennemis" },
+        { t: "duel", p: "hendor", lvl: 0.8, techs: [{ nom: "Flamme noire", mult: 1.7 }, { nom: "Lance sacrée", mult: 1.3 }], txt: "Affronte le Chevalier sacré Hendor" },
+        { t: "parler", p: "elisa", txt: "Retourne voir la Princesse Élisa", dit: "Liones est libre ! Les Sept Péchés capitaux peuvent rentrer à la taverne." }] },
+  { id: "w5a", w: 5, titre: "Les restes de Faucon", giver: "hawk", rec: { xp: 140, z: 260 }, intro: "Groin ! Ramasse-moi 5 restes de repas éparpillés autour de la taverne !",
+    e: [{ t: "ramasser", n: 5, a: ["boar", 0, 140], r: 220, ic: "reste", txt: "Ramasse 5 restes pour Faucon" }, { t: "parler", p: "hawk", txt: "Donne-les à Faucon", dit: "Miam ! Tu es un vrai chevalier des restes, groin !" }] },
+  { id: "w5b", w: 5, titre: "La course des fées", giver: "fee", rec: { xp: 180, z: 320 }, intro: "Les fées volent vite. Et toi ? 5 drapeaux en 50 secondes !",
+    e: [{ t: "course", p: "fee", n: 5, r: 250, lim: 50, txt: "Passe les 5 drapeaux en 50 s" }] },
+  { id: "w5c", w: 5, titre: "L'énigme de l'Arbre sacré", giver: "roifee", rec: { xp: 160, z: 300 }, intro: "Réponds à l'Arbre sacré.",
+    e: [{ t: "enigme", p: "roifee", q: "Je disparais dès qu'on dit mon nom. Qui suis-je ?", ch: ["Le silence", "La nuit", "Une fée"], bon: 0, txt: "Résous l'énigme de l'Arbre sacré" }] },
+  { id: "w5d", w: 5, titre: "Les poissons des brumes", giver: "pecheur5", rec: { xp: 150, z: 280 }, intro: "Il me faut 3 poissons pour la taverne.",
+    e: [{ t: "peche", n: 3, p: "pecheur5", txt: "Pêche 3 poissons dans le marais" }] },
+  { id: "w5e", w: 5, titre: "L'arène du festival", giver: "forg", rec: { xp: 220, z: 400 }, intro: "Apporte-moi 4 blocs de pierre et nous bâtirons l'arène du festival de Vaizel !",
+    e: [{ t: "ramasser", n: 4, a: ["vaizel", 160, 120], r: 220, ic: "pierre", txt: "Ramasse 4 blocs de pierre" }, { t: "construire", p: "forg", txt: "Construis l'arène avec le forgeron", nomC: "Arène de Vaizel" }] },
+  { id: "w5f", w: 5, titre: "Le Géant des collines", giver: "geant", rec: { xp: 280, z: 520 }, intro: "Un duel de géant ! Si tu gagnes, je te laisse passer.",
+    e: [{ t: "duel", p: "geant", lvl: 0.65, techs: [{ nom: "Poing de terre", mult: 1.6 }], txt: "Bats le Géant des collines" }] }
+];
+const Q49_BY = {}; for (const Q of Q49_Q) Q49_BY[Q.id] = Q;
+/* ---------- quotidiennes ---------- */
+const Q49_JOUR = [
+  { id: "jv", titre: "Entraînement du jour", t: "vaincre", n: 8, txt: "Bats 8 ennemis (n'importe quel monde)", rec: { xp: 120, z: 250 } },
+  { id: "jm", titre: "Grand voyageur", t: "marche", n: 1500, txt: "Parcours 1500 pas", rec: { xp: 100, z: 200 } },
+  { id: "jp", titre: "Pêcheur du jour", t: "peche", n: 2, txt: "Pêche 2 poissons (avec un pêcheur)", rec: { xp: 110, z: 220 } },
+  { id: "jl", titre: "Explorateur", t: "album", n: 2, txt: "Découvre 2 nouveaux lieux (album)", rec: { xp: 120, z: 240 } },
+  { id: "jq", titre: "Service rendu", t: "quete", n: 1, txt: "Réussis 1 étape de quête", rec: { xp: 130, z: 260 } },
+  { id: "jd", titre: "Duel du jour", t: "duel", n: 1, txt: "Gagne 1 duel ou combat de dresseur", rec: { xp: 140, z: 280 } }
+];
+function q49Compteurs() { const S = q49S(), c = S.c; return { v: Object.values(c.v).reduce((a, b) => a + b, 0), m: Math.round(c.marche || 0), peche: c.peche, album: Object.keys(S.album).length, quete: c.etapes || 0, duel: c.duel }; }
+function q49Jour() {
+  const S = q49S(), d = new Date(), k = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  if (S.jour.d !== k) { const r = q49Rnd("jour" + k), L = Q49_JOUR.map(x => x.id).sort(() => r() - 0.5).slice(0, 3); S.jour = { d: k, l: L, f: {}, b: q49Compteurs() }; }
+  return S.jour;
+}
+function q49JourProg(D) { const J = q49Jour(), c = q49Compteurs(), k = { vaincre: "v", marche: "m", peche: "peche", album: "album", quete: "quete", duel: "duel" }[D.t]; return Math.max(0, Math.min(D.n, (c[k] || 0) - (J.b[k] || 0))); }
+/* ---------- état d'une quête ---------- */
+const q49Q = id => q49S().q[id];
+function q49Etape(id) { const Q = Q49_BY[id], st = q49Q(id); return Q && st && st.st === "actif" ? Q.e[st.e] : null; }
+function q49Prog(id) {
+  const Q = Q49_BY[id], st = q49Q(id), E = q49Etape(id); if (!E) return 0; const c = q49S().c;
+  if (E.t === "vaincre") return Math.max(0, Math.min(E.n, (c.v[Q.w] || 0) - (st.b || 0)));
+  if (E.t === "couler") return Math.max(0, Math.min(E.n, c.nav - (st.b || 0)));
+  if (E.t === "capture") return Math.max(0, Math.min(E.n, c.cap - (st.b || 0)));
+  if (E.t === "pkwin") return Math.max(0, Math.min(E.n, c.pkv - (st.b || 0)));
+  if (E.t === "ramasser" || E.t === "peche") return Math.min(E.n, st.n || 0);
+  return 0;
+}
+function q49Base(id) { const Q = Q49_BY[id], st = q49Q(id), E = q49Etape(id), c = q49S().c; if (!E) return; st.n = 0; st.it = null;
+  st.b = E.t === "vaincre" ? (c.v[Q.w] || 0) : E.t === "couler" ? c.nav : E.t === "capture" ? c.cap : E.t === "pkwin" ? c.pkv : 0; }
+function q49Sv() { try { sauvegarder(false); } catch (_) { } }
+function q49Accepter(id) {
+  const S = q49S(); if (S.q[id]) return; S.q[id] = { st: "actif", e: 0 }; q49Base(id); S.suivi = id;
+  try { son.jouer("orbe"); } catch (_) { }
+  q49Toast("📜 Nouvelle quête", Q49_BY[id].titre, Q49_BY[id].e[0].txt); q49Sv();
+}
+function q49Avancer(id) {
+  const Q = Q49_BY[id], st = q49Q(id); if (!st || st.st !== "actif") return;
+  const S = q49S(); S.c.etapes = (S.c.etapes || 0) + 1;
+  st.e++;
+  if (st.e >= Q.e.length) { q49Finir(id); return; }
+  q49Base(id); try { son.jouer("orbe"); } catch (_) { }
+  q49Toast("✔ Étape réussie", Q.titre, "Ensuite : " + Q.e[st.e].txt); q49Sv();
+}
+function q49Gain(xp, z) {
+  try { if (q49W() === 4 && typeof knGagnerXP === "function") knGagnerXP(xp, perso.x, perso.y, true); else gagnerXP(xp); } catch (e) { q49Err("xp", e); }
+  try { prog.argent = Math.min(999999, (prog.argent || 0) + z); } catch (_) { }
+}
+function q49Finir(id) {
+  const Q = Q49_BY[id], st = q49Q(id), S = q49S(); st.st = "fini"; st.d = Date.now(); st.it = null; if (S.suivi === id) S.suivi = q49ProchaineSuivie();
+  q49Gain(Q.rec.xp, Q.rec.z);
+  try { son.jouer("fanfare"); } catch (_) { }
+  q49Toast("✅ Quête terminée !", Q.titre, "+" + Q.rec.xp + " XP · +" + Q.rec.z + " 💰");
+  if (Q.main) try { p37Recompense("SAGA TERMINÉE", ["🏅 Trophée : Héros — " + Q49_MONDES[Q.w], "⭐ +" + Q.rec.xp + " XP", "💰 +" + Q.rec.z], Q.titre); } catch (e) { q49Err("rec", e); }
+  q49Sv();
+}
+function q49ProchaineSuivie() { const w = q49W(); const L = Q49_Q.filter(Q => Q.w === w && q49Etape(Q.id)); return L.length ? L[0].id : null; }
+/* ---------- PNJ : position, marque, dialogue ---------- */
+const Q49_ICI = ["parler", "duel", "pkduel", "peche", "enigme", "construire", "course"];
+function q49PosPNJ(k) { const N = Q49_PNJ[k]; if (!N) return null; return q49Pos(N.w, N.a[0], N.a[1], N.a[2]); }
+function q49Dispo(Q) { return !q49Q(Q.id); }
+function q49Marque(k) { // « ! » quête à prendre, « ? » étape à faire ici
+  const w = Q49_PNJ[k].w;
+  for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (E && E.p === k && Q49_ICI.includes(E.t)) return "?"; }
+  for (const Q of Q49_Q) if (Q.giver === k && q49Dispo(Q)) return "!";
+  return null;
+}
+const q49Html = s => echapHTML(s);
+const q49Pecheur = k => /^pecheur|^lili$|^cuist$/.test(k);
+function q49Parler(k) {
+  const N = Q49_PNJ[k]; if (!N) return;
+  for (const Q of Q49_Q) { const E = q49Etape(Q.id); if (!E || E.p !== k) continue;
+    if (E.t === "parler") { q49Dialogue(N.nom, E.dit, [["ok", "▶ Merci !"]]); q49Avancer(Q.id); return; }
+    if (E.t === "duel") { q49Dialogue(N.nom, N.ligne, [["duel:" + Q.id, "⚔️ Combattre !"], ["x", "Plus tard"]], Q.titre); return; }
+    if (E.t === "pkduel") { q49Dialogue(N.nom, N.ligne + " On se bat ?", [["pkduel:" + Q.id, "⚡ Combat Pokémon !"], ["x", "Plus tard"]], Q.titre); return; }
+    if (E.t === "peche") { q49Dialogue(N.nom, "Appuie sur « Ferrer ! » quand le trait blanc passe dans la zone verte.", [["peche:" + Q.id, "🎣 Pêcher"], ["x", "Plus tard"]], Q.titre); return; }
+    if (E.t === "enigme") { q49Dialogue(N.nom, E.q, E.ch.map((c, i) => ["rep:" + Q.id + ":" + i, c]), Q.titre); return; }
+    if (E.t === "course") { q49Dialogue(N.nom, "Passe les " + E.n + " drapeaux dans l'ordre en " + E.lim + " secondes. Suis la flèche !", [["course:" + Q.id, "🏁 Départ !"], ["x", "Plus tard"]], Q.titre); return; }
+    if (E.t === "construire") { q49Dialogue(N.nom, "Tu as tout le matériel ! On construit ?", [["constr:" + Q.id, "🔨 Construire"], ["x", "Plus tard"]], Q.titre); return; }
+  }
+  const Q = Q49_Q.find(Q => Q.giver === k && q49Dispo(Q));
+  if (Q) { q49Dialogue(N.nom, Q.intro, [["acc:" + Q.id, "✅ Accepter"], ["x", "Plus tard"]], (Q.main ? "⭐ QUÊTE PRINCIPALE — " : "📌 QUÊTE SECONDAIRE — ") + Q.titre); return; }
+  const enC = Q49_Q.find(Q => Q.giver === k && q49Etape(Q.id));
+  if (q49Pecheur(k)) { q49Dialogue(N.nom, (enC ? "Courage : " + q49Etape(enC.id).txt + ". " : N.ligne + " ") + "Une petite pêche pour le plaisir ?", [["peche:libre", "🎣 Pêche libre"], ["x", "Au revoir"]]); return; }
+  q49Dialogue(N.nom, enC ? "Alors ? " + q49Etape(enC.id).txt + "." : N.ligne, [["x", "Au revoir"]]);
+}
+function q49Dialogue(nom, txt, boutons, sur) {
+  const h = `${sur ? `<div class="q49sur">${q49Html(sur)}</div>` : ""}<div class="titre">${q49Html(nom)}</div><div class="ligne q49dit">${q49Html(txt)}</div><div class="q49bt">${boutons.map(([a, l]) => `<button data-q49="${q49Html(a)}">${q49Html(l)}</button>`).join("")}</div>`;
+  try { son.jouer("clic"); } catch (_) { }
+  ouvrirPanneauAv(h);
+}
+function q49Fermer() { try { fermerPanneauRM(); } catch (_) { const P = document.getElementById("panneau"); P.hidden = true; jeu.pause = false; } }
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-q49]"); if (!b || !b.closest("#panneau")) return;
+  e.stopPropagation(); e.preventDefault();
+  try { q49Clic(b.dataset.q49); } catch (er) { q49Err("clic", er); }
+}, true);
+function q49Clic(a) {
+  const [k, id, v] = a.split(":");
+  if (k === "x" || k === "ok") { q49Fermer(); return; }
+  if (k === "acc") { q49Fermer(); q49Accepter(id); return; }
+  if (k === "duel") { q49Fermer(); setTimeout(() => q49Duel(id), 60); return; }
+  if (k === "pkduel") { q49Fermer(); setTimeout(() => q49PkDuel(id), 60); return; }
+  if (k === "peche") { q49Fermer(); setTimeout(() => q49Peche(id), 60); return; }
+  if (k === "course") { q49Fermer(); q49Course(id); return; }
+  if (k === "constr") { q49Fermer(); q49Construire(id); return; }
+  if (k === "rep") { const E = q49Etape(id); if (!E) { q49Fermer(); return; } const nom = Q49_PNJ[E.p].nom;
+    if (+v === E.bon) { q49S().c.enig++; q49Dialogue(nom, "Bonne réponse : « " + E.ch[E.bon] + " » ! Bravo.", [["ok", "▶ Continuer"]]); q49Avancer(id); }
+    else { try { son.jouer("erreur"); } catch (_) { } q49Dialogue(nom, "Non… ce n'est pas ça. Réfléchis et reviens me voir !", [["x", "D'accord"]]); } return; }
+  if (k === "j") { q49Journal(id || "main"); return; }
+  if (k === "suivre") { q49S().suivi = id; try { son.jouer("clic"); } catch (_) { } q49Journal(v || "main"); return; }
+  if (k === "nsuivre") { q49S().suivi = null; q49Journal(v || "main"); return; }
+  if (k === "ancien") { q49Fermer(); setTimeout(() => { try { Q49.ancienJ(); } catch (er) { q49Err("ancienJ", er); } }, 30); return; }
+}
+/* ---------- duels (moteur de duel 3D existant / combat Pokémon) ---------- */
+function q49Duel(id) {
+  const E = q49Etape(id); if (!E) return; const N = Q49_PNJ[E.p], L = Q49_LK[N.L];
+  const ok = p99Lancer({ adv: { id: "", nom: N.nom, col: L.c, sprite: f => imageKPNJ(L, 2, f & 3, true, false), techs: E.techs || [] }, lvl: E.lvl,
+    victoire: () => { q49S().c.duel++; q49Gain(40, 80); setTimeout(() => q49Avancer(id), 400); },
+    defaite: () => { messageInfo(N.nom + " est trop fort… Entraîne-toi et reviens !"); } });
+  if (ok === false) messageInfo("Impossible de lancer le combat maintenant.");
+}
+function q49PkDuel(id) {
+  const E = q49Etape(id); if (!E) return;
+  if (!PK.equipe || !PK.equipe.length) { messageInfo("Choisis d'abord ton premier Pokémon chez le Professeur !"); return; }
+  if (!PK.equipe.some(p => p.pv > 0)) { messageInfo("Soigne tes Pokémon au Centre de soin avant le combat !"); return; }
+  q49Fermer();
+  Q49.pkQ = id; pkLancerCombat({ equipe: E.eq, nom: Q49_PNJ[E.p].nom, quete: "q49" });
+}
+(() => {
+  const f0 = pkFinCombat;
+  pkFinCombat = function (C, issue) {
+    try { if (C && !C.fini && issue === "gagne") { if (C.sauvage) q49S().c.pkv++; else q49S().c.duel++; if (C.quete === "q49" && Q49.pkQ) { const id = Q49.pkQ; Q49.pkQ = null; setTimeout(() => q49Avancer(id), 1200); } } } catch (e) { q49Err("pkfin", e); }
+    return f0.apply(this, arguments);
+  };
+  const c0 = pkEvenementCapture;
+  pkEvenementCapture = function () { try { q49S().c.cap++; } catch (_) { } return c0.apply(this, arguments); };
+})();
+/* ---------- pêche (mini-jeu de timing) ---------- */
+function q49Peche(id) {
+  const libre = id === "libre", E = libre ? null : q49Etape(id); if (!libre && !E) return;
+  let el = document.getElementById("q49peche");
+  if (!el) { el = document.createElement("div"); el.id = "q49peche"; document.body.appendChild(el); el.addEventListener("pointerdown", e => e.stopPropagation()); }
+  const besoin = libre ? 2 : Math.max(1, E.n - (q49Q(id).n || 0));
+  const G = { pris: 0, essais: 0, max: besoin + 3, pos: 0, dir: 1, z0: 0.35, zl: 0.22, v: 0.9, fini: false, raf: 0 };
+  jeu.pause = true; try { manette.relacher(); } catch (_) { }
+  const nouv = () => { G.zl = 0.17 + Math.random() * 0.1; G.z0 = 0.05 + Math.random() * (0.9 - G.zl); G.v = 0.7 + Math.random() * 0.5 + G.pris * 0.1; };
+  nouv();
+  el.innerHTML = `<div class="c"><div class="t">🎣 PÊCHE</div><div class="m"></div><div class="bar"><i class="z"></i><b class="cur"></b></div><button class="go">Ferrer !</button><button class="q">Arrêter</button></div>`;
+  el.hidden = false;
+  const Z = el.querySelector(".z"), C = el.querySelector(".cur"), M = el.querySelector(".m");
+  const aff = () => { M.textContent = `Poissons : ${G.pris}/${besoin} — essais : ${G.max - G.essais}`; Z.style.left = (G.z0 * 100) + "%"; Z.style.width = (G.zl * 100) + "%"; };
+  aff();
+  let last = performance.now(), attente = false;
+  const loop = now => { if (G.fini) return; const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!attente) { G.pos += G.dir * G.v * dt; if (G.pos > 1) { G.pos = 1; G.dir = -1; } if (G.pos < 0) { G.pos = 0; G.dir = 1; } C.style.left = (G.pos * 100) + "%"; } G.raf = requestAnimationFrame(loop); };
+  G.raf = requestAnimationFrame(loop);
+  const fin = () => { G.fini = true; cancelAnimationFrame(G.raf); el.hidden = true; jeu.pause = false; };
+  el.querySelector(".q").onclick = () => { fin(); messageInfo("Pêche interrompue."); };
+  el.querySelector(".go").onclick = () => {
+    if (G.fini || attente) return; G.essais++; attente = true;
+    const ok = G.pos >= G.z0 - 0.015 && G.pos <= G.z0 + G.zl + 0.015;
+    if (ok) { G.pris++; q49S().c.peche++; try { son.jouer("orbe"); } catch (_) { } try { vibrer(30); } catch (_) { } if (!libre) { const st = q49Q(id); st.n = (st.n || 0) + 1; } M.textContent = "🐟 Attrapé !"; }
+    else { try { son.jouer("erreur"); } catch (_) { } M.textContent = "💨 Raté… le poisson s'échappe."; }
+    setTimeout(() => {
+      attente = false; if (G.fini) return;
+      if (G.pris >= besoin) { fin(); if (libre) { q49Gain(20, 40); messageInfo("Belle pêche ! +40 💰"); } else q49Avancer(id); return; }
+      if (G.essais >= G.max) { fin(); messageInfo("Les poissons ne mordent plus… Reviens plus tard !"); return; }
+      nouv(); aff();
+    }, 650);
+  };
+}
+/* ---------- course ---------- */
+function q49Course(id) {
+  const E = q49Etape(id); if (!E) return; const P = q49P(), w = q49W(), r = q49Rnd(id + Date.now());
+  const pts = []; const a0 = r() * 6.28;
+  for (let i = 0; i < E.n; i++) { const a = a0 + i / E.n * 6.28, rr = E.r * (0.75 + r() * 0.4); const p = w === 2 ? { x: P.x + Math.cos(a) * rr, y: P.y + Math.sin(a) * rr } : q49Spot(P.x + Math.cos(a) * rr, P.y + Math.sin(a) * rr, 160); if (p) pts.push(p); }
+  if (pts.length < 2) { messageInfo("Pas assez de place pour une course ici…"); return; }
+  Q49.course = { id, pts, i: 0, t0: performance.now(), lim: E.lim }; q49S().suivi = id;
+  try { son.jouer("orbe"); } catch (_) { } messageInfo("🏁 C'est parti ! Suis la flèche jusqu'au drapeau.");
+}
+function q49MajCourse() {
+  const C = Q49.course; if (!C) return; const P = q49P();
+  const reste = C.lim - (performance.now() - C.t0) / 1000;
+  let el = document.getElementById("q49chrono"); if (!el) { el = document.createElement("div"); el.id = "q49chrono"; document.body.appendChild(el); }
+  el.hidden = false; el.textContent = `🏁 ${C.i}/${C.pts.length} · ⏱ ${Math.max(0, reste).toFixed(1)} s`;
+  if (reste <= 0) { Q49.course = null; el.hidden = true; try { son.jouer("erreur"); } catch (_) { } const E = q49Etape(C.id); messageInfo("⏱ Temps écoulé ! Retourne voir " + (E ? Q49_PNJ[E.p].nom : "le donneur") + " pour réessayer."); return; }
+  const T = C.pts[C.i]; if (Math.hypot(P.x - T.x, P.y - T.y) < (AV.nav ? 70 : 30)) {
+    C.i++; try { son.jouer("orbe"); } catch (_) { }
+    if (C.i >= C.pts.length) { Q49.course = null; el.hidden = true; q49S().c.course++; messageInfo("🏆 Course gagnée en " + ((performance.now() - C.t0) / 1000).toFixed(1) + " s !"); q49Avancer(C.id); }
+  }
+}
+/* ---------- construction ---------- */
+function q49Construire(id) {
+  const E = q49Etape(id); if (!E) return;
+  let el = document.getElementById("q49constr"); if (!el) { el = document.createElement("div"); el.id = "q49constr"; document.body.appendChild(el); }
+  el.innerHTML = `<div class="c"><div class="t">🔨 Construction : ${q49Html(E.nomC)}</div><div class="bar"><i></i></div></div>`; el.hidden = false;
+  jeu.pause = true; const I = el.querySelector(".bar i"); let p = 0;
+  const tick = () => { p += 4; I.style.width = Math.min(100, p) + "%"; if (p % 20 === 0) try { son.jouer("baton"); } catch (_) { }
+    if (p < 100) setTimeout(tick, 70); else { el.hidden = true; jeu.pause = false; q49S().constr[id] = 1; q49S().c.constr++; messageInfo("🏠 " + E.nomC + " : construction terminée !"); q49Avancer(id); } };
+  tick();
+}
+/* ---------- objets à ramasser ---------- */
+function q49Items(id) {
+  const Q = Q49_BY[id], st = q49Q(id), E = q49Etape(id); if (!E || E.t !== "ramasser" || q49W() !== Q.w) return null;
+  if (!st.it) {
+    const c = q49Pos(Q.w, E.a[0], E.a[1], E.a[2]); if (!c) return null;
+    const r = q49Rnd(id + ":" + st.e), L = [];
+    for (let i = 0; i < 120 && L.length < E.n - (st.n || 0); i++) { const a = r() * 6.28, d = 40 + r() * E.r, x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d; if (q49Ok(x, y) && !q49DansZone(x, y) && !L.some(p => Math.hypot(p[0] - x, p[1] - y) < 40)) L.push([Math.round(x), Math.round(y)]); }
+    while (L.length < E.n - (st.n || 0)) L.push([c.x + L.length * 14, c.y]);
+    st.it = L;
+  }
+  return st.it;
+}
+function q49Secret() { const w = q49W(); if (q49S().secret[w]) return null; return q49Pos(w, "secret", 0, 0); }
+function q49OuvrirSecret() { const w = q49W(), S = q49S(); if (S.secret[w]) return; S.secret[w] = Date.now(); q49Gain(150, 600); try { son.jouer("fanfare"); } catch (_) { } q49Toast("✨ Coffre secret trouvé !", Q49_MONDES[w], "+600 💰 · +150 XP · secrets " + Object.keys(S.secret).length + "/5"); q49Sv(); }
+function q49NomIc(ic) { return { radar: "pièce de radar", herbe: "herbe", planche: "planche", baril: "baril", baie: "baie", parchemin: "parchemin", chat: "Tigrou", armure: "fragment", reste: "reste", pierre: "bloc" }[ic] || ic; }
+/* ---------- boucle ---------- */
+(() => {
+  const ma = majAventure;
+  majAventure = function (dt) {
+    const r = ma.apply(this, arguments);
+    try { q49Maj(typeof dt === "number" ? dt : 0.016); } catch (e) { q49Err("maj", e); }
+    return r;
+  };
+})();
+function q49Maj(dt) {
+  if (!jeu || !jeu.monde || document.body.classList.contains("accueil")) return; const S = q49S(), w = q49W(), P = q49P();
+  try { const v = stats.vaincus | 0; if (Q49.lastV == null || v < Q49.lastV) Q49.lastV = v; if (v > Q49.lastV) S.c.v[w] = (S.c.v[w] || 0) + (v - Q49.lastV); Q49.lastV = v; } catch (_) { }
+  if (Q49.walk && jeu.scene === sceneMonde) { const d = Math.hypot(P.x - Q49.walk.x, P.y - Q49.walk.y); if (d < 40) S.c.marche = (S.c.marche || 0) + d / 16; }
+  Q49.walk = { x: P.x, y: P.y };
+  if (w === 2) try { for (const N of AV.navires || []) if (N.mort && !Q49.nav.has(N)) { Q49.nav.add(N); if (N.hostile) S.c.nav++; } } catch (_) { }
+  if (!q49Libre()) { if (Q49.course && jeu.scene !== sceneMonde) { Q49.course = null; const el = document.getElementById("q49chrono"); if (el) el.hidden = true; } return; }
+  if (Q49.course) q49MajCourse();
+  Q49.t += dt; if (Q49.t < 0.12) return; Q49.t = 0;
+  for (const Q of Q49_Q) {
+    if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E) continue;
+    if (E.t === "vaincre" || E.t === "couler" || E.t === "capture" || E.t === "pkwin") { if (q49Prog(Q.id) >= E.n) q49Avancer(Q.id); }
+    else if (E.t === "aller") { const p = q49Pos(w, E.a[0], E.a[1], E.a[2]); if (p && Math.hypot(P.x - p.x, P.y - p.y) < (AV.nav ? 140 : 80)) q49Avancer(Q.id); }
+    else if (E.t === "ramasser") { const L = q49Items(Q.id); if (!L) continue; const st = q49Q(Q.id);
+      for (let i = L.length - 1; i >= 0; i--) if (Math.hypot(P.x - L[i][0], P.y - L[i][1]) < (AV.nav ? 55 : 20)) { L.splice(i, 1); st.n = (st.n || 0) + 1; try { son.jouer("orbe"); nombreFlottant(P.x, P.y - 30, "+1 " + q49NomIc(E.ic) + " (" + st.n + "/" + E.n + ")", "#ffe060"); } catch (_) { } }
+      if ((st.n || 0) >= E.n) q49Avancer(Q.id); }
+  }
+  const J = q49Jour(); for (const id of J.l) { if (J.f[id]) continue; const D = Q49_JOUR.find(x => x.id === id); if (D && q49JourProg(D) >= D.n) { J.f[id] = 1; S.c.jourF++; q49Gain(D.rec.xp, D.rec.z); q49Toast("☀️ Quotidienne terminée", D.titre, "+" + D.rec.xp + " XP · +" + D.rec.z + " 💰"); } }
+  Q49.tA += 0.12; if (Q49.tA > 1.2) { Q49.tA = 0; try { for (const o of p98Pois()) { if (o.ty === "inconnu" || String(o.id || "").startsWith("q49") || !/ville|metropole|lieu|zone|tour|ile|maville|taverne|portail|montagne|grotte|lac|port|boss/.test(o.ty)) continue; const k = w + "|" + o.nom; if (S.album[k]) continue; if (Math.hypot(P.x - o.x, P.y - o.y) < 260) { S.album[k] = Date.now(); q49Toast("📖 Nouveau lieu dans l'album", o.nom, Q49_MONDES[w]); } } } catch (e) { q49Err("album", e); } }
+}
+/* ---------- bouton d'action ---------- */
+function q49Proche(rmax) {
+  const w = q49W(), P = q49P(); let best = null, bd = rmax;
+  for (const k in Q49_PNJ) { if (Q49_PNJ[k].w !== w) continue; const p = q49PosPNJ(k); if (!p) continue; const d = Math.hypot(P.x - p.x, P.y - p.y); if (d < bd) { bd = d; best = k; } }
+  return best;
+}
+(() => {
+  const ad = actionDispo;
+  actionDispo = function () {
+    try {
+      if (jeu && jeu.scene === sceneMonde && !AV.cine) {
+        const nav = !!AV.nav, k = q49Proche(nav ? 90 : 26);
+        if (k) { const m = q49Marque(k); return { txt: (m === "!" ? "❗ " : m === "?" ? "❓ " : "💬 ") + "Parler", f: () => q49Parler(k) }; }
+        const s = q49Secret(), P = q49P(); if (s && Math.hypot(P.x - s.x, P.y - s.y) < (nav ? 70 : 26)) return { txt: "✨ Coffre secret", f: () => q49OuvrirSecret() };
+      }
+    } catch (e) { q49Err("act", e); }
+    const r0 = ad.apply(this, arguments);
+    if (r0) return r0;
+    try { if (jeu && jeu.scene === sceneMonde && !AV.cine) { const k = q49Proche(AV.nav ? 120 : 40); if (k) return { txt: "💬 Parler", f: () => q49Parler(k) }; } } catch (_) { }
+    return r0;
+  };
+})();
+/* ---------- sprites (canvas → billboards en 3D) ---------- */
+function q49Spr(k) {
+  if (Q49.spr[k]) return Q49.spr[k];
+  const D = { ex: [14, 16], qu: [14, 16], radar: [10, 10], herbe: [10, 10], planche: [14, 8], baril: [12, 12], baie: [8, 8], parchemin: [12, 8], chat: [12, 10], armure: [10, 10], reste: [10, 8], pierre: [12, 10], coffre: [14, 12], drap: [10, 20], bouee: [14, 18], radeau: [34, 14], cabane: [30, 28], bulle: [10, 10] }[k] || [8, 8];
+  const c = nouveauCanvas(D[0], D[1]), x = c.getContext("2d"), R = (cl, a, b, w, h) => { x.fillStyle = cl; x.fillRect(a, b, w, h); };
+  if (k === "ex" || k === "qu") { const f = k === "ex" ? "#ffd820" : "#58d8ff", f2 = k === "ex" ? "#fff6a0" : "#c8f4ff";
+    R("#1a1008", 3, 0, 8, 1); R("#1a1008", 1, 1, 12, 1); R("#1a1008", 0, 2, 14, 10); R("#1a1008", 1, 12, 12, 1); R("#1a1008", 3, 13, 8, 1); R("#1a1008", 6, 14, 2, 2);
+    R(f, 3, 1, 8, 1); R(f, 1, 2, 12, 10); R(f, 3, 12, 8, 1); R(f2, 2, 2, 4, 2);
+    if (k === "ex") { R("#1a1008", 6, 3, 2, 6); R("#1a1008", 6, 10, 2, 2); } else { R("#1a1008", 5, 3, 4, 1); R("#1a1008", 8, 4, 1, 3); R("#1a1008", 6, 7, 2, 2); R("#1a1008", 6, 10, 2, 2); } }
+  else if (k === "radar") { R("#2a2a2a", 0, 0, 10, 10); R("#58e070", 1, 1, 8, 8); R("#1a6a2a", 4, 1, 1, 8); R("#1a6a2a", 1, 4, 8, 1); R("#ff4040", 6, 2, 2, 2); }
+  else if (k === "herbe") { R("#1a5a1a", 4, 3, 2, 7); R("#3ac83a", 1, 1, 3, 4); R("#3ac83a", 6, 0, 3, 4); R("#a8ff70", 2, 2, 1, 1); }
+  else if (k === "planche") { R("#5a3010", 0, 0, 14, 8); R("#b07030", 1, 1, 12, 6); R("#8a5020", 1, 3, 12, 1); }
+  else if (k === "baril") { R("#3a2010", 1, 0, 10, 12); R("#a06a30", 2, 1, 8, 10); R("#5a5a5a", 1, 3, 10, 1); R("#5a5a5a", 1, 8, 10, 1); }
+  else if (k === "baie") { R("#3a0a2a", 0, 1, 8, 7); R("#d0306a", 1, 2, 6, 5); R("#ff9ac0", 2, 3, 1, 1); R("#3a8a2a", 3, 0, 2, 2); }
+  else if (k === "parchemin") { R("#5a4020", 0, 0, 12, 8); R("#f0e0b0", 1, 1, 10, 6); R("#c83a2a", 5, 1, 2, 6); }
+  else if (k === "chat") { R("#2a1a0a", 0, 2, 12, 8); R("#d88a3a", 1, 3, 10, 6); R("#d88a3a", 1, 1, 2, 2); R("#d88a3a", 9, 1, 2, 2); R("#1a1a1a", 3, 5, 1, 1); R("#1a1a1a", 8, 5, 1, 1); R("#f05a8a", 5, 7, 2, 1); }
+  else if (k === "armure") { R("#2a2a3a", 0, 0, 10, 10); R("#b8c0d0", 1, 1, 8, 8); R("#ffffff", 2, 2, 2, 2); R("#e8c040", 4, 4, 2, 4); }
+  else if (k === "reste") { R("#4a2a10", 0, 2, 10, 6); R("#e0a060", 1, 3, 8, 4); R("#f0f0e0", 7, 1, 3, 3); }
+  else if (k === "pierre") { R("#2a2a2a", 0, 0, 12, 10); R("#9a9aa0", 1, 1, 10, 8); R("#c8c8d0", 2, 2, 4, 2); }
+  else if (k === "bulle") { R("#ffe040", 4, 0, 2, 10); R("#ffe040", 0, 4, 10, 2); R("#ffffff", 4, 4, 2, 2); }
+  else if (k === "coffre") { R("#3a1a08", 0, 2, 14, 10); R("#c08030", 1, 3, 12, 8); R("#ffd040", 1, 6, 12, 1); R("#ffd040", 6, 5, 2, 3); R("#ffe880", 2, 0, 10, 2); }
+  else if (k === "drap") { R("#3a2a1a", 1, 0, 2, 20); R("#ff3a3a", 3, 1, 7, 6); R("#ffffff", 4, 3, 2, 2); }
+  else if (k === "bouee") { R("#1a1a1a", 6, 0, 2, 8); R("#ffd040", 3, 0, 6, 4); R("#e83a2a", 1, 8, 12, 8); R("#ffffff", 1, 11, 12, 2); }
+  else if (k === "radeau") { R("#3a2010", 0, 6, 34, 8); for (let i = 0; i < 6; i++) R(i & 1 ? "#a06a30" : "#8a5520", 1 + i * 5.4, 7, 5, 6); R("#5a3010", 0, 9, 34, 1); }
+  else if (k === "cabane") { R("#3a2010", 2, 10, 26, 18); R("#b07a40", 3, 11, 24, 16); R("#6a3a1a", 12, 18, 6, 9); R("#8a2a1a", 0, 6, 30, 6); R("#c84a2a", 2, 4, 26, 4); R("#5a3a1a", 22, 0, 2, 6); R("#ffe040", 24, 0, 5, 3); R("#a8d8f0", 5, 14, 5, 4); }
+  return (Q49.spr[k] = c);
+}
+(() => {
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try { if (jeu && jeu.scene === sceneMonde) q49Elements(items, o, e, visible); } catch (er) { q49Err("dess", er); }
+  };
+})();
+function q49Elements(items, o, e, visible) {
+  const w = q49W(), t = AV.temps || performance.now() / 1000, img = (im, x, y, ax, ay) => poserImg(im, x, y, ax, ay, o, e);
+  const S = q49S();
+  for (const k in Q49_PNJ) {
+    const N = Q49_PNJ[k]; if (N.w !== w) continue; const p = q49PosPNJ(k); if (!p || !visible(p.x, p.y, 40)) continue;
+    const L = Q49_LK[N.L], m = q49Marque(k), bob = N.radeau ? Math.sin(t * 2 + p.x) * 1.5 : 0;
+    if (N.radeau) items.push({ y: p.y - 4, dessiner: () => img(q49Spr("radeau"), p.x, p.y + 6 + bob, 17, 10) });
+    items.push({ y: p.y, dessiner: () => { const P = q49P(); img(imageKPNJ(L, 0, 0, P.x < p.x, false), p.x, p.y + bob, 8, 23);
+      if (m) img(q49Spr(m === "!" ? "ex" : "qu"), p.x, p.y - 30 - Math.abs(Math.sin(t * 4)) * 3 + bob, 7, 16); } });
+  }
+  for (const id in S.constr) { const Q = Q49_BY[id]; if (!Q || Q.w !== w) continue; const E = Q.e.find(E => E.t === "construire"); const p = E && q49PosPNJ(E.p); if (!p) continue; const bx = p.x + 40, by = p.y - 6; if (visible(bx, by, 40)) items.push({ y: by, dessiner: () => img(q49Spr("cabane"), bx, by, 15, 27) }); }
+  for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E || E.t !== "ramasser") continue; const L = q49Items(Q.id); if (!L) continue; const im = q49Spr(E.ic);
+    for (const pt of L) { const x = pt[0], y = pt[1]; if (!visible(x, y, 20)) continue; const dy = Math.sin(t * 3 + x) * 2; items.push({ y, dessiner: () => { img(im, x, y - 4 + dy, im.width / 2, im.height); if ((Math.floor(t * 3 + x) % 3) === 0) img(q49Spr("bulle"), x + 6, y - 14 + dy, 5, 5); } }); } }
+  if (Q49.course) { const C = Q49.course; for (let i = C.i; i < C.pts.length; i++) { const p = C.pts[i]; if (!visible(p.x, p.y, 30)) continue; const im = q49Spr(w === 2 ? "bouee" : "drap"); items.push({ y: p.y, dessiner: () => img(im, p.x, p.y + (w === 2 ? Math.sin(t * 2) : 0), im.width / 2, im.height) }); } }
+  const s = q49Secret(); if (s && visible(s.x, s.y, 30)) { const P = q49P(); if (Math.hypot(P.x - s.x, P.y - s.y) < 260) items.push({ y: s.y, dessiner: () => { img(q49Spr("coffre"), s.x, s.y, 7, 12); if ((Math.floor(t * 4) & 1)) img(q49Spr("bulle"), s.x + 6, s.y - 16, 5, 5); } }); }
+}
+/* ---------- cible (balise 3D, flèche, minimap, grande carte) ---------- */
+function q49Cible() {
+  const S = q49S(), id = S.suivi, w = q49W(); if (!id || !Q49_BY[id] || Q49_BY[id].w !== w) return null;
+  if (Q49.course && Q49.course.id === id) return Q49.course.pts[Q49.course.i] || null;
+  const E = q49Etape(id); if (!E) return null;
+  if (E.p) return q49PosPNJ(E.p);
+  if (E.t === "aller") return q49Pos(w, E.a[0], E.a[1], E.a[2]);
+  if (E.t === "ramasser") { const L = q49Items(id), P = q49P(); if (!L || !L.length) return null; let b = L[0], bd = 1e9; for (const p of L) { const d = Math.hypot(p[0] - P.x, p[1] - P.y); if (d < bd) { bd = d; b = p; } } return { x: b[0], y: b[1] }; }
+  return null;
+}
+(() => {
+  const cm = cibleMission;
+  cibleMission = function () { try { const c = q49Cible(); if (c) return c; } catch (e) { q49Err("cible", e); } return cm.apply(this, arguments); };
+  const ts = texteSuivi;
+  texteSuivi = function () { try { const id = q49S().suivi, E = id && q49Etape(id); if (E && Q49_BY[id].w === q49W()) { const n = q49Prog(id); return "📜 " + E.txt.toUpperCase() + (E.n && E.t !== "course" ? " " + n + "/" + E.n : ""); } } catch (e) { q49Err("ts", e); } return ts.apply(this, arguments); };
+  const px = p98PoisExtra;
+  p98PoisExtra = function () { const L = px.apply(this, arguments) || []; try { const ww = q49W(); for (const k in Q49_PNJ) { if (Q49_PNJ[k].w !== ww) continue; const p = q49PosPNJ(k); if (!p) continue; const m = q49Marque(k); L.push({ id: "q49" + k, ty: m === "!" ? "quete" : "lieu", ico: m === "!" ? "❗" : m === "?" ? "❓" : "🗣️", nom: Q49_PNJ[k].nom, x: p.x, y: p.y, desc: m === "!" ? "Quête à prendre" : m === "?" ? "Étape de quête ici" : "Habitant", p: m ? 8 : 3 }); } } catch (e) { q49Err("pois", e); } return L; };
+})();
+/* ---------- toast ---------- */
+function q49Toast(t, n, s) {
+  const pan = document.getElementById("panneau"); if (pan && !pan.hidden) { (Q49.toastQ = Q49.toastQ || []).push([t, n, s]); if (!Q49.toastT) Q49.toastT = setInterval(() => { const pp = document.getElementById("panneau"); if (pp && !pp.hidden) return; clearInterval(Q49.toastT); Q49.toastT = 0; const L = Q49.toastQ.splice(0); L.forEach((a, i) => setTimeout(() => q49Toast(...a), i * 500)); }, 400); return; }
+  let el = document.getElementById("q49toast"); if (!el) { el = document.createElement("div"); el.id = "q49toast"; document.body.appendChild(el); }
+  const d = document.createElement("div"); d.className = "it"; d.innerHTML = `<b>${q49Html(t)}</b><span>${q49Html(n)}</span>${s ? `<i>${q49Html(s)}</i>` : ""}`;
+  el.appendChild(d); while (el.children.length > 3) el.firstChild.remove();
+  setTimeout(() => d.classList.add("out"), 3600); setTimeout(() => d.remove(), 4200);
+}
+/* ---------- journal à onglets ---------- */
+Q49.ancienJ = afficherJournal;
+afficherJournal = function () { try { q49Journal("main"); } catch (e) { q49Err("journal", e); Q49.ancienJ(); } };
+function q49Carte(Q, onglet) {
+  const st = q49Q(Q.id), E = q49Etape(Q.id), suivi = q49S().suivi === Q.id, ici = Q.w === q49W();
+  const etat = !st ? "dispo" : st.st === "fini" ? "fini" : "actif";
+  const pas = Q.e.map((x, i) => `<span class="${st && (st.st === "fini" || i < st.e) ? "ok" : st && i === st.e && st.st === "actif" ? "cur" : ""}"></span>`).join("");
+  let corps;
+  if (etat === "actif") corps = `<div class="et">▶ ${q49Html(E.txt)}${E.n && E.t !== "course" ? ` <b>${q49Prog(Q.id)}/${E.n}</b>` : ""}</div>`;
+  else if (etat === "dispo") corps = `<div class="et">❗ À prendre auprès de <b>${q49Html(Q49_PNJ[Q.giver].nom)}</b></div>`;
+  else corps = `<div class="et">✅ Terminée</div>`;
+  const bt = etat === "actif" && ici ? (suivi ? `<button data-q49="nsuivre::${onglet}" class="pt">📍 Suivie</button>` : `<button data-q49="suivre:${Q.id}:${onglet}" class="pt">📍 Suivre</button>`) : "";
+  return `<div class="q49c ${etat}${suivi ? " suivi" : ""}"><div class="h"><b>${q49Html(Q.titre)}</b>${bt}</div><div class="m">${Q49_MONDES[Q.w]}${!ici && etat !== "fini" ? " · autre monde" : ""}</div>${corps}<div class="pas">${pas}</div><div class="r">🎁 ${Q.rec.xp} XP · ${Q.rec.z} 💰${Q.main ? " · 🏅 trophée" : ""}</div></div>`;
+}
+function q49Trophees() {
+  const S = q49S(), T = [], fini = id => q49Q(id) && q49Q(id).st === "fini";
+  for (const w of [1, 2, 3, 4, 5]) { const m = Q49_Q.find(Q => Q.w === w && Q.main); T.push({ i: "🏅", n: "Héros — " + Q49_MONDES[w], ok: fini(m.id) }); }
+  for (const w of [1, 2, 3, 4, 5]) { const L = Q49_Q.filter(Q => Q.w === w && !Q.main); const n = L.filter(Q => fini(Q.id)).length; T.push({ i: "🎖️", n: "Secondaires — " + Q49_MONDES[w], ok: n === L.length, p: n + "/" + L.length }); }
+  const c = S.c, al = Object.keys(S.album).length, se = Object.keys(S.secret).length;
+  T.push({ i: "🎣", n: "Pêcheur (10 poissons)", ok: c.peche >= 10, p: Math.min(10, c.peche) + "/10" });
+  T.push({ i: "🏁", n: "Coureur (3 courses)", ok: c.course >= 3, p: Math.min(3, c.course) + "/3" });
+  T.push({ i: "🧠", n: "Sage (3 énigmes)", ok: c.enig >= 3, p: Math.min(3, c.enig) + "/3" });
+  T.push({ i: "🔨", n: "Bâtisseur (3 constructions)", ok: c.constr >= 3, p: Math.min(3, c.constr) + "/3" });
+  T.push({ i: "📖", n: "Explorateur (15 lieux)", ok: al >= 15, p: Math.min(15, al) + "/15" });
+  T.push({ i: "✨", n: "Chasseur de secrets (5 coffres)", ok: se >= 5, p: se + "/5" });
+  T.push({ i: "☀️", n: "Assidu (10 quotidiennes)", ok: c.jourF >= 10, p: Math.min(10, c.jourF) + "/10" });
+  return T;
+}
+function q49Journal(onglet = "main") {
+  const S = q49S(), w = q49W();
+  const rang = Q => (Q.w === w ? 0 : 10) + (q49Etape(Q.id) ? 0 : !q49Q(Q.id) ? 1 : 2);
+  const tri = L => L.sort((a, b) => rang(a) - rang(b) || a.w - b.w);
+  const tab = (k, l) => `<button data-q49="j:${k}" class="${onglet === k ? "on" : ""}">${l}</button>`;
+  let h = `<div class="titre">📜 Journal des quêtes</div><div class="q49tabs">${tab("main", "⭐ Principale")}${tab("side", "📌 Secondaires")}${tab("jour", "☀️ Du jour")}${tab("troph", "🏅 Trophées")}</div><div class="q49liste">`;
+  if (onglet === "main") h += tri(Q49_Q.filter(Q => Q.main)).map(Q => q49Carte(Q, onglet)).join("");
+  else if (onglet === "side") { const L = tri(Q49_Q.filter(Q => !Q.main && (Q.w === w || q49Q(Q.id)))); h += L.map(Q => q49Carte(Q, onglet)).join("") || `<div class="ligne">Aucune quête secondaire ici.</div>`; const autres = Q49_Q.filter(Q => !Q.main && Q.w !== w && !q49Q(Q.id)).length; if (autres) h += `<div class="ligne q49n">+ ${autres} quêtes à découvrir dans les autres mondes.</div>`; }
+  else if (onglet === "jour") { const J = q49Jour(); h += `<div class="ligne q49n">3 nouvelles quêtes chaque jour. Elles comptent dans tous les mondes.</div>` + J.l.map(id => { const D = Q49_JOUR.find(x => x.id === id), p = q49JourProg(D), f = J.f[id]; return `<div class="q49c ${f ? "fini" : "actif"}"><div class="h"><b>${q49Html(D.titre)}</b></div><div class="et">${f ? "✅ Terminée" : "▶ " + q49Html(D.txt) + ` <b>${Math.round(p)}/${D.n}</b>`}</div><div class="r">🎁 ${D.rec.xp} XP · ${D.rec.z} 💰</div></div>`; }).join(""); }
+  else if (onglet === "troph") {
+    const T = q49Trophees(); h += `<div class="q49tr">${T.map(t => `<div class="${t.ok ? "ok" : ""}"><b>${t.ok ? t.i : "🔒"}</b><span>${q49Html(t.n)}${t.p && !t.ok ? ` <i>${t.p}</i>` : ""}</span></div>`).join("")}</div>`;
+    const al = {}; for (const k of Object.keys(S.album)) { const i = k.indexOf("|"); (al[k.slice(0, i)] = al[k.slice(0, i)] || []).push(k.slice(i + 1)); }
+    h += `<div class="q49st">📖 Album des lieux (${Object.keys(S.album).length})</div>` + ([1, 2, 3, 4, 5].map(ww => al[ww] ? `<div class="ligne"><b>${Q49_MONDES[ww]}</b> : ${al[ww].map(q49Html).join(", ")}</div>` : "").join("") || `<div class="ligne">Explore les mondes pour remplir l'album !</div>`);
+    let dex = 0; try { dex = Object.values(PK.dex || {}).filter(v => v === 2).length; } catch (_) { }
+    h += `<div class="q49st">🐾 Bestiaire</div><div class="ligne">${[1, 2, 4, 5].map(ww => `${Q49_MONDES[ww]} : <b>${S.c.v[ww] || 0}</b> vaincus`).join(" · ")} · ⚡ Pokédex : <b>${dex}</b> capturés · ⛵ <b>${S.c.nav}</b> navires coulés</div>`;
+    h += `<div class="q49st">✨ Coffres secrets : ${Object.keys(S.secret).length}/5</div><div class="ligne">Un coffre brillant est caché loin du départ de chaque monde. Il n'apparaît que lorsque tu es tout près…</div>`;
+  }
+  h += `</div><div class="q49bt"><button data-q49="ancien">📜 Missions d'origine</button><button data-q49="x">✖ Fermer</button></div>`;
+  ouvrirPanneauAv(h);
+}
+/* ---------- style ---------- */
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+#q49toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 54px); transform: translateX(-50%); z-index: 45; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: min(88vw, 360px); }
+#q49toast .it { display: flex; flex-direction: column; align-items: center; padding: 7px 12px; border-radius: 14px; background: linear-gradient(#3a2a10ee, #1e1406ee); border: 2px solid #e8b840; color: #fff4d0; font: 13px system-ui, sans-serif; box-shadow: 0 4px 14px #0008; animation: q49in .35s ease-out; transition: opacity .5s, transform .5s; text-align: center; }
+#q49toast .it b { color: #ffd860; font-size: 13px; } #q49toast .it span { font-weight: bold; font-size: 15px; } #q49toast .it i { font-style: normal; opacity: .85; font-size: 12px; }
+#q49toast .it.out { opacity: 0; transform: translateY(-10px); }
+@keyframes q49in { from { opacity: 0; transform: translateY(-14px) scale(.9); } }
+#q49chrono { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 8px); transform: translateX(-50%); z-index: 60; padding: 5px 14px; border-radius: 20px; background: #000a; color: #fff; font: bold 16px system-ui, sans-serif; border: 2px solid #ffd040; pointer-events: none; }
+#q49chrono[hidden], #q49peche[hidden], #q49constr[hidden] { display: none !important; }
+#q49peche, #q49constr { position: fixed; inset: 0; z-index: 72; display: flex; align-items: center; justify-content: center; background: rgba(0,10,30,.55); }
+#q49peche .c, #q49constr .c { width: min(88vw, 360px); padding: 14px; border-radius: 16px; text-align: center; color: #fff; font: bold 15px system-ui, sans-serif; background: linear-gradient(#1a4a7a, #0a2240); border: 3px solid #8ad0ff; box-shadow: 0 10px 30px #000a; }
+#q49peche .t, #q49constr .t { color: #bfe8ff; letter-spacing: 1px; margin-bottom: 6px; } #q49peche .m { min-height: 20px; font-size: 13px; }
+#q49peche .bar, #q49constr .bar { position: relative; height: 26px; margin: 12px 4px; border-radius: 13px; background: #0a1a30; border: 2px solid #4a8ac0; overflow: hidden; }
+#q49peche .bar .z { position: absolute; top: 0; bottom: 0; background: #3ad860; } #q49peche .bar .cur { position: absolute; top: -2px; bottom: -2px; width: 6px; margin-left: -3px; background: #fff; box-shadow: 0 0 6px #fff; }
+#q49constr .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #e8a820, #ffe480); }
+#q49peche button { width: 96px; height: 96px; border-radius: 50%; margin: 4px 8px; font: bold 16px system-ui, sans-serif; color: #08223a; background: radial-gradient(circle at 35% 30%, #fff, #7ad0ff); border: 3px solid #fff; vertical-align: middle; }
+#q49peche button.q { width: 64px; height: 64px; font-size: 12px; background: radial-gradient(circle at 35% 30%, #fff, #b0b8c8); }
+#panneau .q49tabs { display: flex; gap: 6px; margin: 4px 0 8px; justify-content: center; }
+#panneau .q49tabs button { flex: 1 1 0; min-width: 0; min-height: 44px; border-radius: 22px; font-size: 12px; padding: 4px 4px; margin: 0; opacity: .75; }
+#panneau .q49tabs button.on { opacity: 1; outline: 3px solid #ffd860; }
+#panneau .q49c { margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: rgba(0,0,0,.28); border: 2px solid #8a6a3a; text-align: left; }
+#panneau .q49c.actif { border-color: #e8b840; } #panneau .q49c.suivi { border-color: #ffe060; box-shadow: 0 0 0 2px #ffe06055; } #panneau .q49c.fini { opacity: .6; } #panneau .q49c.dispo { border-style: dashed; }
+#panneau .q49c .h { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 15px; }
+#panneau .q49c .h .pt { min-height: 34px; min-width: 0; width: auto; padding: 2px 10px; border-radius: 17px; font-size: 12px; margin: 0; flex: none; }
+#panneau .q49c .m { font-size: 11px; opacity: .8; } #panneau .q49c .et { margin: 4px 0; font-size: 13px; } #panneau .q49c .r { font-size: 12px; opacity: .85; }
+#panneau .q49c .pas { display: flex; gap: 4px; margin: 4px 0; } #panneau .q49c .pas span { flex: 1; height: 6px; border-radius: 3px; background: #4a3a2a; } #panneau .q49c .pas span.ok { background: #5ad860; } #panneau .q49c .pas span.cur { background: #ffd040; }
+#panneau .q49bt { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; } #panneau .q49bt button { min-height: 46px; border-radius: 23px; padding: 6px 14px; margin: 0; width: auto; }
+#panneau .q49sur { font-size: 11px; letter-spacing: 1px; color: #ffd860; text-align: center; } #panneau .q49dit { font-size: 15px; line-height: 1.4; }
+#panneau .q49n { font-size: 12px; opacity: .8; } #panneau .q49st { margin: 10px 0 4px; font-weight: bold; color: #ffd860; }
+#panneau .q49tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } #panneau .q49tr div { display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 10px; background: rgba(0,0,0,.25); font-size: 12px; opacity: .6; text-align: left; } #panneau .q49tr div.ok { opacity: 1; border: 1px solid #e8b840; } #panneau .q49tr b { font-size: 20px; } #panneau .q49tr i { font-style: normal; opacity: .8; }
+`;
+  document.head.appendChild(st);
+})();
 
 
 /* ===== fin du module aventure ===== */
