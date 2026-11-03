@@ -37288,6 +37288,742 @@ try { e3ActDessiner = p92Patch(e3ActDessiner, [["const span = ACT_AR * fk", "con
 // le bouton potion n'apparaît qu'une fois placé (évitait une grosse icône en haut à gauche au début d'un combat)
 try { const pp = p93Placer; p93Placer = function () { const r = pp.apply(this, arguments); const pot = V43.pot; if (pot && pot.classList.contains("on") && !pot.style.left) pot.classList.remove("on"); return r; }; } catch (e) { P97.err.push("pot " + e); }
 
+/* =====================================================================
+   PHASE 47 (p98) : 1) nouvelle carte du monde (peinte, HD, sans
+   chevauchement, fiches des lieux, marqueur), géographie organique de la
+   nouvelle région ; 2) Reverse Mountain en 3D ; 3) corrections ;
+   4) petits détails vivants ; 5) 3D
+   ===================================================================== */
+const P98 = { err: {}, base: null, mk: null, fiche: null, ui: null, anim: null, vel: null, tap: null, hintT: 0, bbox: {} };
+function p98Err(k, e) { if (!P98.err[k]) { P98.err[k] = 1; console.warn("p98 " + k, e); } }
+function p98Cl(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+function p98Mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+
+/* ---------------- géographie : la nouvelle région devient un croissant d'îles naturel ---------------- */
+function p98Caps(x, y, ax, ay, bx, by) { const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1; let t = ((x - ax) * dx + (y - ay) * dy) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t; return Math.hypot(x - ax - dx * t, y - ay - dy * t); }
+function p98Masque(m, x, y) {
+  const G = P96.G, n = m.bDeform.bruit(x / 34 + 3.1, y / 34 + 9.7) * 0.55 + m.bHumid.bruit(x / 13 + 5, y / 13 + 1) * 0.2;
+  let M = 0;
+  { const u = Math.hypot((x - (G.vx - 8)) / 340, (y - 1660) / 100) + n * 0.2 + m.bDeform.bruit(x / 90 + 2, y / 90 + 5) * 0.12; M = Math.max(M, (1 - u) / 0.1); }
+  for (const L of G.lacs) { const d = Math.hypot(x - L.x, y - L.y) / (L.R * (2.05 + n * 0.3)); M = Math.max(M, (1 - d) / 0.15); }
+  const ch = [[G.vx + 250, 1676, 1478, 1670, 44], [1478, 1670, 1612, 1648, 38], [1612, 1648, 1676, 1548, 46], [1676, 1548, 1676, 1436, 72], [1676, 1436, 1662, 1112, 60], [1662, 1112, 1648, 940, 38]];
+  for (const [ax, ay, bx, by, r] of ch) { const d = p98Caps(x, y, ax, ay, bx, by) / (r * (1 + n * 0.32)); M = Math.max(M, (1 - d) / 0.13); }
+  for (const [ix, iy, r] of [[1476, 1590, 20], [1712, 1712, 26], [1590, 1300, 18], [1730, 1012, 16], [1560, 1760, 14]]) { const d = Math.hypot(x - ix, y - iy) / (r * (1 + n * 0.4)); M = Math.max(M, (1 - d) / 0.25); }
+  for (const [bx, by, r] of [[G.vx + 150, 1578, 44], [G.vx - 175, 1772, 50], [G.vx + 300, 1768, 42], [G.vx - 300, 1576, 46], [G.vx + 40, 1778, 26], [1560, 1700, 40], [1745, 1330, 40], [1590, 1180, 34]]) { const d = Math.hypot(x - bx, y - by) / (r * (1 + n * 0.35)); if (d < 1) M = Math.min(M, Math.max(0, (d - 0.7) / 0.3)); }
+  const dOld = Math.hypot(Math.max(0, x - P96.T1), Math.max(0, y - P96.T1)), e = Math.min(x, y, P96.T2 - x, P96.T2 - y);
+  M *= p98Cl((dOld - 9) / 16) * p98Cl((e - 7) / 18);
+  return p98Cl(M);
+}
+p96Alt = function (m, x, y) {
+  const G = P96.G; let h = 0.53 + (m.p75Brut(x, y) - 0.52) * 0.75;
+  { const u = p96VilleU(x, y); if (u < 1.35) { const w = p75Clamp((1.35 - u) / 0.35); h = h * (1 - w) + 0.5 * w; } }
+  for (const L of G.lacs) {
+    const u = p96LacU(L, x, y); if (u >= 1.5) continue;
+    if (u < 1) h = 0.35 + 0.05 * u * u;
+    else { const w = p75Clamp((1.5 - u) / 0.5); h = h * (1 - w) + (0.418 + (u - 1) * 0.2) * w; }
+  }
+  const M = p98Masque(m, x, y), s = M * M * (3 - 2 * M);
+  return 0.17 + (h - 0.17) * s;
+};
+
+/* ---------------- carte peinte : image de base (calculée par tranches) ---------------- */
+function p98Hash(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function p98BaseEtat() {
+  const m = jeu && jeu.monde; if (!m || !m.L || !m.NV) return null;
+  const B = P98.base;
+  if (B && B.m === m) return B;
+  const T = m.TT || CONFIG.TAILLE_MONDE, R = Math.min(T, 2048), s = T / R;
+  return (P98.base = { m, T, R, s, ph: 0, row: 0, D: new Float32Array(R * R), cv: null, im: null, done: false });
+}
+function p98Terre(m, tx, ty) { const T = m.TT || CONFIG.TAILLE_MONDE; tx = tx < 0 ? 0 : tx > T ? T : tx; ty = ty < 0 ? 0 : ty > T ? T : ty; return m.L[ty * m.NV + tx] >= NIV.SABLE; }
+function p98BasePas(budget) {
+  const B = p98BaseEtat(); if (!B || B.done) return B;
+  const t0 = performance.now(), { m, R, s, D } = B, NV = m.NV, T = B.T;
+  const tile = (i, j) => { const tx = Math.min(T, Math.floor((i + 0.5) * s)), ty = Math.min(T, Math.floor((j + 0.5) * s)); return [tx, ty]; };
+  while (performance.now() - t0 < budget) {
+    if (B.ph === 0) {               // init + passe avant de la distance à la côte
+      const j = B.row;
+      for (let i = 0; i < R; i++) {
+        const [tx, ty] = tile(i, j), k = j * R + i; let d = m.L[ty * NV + tx] >= NIV.SABLE ? 0 : 1e5;
+        if (d) { if (i > 0) d = Math.min(d, D[k - 1] + 1); if (j > 0) { d = Math.min(d, D[k - R] + 1); if (i > 0) d = Math.min(d, D[k - R - 1] + 1.414); if (i < R - 1) d = Math.min(d, D[k - R + 1] + 1.414); } }
+        D[k] = d;
+      }
+      if (++B.row >= R) { B.ph = 1; B.row = R - 1; }
+    } else if (B.ph === 1) {        // passe arrière
+      const j = B.row;
+      for (let i = R - 1; i >= 0; i--) {
+        const k = j * R + i; let d = D[k]; if (!d) continue;
+        if (i < R - 1) d = Math.min(d, D[k + 1] + 1); if (j < R - 1) { d = Math.min(d, D[k + R] + 1); if (i < R - 1) d = Math.min(d, D[k + R + 1] + 1.414); if (i > 0) d = Math.min(d, D[k + R - 1] + 1.414); }
+        D[k] = d;
+      }
+      if (--B.row < 0) { B.ph = 2; B.row = 0; B.cv = nouveauCanvas(R, R); B.im = B.cv.getContext("2d").createImageData(R, 1);
+        B.chem = new Set(); try { for (const ch of (m.chemins || [])) if (ch.index) for (const kk of ch.index.keys()) B.chem.add(kk); } catch (_) { } }
+    } else {                        // peinture d'une ligne
+      const j = B.row, im = B.im, d8 = im.data, A = m.ALT, L = m.L, FOR = m.FOR, HUM = m.HUM, Z = m.zone, DES = m.DES, sd = Math.max(1, s);
+      for (let i = 0; i < R; i++) {
+        const [tx, ty] = tile(i, j), kv = ty * NV + tx, l = L[kv], kt = Math.min(T - 1, ty) * T + Math.min(T - 1, tx), dd = D[j * R + i] * sd, g0 = p98Hash(i, j);
+        let c;
+        if (l < NIV.SABLE) {
+          c = p98Mix([96, 204, 214], [46, 146, 200], p98Cl((dd - 1) / 9));
+          c = p98Mix(c, [26, 84, 156], p98Cl((dd - 10) / 42));
+          c = p98Mix(c, [18, 52, 112], p98Cl((dd - 55) / 90));
+          if (l === NIV.PROFOND && dd < 12) c = p98Mix(c, [30, 100, 170], 0.3);
+          const wv = (dd + 3 * Math.sin(i * 0.05) + 2.5 * Math.sin(j * 0.043)) % 13;
+          if (dd > 4 && dd < 40 && wv < 0.9) c = p98Mix(c, [235, 248, 255], 0.09 * (1 - dd / 40));
+          if (dd <= 1.6 * sd) c = p98Mix(c, [244, 252, 255], 0.5); else if (dd <= 2.8 * sd) c = p98Mix(c, [220, 245, 250], 0.2);
+          const f = 0.97 + g0 * 0.05; c = [c[0] * f, c[1] * f, c[2] * f];
+        } else {
+          const a = A[kv], hum = HUM ? HUM[kv] : 0.5;
+          if (l === NIV.SABLE) c = [236, 220, 164];
+          else if (l === NIV.HERBE) {
+            c = p98Mix([178, 206, 108], [100, 168, 74], p98Cl(hum * 1.1 - 0.05));
+            c = p98Mix(c, [132, 158, 86], p98Cl((a - 0.52) / 0.12));
+            if (FOR && FOR[kt] > 0) {
+              const cx = Math.floor(i / 3), cy = Math.floor(j / 3), h = p98Hash(cx, cy), ox = (i % 3) - 1 - (h - 0.5), oy = (j % 3) - 1 - (p98Hash(cy, cx) - 0.5), r = ox * ox + oy * oy;
+              c = r < 1.1 ? (ox + oy < -0.4 ? [96, 152, 72] : ox + oy > 0.6 ? [40, 86, 46] : [62, 122, 58]) : [52, 104, 52];
+            }
+          }
+          else if (l < 7) c = p98Mix([176, 160, 132], [132, 118, 104], p98Cl((l - 4) / 2.5));
+          else c = [244, 246, 250];
+          if (Z && (Z[kt] === 1 || Z[kt] === 2)) c = p98Mix(c, [226, 206, 168], 0.55);
+          if (DES && DES[kt]) c = DES[kt] === 4 ? [170, 128, 84] : p98Mix(c, [222, 200, 146], 0.85);
+          if (B.chem.has(kt)) c = p98Mix(c, [214, 190, 132], 0.8);
+          const k1 = Math.max(0, kv - NV - 1), k2 = Math.min(A.length - 1, kv + NV + 1), gr = (A[k1] - A[k2]) / Math.max(1, s * 0.7);
+          let f = 1 + Math.max(-0.26, Math.min(0.24, gr * 13));
+          const T2 = T, nb = (u, v) => !p98Terre(m, u, v);
+          const st = Math.max(1, Math.round(s));
+          if (nb(tx + st, ty) || nb(tx - st, ty) || nb(tx, ty + st) || nb(tx, ty - st)) f *= 0.74;
+          f *= 0.975 + g0 * 0.05; void T2;
+          c = [c[0] * f, c[1] * f, c[2] * f];
+        }
+        const p = i * 4; d8[p] = c[0]; d8[p + 1] = c[1]; d8[p + 2] = c[2]; d8[p + 3] = 255;
+      }
+      B.cv.getContext("2d").putImageData(im, 0, j);
+      if (++B.row >= R) { B.done = true; B.D = null; B.im = null; break; }
+    }
+  }
+  return B;
+}
+function p98BBox(m) {
+  const c = P98.bbox; if (c.m === m) return c.b;
+  const T = m.TT || CONFIG.TAILLE_MONDE, st = 8; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let y = 0; y <= T; y += st) for (let x = 0; x <= T; x += st) if (m.L[y * m.NV + x] >= NIV.SABLE) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  let b0 = null; try { if (x1 < 0 && typeof ilM2 === "function" && ilM2()) { const R = RM.m2; let a = R.x - 400, c2 = R.x + 400, d = R.y - 700, e = R.y + 500; for (const I of ILES) { const q = ilPos(I); a = Math.min(a, q.x - I.ex - 300); c2 = Math.max(c2, q.x + I.ex + 300); d = Math.min(d, q.y - I.ey - 300); e = Math.max(e, q.y + I.ey + 300); } b0 = { x0: a, y0: d, x1: c2, y1: e }; } } catch (_) { }
+  const b = b0 ? b0 : x1 < 0 ? { x0: 0, y0: 0, x1: MPX(), y1: MPX() } : { x0: (x0 - 20) * 16, y0: (y0 - 20) * 16, x1: (x1 + 20) * 16, y1: (y1 + 20) * 16 };
+  P98.bbox = { m, b }; return b;
+}
+// préparation discrète en arrière-plan (moments calmes)
+(() => {
+  const ric = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 4 }), 200));
+  const tick = d => {
+    try { if (jeu && jeu.monde && !(jeu.monde.L && P98.base && P98.base.m === jeu.monde && P98.base.done) && performance.now() > (P98.t0 || 0)) { if (!grandeCarte.ouvert) p98BasePas(Math.min(6, Math.max(1, d.timeRemaining() - 1))); } } catch (e) { p98Err("ric", e); }
+    ric(tick, { timeout: 1500 });
+  };
+  P98.t0 = performance.now() + 6000; ric(tick, { timeout: 1500 });
+})();
+
+/* ---------------- lieux de la carte : un seul collecteur ---------------- */
+const P98_TY = {
+  ville: { c: "#e0902a", i: "🏘️", p: 6 }, metropole: { c: "#e0902a", i: "🏙️", p: 6 }, futur: { c: "#3aa0c8", i: "🛸", p: 6 }, inconnu: { c: "#9aa4b4", i: "☁️", p: 2 },
+  boss: { c: "#d0342c", i: "☠️", p: 7 }, quete: { c: "#f0b818", i: "❗", p: 9 }, objectif: { c: "#f0b818", i: "🎯", p: 9 }, coffre: { c: "#b07a3a", i: "🎁", p: 3 },
+  lac: { c: "#2f8fd8", i: "🎣", p: 3 }, maville: { c: "#e8b020", i: "🏰", p: 8 }, port: { c: "#2a5aa8", i: "⚓", p: 6 }, tour: { c: "#8a5ad8", i: "🗼", p: 6 },
+  grotte: { c: "#7a6450", i: "🕳️", p: 5 }, montagne: { c: "#8a5a3a", i: "⛰️", p: 7 }, ile: { c: "#2aa070", i: "🏝️", p: 4 }, portail: { c: "#7a3ac8", i: "🌀", p: 6 },
+  coop: { c: "#e07a10", i: "👥", p: 5 }, lieu: { c: "#3a9a4a", i: "📍", p: 5 }, zone: { c: "#4a8a5a", i: "📍", p: 4 }, boutique: { c: "#5a6a8a", i: "🛒", p: 1 }, j2: { c: "#3a8ae0", i: "🎮", p: 8 },
+  merry: { c: "#c0782c", i: "⛵", p: 7 }, navire: { c: "#c83030", i: "🏴‍☠️", p: 1 }, taverne: { c: "#d0507a", i: "🍺", p: 6 }, secret: { c: "#c8a040", i: "✨", p: 2 }, belv: { c: "#8a6a3a", i: "🔭", p: 4 }, boule: { c: "#ff9a20", i: "⭐", p: 3 },
+};
+function p98Pois() {
+  const w = AV.monde || 1, out = [], add = (o) => { if (o && isFinite(o.x) && isFinite(o.y)) out.push(o); };
+  const S = (k, f) => { try { f(); } catch (e) { p98Err("poi-" + k, e); } };
+  S("lieux", () => { for (const L of jeu.monde.lieux || []) { const x = (L.x0 + L.x1) / 2, y = (L.y0 + L.y1) / 2; add(L.decouvert ? { id: "L" + L.nom, ty: L.type === "metropole" ? "metropole" : L.type === "futur" ? "futur" : "ville", nom: L.nom, x, y, gx: L.devant ? L.devant.x : x, gy: L.devant ? L.devant.y : L.y1 + 20, desc: "Ville : marchands, maisons, habitants", fog: 0 } : { id: "L" + L.nom, ty: "inconnu", nom: "Lieu inexploré", x, y, dec: false, desc: "Approche-toi pour le découvrir", fog: 1, L }); } });
+  S("bateau", () => { const B = jeu.monde.bateau; if (B) add({ id: "bat", ty: "port", nom: BATEAU.NOM, x: (B.x0 + B.x1) / 2, y: (B.y0 + B.y1) / 2, desc: "Le grand bateau pirate" }); });
+  S("tour", () => { if (AV.tour) add({ id: "tour", ty: "tour", nom: "Tour de Karine", x: AV.tour.x, y: AV.tour.y, desc: "Monte jusqu'au palais céleste" }); });
+  S("crater", () => { if (AV.crater && w === 1) add({ id: "crat", ty: "lieu", ico: "💥", nom: "Cratère de la capsule", x: AV.crater.x, y: AV.crater.y, desc: "Là où tout a commencé", p: 2 }); });
+  S("iles", () => { for (const I of AV.iles || []) if (I.nom) add({ id: "I" + I.id, ty: "ile", nom: I.nom, x: I.x, y: I.y, desc: I.coffre ? (AV.coffres && AV.coffres[I.id] ? "Coffre déjà ouvert" : "Un coffre t'attend sur l'île !") : "Île au large" }); });
+  S("merry", () => { const M = AV.merry; if (M && AV.equipe.luffy && !AV.nav) add({ id: "merry", ty: "merry", nom: "Vogue Merry", x: M.x, y: M.y, desc: "Le bateau de Luffy" }); });
+  S("donneurs", () => { for (const G of AV.donneurs || []) { const q = missionDispo(G); if (q) add({ id: "D" + (G.id || G.nom || G.x), ty: "quete", nom: (q.titre || q.nom || "Mission"), x: G.x, y: G.y, desc: "Quête disponible" + (G.nom ? " auprès de " + G.nom : ""), p: 8 }); } });
+  S("cible", () => { const c = cibleMission(); if (c) add({ id: "cible", ty: "objectif", nom: "Objectif de quête", x: c.x, y: c.y, desc: (AV.missions && AV.missions.suivi && p98NomQuete()) || "Ta quête en cours", pulse: 1 }); });
+  S("rm", () => { const R = typeof rmCourant === "function" && rmCourant(); if (R) add({ id: "rm", ty: "montagne", nom: "Reverse Mountain", x: R.x, y: R.y, desc: w === 1 ? "Entre dans le canal avec le Vogue Merry pour rejoindre Grand Line" : "Le pied de Reverse Mountain : retour vers ton monde" }); });
+  S("grotte", () => { const G = typeof grotteIci === "function" && grotteIci(); if (G) add({ id: "grotte", ty: "grotte", nom: "Grotte mystérieuse", x: G.x, y: G.y, desc: w === 3 ? "Sortie vers le monde de Sangoku" : "Un passage vers un autre monde…" }); });
+  S("kono", () => { if (w === 1 && typeof KONO !== "undefined" && KONO.m1) add({ id: "kono", ty: "lieu", ico: "🍥", nom: "Porte de Konoha", x: KONO.m1.x, y: KONO.m1.y, desc: "Le chemin vers le village caché" }); });
+  S("boar", () => { const G = typeof boarIci === "function" && boarIci(); if (G) add({ id: "boar", ty: "taverne", nom: "Boar Hat", x: G.x, y: G.y, desc: "La taverne ambulante de Meliodas" }); });
+  S("lx", () => { const P = lxPositions(); for (const D of LX_DEFS) { const q = P[D.id]; if (!q || !lxW(D, w)) continue; const b = lxBoss(D.id); add({ id: "X" + D.id, ty: b && b.alerte ? "boss" : "lieu", ico: D.ic, nom: p98Nom(D.nom), x: q.x, y: q.y, desc: b && b.alerte ? "Un adversaire t'attend ici !" : "Lieu à visiter" }); } });
+  S("coop", () => { for (const { B, p: q } of coopBossIci()) add({ id: "C" + B.id, ty: coopBattu(B.id) ? "lieu" : "coop", ico: coopBattu(B.id) ? "✔️" : "👥", nom: "Coop : " + B.nom.split(" (")[0], x: q.x, y: q.y, desc: coopBattu(B.id) ? "Déjà vaincu" : "Boss à deux joueurs (📶)" }); });
+  S("j2", () => { const J = COOP.j2; if (J && coopOn()) add({ id: "j2", ty: "j2", nom: "Joueur 2", x: J.x, y: J.y }); });
+  S("p60", () => { for (const Z of p60Zones(w)) add({ id: "Z" + Z.id, ty: "boss", nom: p98Nom(Z.nom), x: Z.x, y: Z.y, niv: Z.niv, r: Z.r, desc: p60Ferme(Z) ? "Zone dangereuse (bloquée pour l'instant)" : "Zone dangereuse : ennemis puissants" }); });
+  S("p72", () => { if (w === 1) for (const Pt of p72Portails()) add({ id: "P" + Pt.id, ty: "portail", ico: Pt.ico, nom: p98Nom(Pt.nom), x: Pt.x, y: Pt.y, niv: Pt.niv, desc: "Portail vers un donjon" }); });
+  S("ilm2", () => { if (typeof ilM2 === "function" && ilM2()) for (const I of ILES) { const q = ilPos(I); add({ id: "M" + I.id, ty: "ile", nom: p98Nom(I.nom) + (ILE.q[I.id] === 3 ? " ✓" : ""), x: q.x, y: q.y, desc: ILE.vis[I.id] ? "Île déjà visitée" : "Île à explorer" }); } });
+  S("p96", () => { if (p96Ici()) { const C = p96C(); add({ id: "mv", ty: "maville", nom: "Ma Ville", x: C.x, y: C.y, desc: "Ta ville : bâtiments, héros invités, pêche" }); for (const l of P96.G.lacs) add({ id: "lac" + l.id, ty: "lac", nom: l.nom, x: l.x * 16, y: l.y * 16, desc: "Pêche : " + ["poissons communs", "poissons rares", "gros poissons", "poissons légendaires"][Math.min(3, l.bonus || 0)] }); } });
+  S("pk", () => { if (w === 3) { for (const id of PK_ZID) { const Z = PKG.zones[id], ok = pkZoneOuverte(id); add({ id: "pk" + id, ty: ok ? "zone" : "inconnu", nom: ok ? p98Nom(Z.nom) : "Zone verrouillée", x: T2P(Z.tx), y: T2P(Z.ty), dec: ok, desc: ok ? "Zone sauvage" : "Bats le champion précédent pour l'ouvrir" }); } for (const V of PKG.villages) add({ id: "pv" + V.nom, ty: "ville", ico: "🏥", nom: p98Nom(V.nom), x: T2P(V.tx), y: T2P(V.ty), desc: "Village avec Centre Pokémon" }); } });
+  S("kn", () => { if (w === 4) { for (const id of KN_ZID) { const Z = KNG.zones[id]; add({ id: "kn" + id, ty: "zone", nom: p98Nom(Z.nom), x: T2P(Z.tx), y: T2P(Z.ty) }); } add({ id: "knv", ty: "ville", ico: "🍥", nom: "Village de Konoha", x: 8192, y: 7300, p: 7 }); for (const B of KN_BAT) if (B.nom && B.int) add({ id: "kb" + B.nom, ty: "boutique", ico: /ramen|ichiraku/i.test(B.nom) ? "🍜" : "🚪", nom: p98Nom(B.nom), x: B.x, y: B.y }); } });
+  S("br", () => { if (w === 5) { for (const id of BR_ZID) { const Z = BRG.zones[id]; add({ id: "br" + id, ty: Z.niv ? "boss" : Z.ville ? "ville" : "zone", nom: p98Nom(Z.nom), x: T2P(Z.tx), y: T2P(Z.ty), niv: Z.niv || 0 }); } for (const B of BR_BAT) if (B.nom && B.shop) add({ id: "bb" + B.nom, ty: "boutique", nom: p98Nom(B.nom), x: B.x, y: B.y }); const G = BOAR.m5; if (G) add({ id: "boar5", ty: "taverne", nom: "Boar Hat", x: G.x, y: G.y }); } });
+  S("extra", () => { for (const q of p98PoisExtra(w)) add(q); });
+  return out;
+}
+function p98PoisExtra() { return []; }
+function p98NomQuete() { try { const s = AV.missions.suivi; const M = typeof MISSIONS !== "undefined" && (MISSIONS[s] || (Array.isArray(MISSIONS) && MISSIONS.find(q => q.id === s))); return M ? (M.titre || M.nom) : null; } catch (_) { return null; } }
+function p98Nom(s) {   // « VOLCAN DES DINOS » → « Volcan des Dinos »
+  s = String(s || "").trim(); if (!s) return s; if (s !== s.toUpperCase()) return s;
+  const pt = new Set(["de", "des", "du", "la", "le", "les", "et", "à", "aux", "d'", "l'", "en"]);
+  return s.toLowerCase().split(/(\s+|-)/).map((w, i) => pt.has(w) && i ? w : w.replace(/^(d'|l')?(.)/, (a, p, c) => (p || "") + c.toUpperCase())).join("").replace(/^./, c => c.toUpperCase());
+}
+
+/* ---------------- rendu de la carte ---------------- */
+const P98IC = new Map();
+function p98IconeImg(col, ico, r, dim) {
+  const key = col + ico + r + (dim ? "d" : ""); let cv = P98IC.get(key); if (cv) return cv;
+  const S = Math.ceil(r * 2 + 8); cv = nouveauCanvas(S, S); const c = cv.getContext("2d"), m = S / 2;
+  c.fillStyle = "rgba(10,6,2,0.35)"; c.beginPath(); c.arc(m + 1, m + 2, r + 1, 0, 6.29); c.fill();
+  const g = c.createRadialGradient(m - r * 0.35, m - r * 0.4, r * 0.1, m, m, r);
+  g.addColorStop(0, dim ? "#c8ccd4" : "#ffffff"); g.addColorStop(0.18, dim ? "#a8aeb8" : col); g.addColorStop(1, dim ? "#6a707a" : col);
+  c.fillStyle = g; c.beginPath(); c.arc(m, m, r, 0, 6.29); c.fill();
+  c.lineWidth = Math.max(1.5, r * 0.16); c.strokeStyle = "#fffaf0"; c.stroke();
+  c.lineWidth = 1; c.strokeStyle = "rgba(30,18,8,0.7)"; c.beginPath(); c.arc(m, m, r + c.lineWidth * 0 + Math.max(1.5, r * 0.16) / 2 + 0.5, 0, 6.29); c.stroke();
+  c.font = `${Math.round(r * 1.12)}px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif`; c.textAlign = "center"; c.textBaseline = "middle";
+  if (dim) c.globalAlpha = 0.75; c.fillText(ico, m, m + r * 0.08); c.globalAlpha = 1;
+  P98IC.set(key, cv); return cv;
+}
+let P98NUAGE = null;
+function p98Nuage() {
+  if (P98NUAGE) return P98NUAGE; const S = 128, cv = nouveauCanvas(S, S), c = cv.getContext("2d");
+  for (const [x, y, r, a] of [[64, 70, 40, 0.95], [38, 74, 26, 0.9], [92, 74, 28, 0.9], [52, 52, 26, 0.9], [80, 52, 24, 0.9], [64, 84, 34, 0.6]]) { const g = c.createRadialGradient(x, y, r * 0.2, x, y, r); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.7, `rgba(246,248,252,${a * 0.85})`); g.addColorStop(1, "rgba(240,244,250,0)"); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 6.29); c.fill(); }
+  return (P98NUAGE = cv);
+}
+function p98Police(dpr, s) { return `700 ${Math.round((s || 12) * dpr)}px system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif`; }
+function p98Rect(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+function p98TitreMonde() { const w = AV.monde || 1, M = (typeof P94_MONDES !== "undefined") && P94_MONDES.find(q => q.w === w); return M ? M.ic + " " + M.nom : "Carte du monde"; }
+function p98Dessiner() {
+  const GC = grandeCarte, c = GC.ctx, dpr = DPR(), W = GC.el.width, H = GC.el.height, t = performance.now() / 1000;
+  p98Animer();
+  const k = GC.echelle() * dpr, X = mx => W / 2 + (mx - GC.cx) * k, Y = my => H / 2 + (my - GC.cy) * k, MP = MPX();
+  // fond parchemin
+  c.setTransform(1, 0, 0, 1, 0, 0); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+  c.fillStyle = "#1c3f6e"; c.fillRect(0, 0, W, H);
+  const B = p98BasePas(GC.ouvert ? 12 : 0), img = B && B.done ? B.cv : GC.image;
+  const x0 = X(0), y0 = Y(0), S = MP * k;
+  if (img) c.drawImage(img, x0, y0, S, S);
+  // quadrillage discret façon carte marine
+  c.strokeStyle = "rgba(255,255,255,0.07)"; c.lineWidth = Math.max(1, dpr); c.beginPath();
+  for (let i = 1; i < 8; i++) { const gx = x0 + S * i / 8, gy = y0 + S * i / 8; c.moveTo(gx, Math.max(0, y0)); c.lineTo(gx, Math.min(H, y0 + S)); c.moveTo(Math.max(0, x0), gy); c.lineTo(Math.min(W, x0 + S), gy); }
+  c.stroke();
+  try { if (typeof ilM2 === "function" && ilM2()) p98Mer2(c, X, Y, k, dpr, t); } catch (e) { p98Err("mer2", e); }
+  c.strokeStyle = "#5a3a1a"; c.lineWidth = 3 * dpr; c.strokeRect(x0, y0, S, S); c.strokeStyle = "rgba(255,236,190,0.6)"; c.lineWidth = dpr; c.strokeRect(x0 - 4 * dpr, y0 - 4 * dpr, S + 8 * dpr, S + 8 * dpr);
+  const pois = p98Pois(); P98.pois = pois;
+  // brouillard sur les lieux pas encore découverts
+  const nu = p98Nuage();
+  for (const q of pois) if (q.fog && q.L) { const L = q.L, w = Math.max(46 * dpr, (L.x1 - L.x0) * k * 1.5), h = w * 0.8; c.globalAlpha = 0.92; c.drawImage(nu, X(q.x) - w / 2 + Math.sin(t * 0.6 + q.x) * 2 * dpr, Y(q.y) - h / 2, w, h); c.globalAlpha = 1; }
+  // zones dangereuses
+  for (const q of pois) if (q.r && q.ty === "boss") { const r = q.r * k; if (r < 8 * dpr) continue; c.save(); c.setLineDash([7 * dpr, 5 * dpr]); c.lineDashOffset = -t * 12 * dpr; c.strokeStyle = "rgba(220,50,40,0.85)"; c.lineWidth = 2 * dpr; c.beginPath(); c.arc(X(q.x), Y(q.y), r, 0, 6.29); c.stroke(); c.fillStyle = "rgba(220,50,40,0.08)"; c.fill(); c.restore(); }
+  // sélection des icônes visibles selon le zoom
+  const z = GC.zoom, fit = P98.fit || 1, zr = z / fit, minP = (P98.pois || []).length <= 14 ? 0 : zr < 1.35 ? 5 : zr < 2.2 ? 3 : zr < 4 ? 2 : 0;
+  const R = 12 * dpr, occ = [], vis = [];
+  const ux = [...document.querySelectorAll("#p98ui .p98b")].map(b => b.getBoundingClientRect()).filter(r => r.width).map(r => ({ x: r.left * dpr - 4 * dpr, y: r.top * dpr - 4 * dpr, w: r.width * dpr + 8 * dpr, h: r.height * dpr + 8 * dpr }));
+  occ.push(...ux);
+  for (const sel of ["#p98ui .p98t", "#p98ui .p98f:not([hidden])"]) { const e = document.querySelector(sel); if (e) { const r = e.getBoundingClientRect(); if (r.width) occ.push({ x: r.left * dpr - 3 * dpr, y: r.top * dpr - 3 * dpr, w: r.width * dpr + 6 * dpr, h: r.height * dpr + 6 * dpr }); } }
+  if (P98.bous) occ.push({ x: (P98.bous.x - P98.bous.r - 4) * dpr, y: (P98.bous.y - P98.bous.r - 16) * dpr, w: (P98.bous.r * 2 + 8) * dpr, h: (P98.bous.r * 2 + 22) * dpr });
+  const tri = pois.map(q => ({ q, s: P98_TY[q.ty] || P98_TY.lieu })).map(o => ({ ...o, p: o.q.p != null ? o.q.p : o.s.p })).sort((a, b) => b.p - a.p);
+  for (const o of tri) {
+    const q = o.q, x = X(q.x), y = Y(q.y); if (x < -30 * dpr || y < -30 * dpr || x > W + 30 * dpr || y > H + 30 * dpr) continue;
+    if (o.p < minP && !(P98.fiche && P98.fiche.id === q.id)) continue;
+    const r = (o.p >= 6 ? 1.08 : o.p <= 1 ? 0.78 : 0.92) * R, box = { x: x - r, y: y - r, w: 2 * r, h: 2 * r };
+    if (o.p < 7 && vis.some(v => Math.hypot(v.x - x, v.y - y) < (v.r + r) * 0.8)) continue;   // icônes qui se recouvrent : on garde la plus importante
+    vis.push({ o, x, y, r, box }); occ.push(box);
+  }
+  // icônes (les moins importantes d'abord)
+  for (let i = vis.length - 1; i >= 0; i--) {
+    const v = vis[i], q = v.o.q, im = p98IconeImg(v.o.s.c, q.ico || v.o.s.i, Math.round(v.r), q.dec === false);
+    if (q.pulse || (v.o.q.ty === "boss" && !q.r)) { const a = 0.5 + 0.5 * Math.sin(t * 4); c.strokeStyle = q.pulse ? `rgba(255,210,40,${0.4 + 0.5 * a})` : `rgba(230,60,40,${0.3 + 0.4 * a})`; c.lineWidth = 2.5 * dpr; c.beginPath(); c.arc(v.x, v.y, v.r + (4 + 5 * a) * dpr, 0, 6.29); c.stroke(); }
+    if (P98.fiche && P98.fiche.id === q.id) { c.strokeStyle = "#ffffff"; c.lineWidth = 3 * dpr; c.beginPath(); c.arc(v.x, v.y, v.r + 5 * dpr, 0, 6.29); c.stroke(); }
+    c.drawImage(im, Math.round(v.x - im.width / 2), Math.round(v.y - im.height / 2));
+  }
+  // joueur (et marqueur) avant les étiquettes pour réserver leur place
+  const enVille = !dansMonde() && jeu.retour, sx = X(enVille ? jeu.retour.x : perso.x), sy = Y(enVille ? jeu.retour.y : perso.y);
+  occ.push({ x: sx - 18 * dpr, y: sy - 18 * dpr, w: 36 * dpr, h: 36 * dpr });
+  const mk = P98.mk && P98.mk.w === (AV.monde || 1) ? P98.mk : null;
+  if (mk) { const mx = X(mk.x), my = Y(mk.y); p98Epingle(c, mx, my, dpr, t); occ.push({ x: mx - 12 * dpr, y: my - 34 * dpr, w: 24 * dpr, h: 36 * dpr }); }
+  // étiquettes sans chevauchement (par priorité)
+  c.font = p98Police(dpr); c.textBaseline = "middle"; c.textAlign = "center";
+  const hT = 19 * dpr, padX = 7 * dpr;
+  const lab = [];
+  for (const v of vis) {
+    const q = v.o.q; if (q.dec === false && !(P98.fiche && P98.fiche.id === q.id)) continue; if (v.o.p < minP + 1 && v.o.p < 6 && zr < 3 && !(P98.fiche && P98.fiche.id === q.id)) continue;
+    const txt = q.nom + (q.niv ? "  ·  niv. " + q.niv : ""), tw = (P98.mes = P98.mes || new Map()).get(txt) || (() => { const w = c.measureText(txt).width; P98.mes.set(txt, w); return w; })(), w = tw + padX * 2;
+    const cands = [[v.x - w / 2, v.y + v.r + 3 * dpr], [v.x - w / 2, v.y - v.r - 3 * dpr - hT], [v.x + v.r + 4 * dpr, v.y - hT / 2], [v.x - v.r - 4 * dpr - w, v.y - hT / 2]];
+    for (const [lx, ly] of cands) {
+      const b = { x: lx, y: ly, w, h: hT };
+      if (lx < 4 * dpr || ly < 4 * dpr || lx + w > W - 4 * dpr || ly + hT > H - 4 * dpr) continue;
+      if (occ.some(o => o !== v.box && p98Rect(o, b))) continue;
+      occ.push(b); lab.push({ b, txt, q, dang: v.o.q.ty === "boss" }); break;
+    }
+  }
+  for (const L of lab) {
+    const { b } = L; c.fillStyle = L.dang ? "rgba(70,12,10,0.86)" : "rgba(255,248,232,0.93)"; p98RRect(c, b.x, b.y, b.w, b.h, b.h / 2); c.fill();
+    c.strokeStyle = L.dang ? "rgba(255,140,120,0.9)" : "rgba(110,70,30,0.55)"; c.lineWidth = Math.max(1, dpr); c.stroke();
+    c.fillStyle = L.dang ? "#ffd8d0" : "#3a2410"; c.fillText(L.txt, b.x + b.w / 2, b.y + b.h / 2 + 0.5 * dpr);
+  }
+  // joueur : grande flèche qui pulse
+  { const a = perso.angle || 0, pu = 0.5 + 0.5 * Math.sin(t * 4.5);
+    c.fillStyle = `rgba(255,120,40,${0.18 + 0.12 * pu})`; c.beginPath(); c.arc(sx, sy, (20 + 6 * pu) * dpr, 0, 6.29); c.fill();
+    c.strokeStyle = `rgba(255,255,255,${0.6 + 0.4 * pu})`; c.lineWidth = 2 * dpr; c.beginPath(); c.arc(sx, sy, (15 + 4 * pu) * dpr, 0, 6.29); c.stroke();
+    c.save(); c.translate(sx, sy); c.rotate(a); const s = 1.05 * dpr;
+    c.beginPath(); c.moveTo(15 * s, 0); c.lineTo(-9 * s, 10 * s); c.lineTo(-4 * s, 0); c.lineTo(-9 * s, -10 * s); c.closePath();
+    c.lineJoin = "round"; c.lineWidth = 5 * dpr; c.strokeStyle = "#2a1408"; c.stroke(); c.lineWidth = 2.5 * dpr; c.strokeStyle = "#ffffff"; c.stroke(); c.fillStyle = "#ff5420"; c.fill(); c.restore(); }
+  // boussole
+  { const r = 22 * dpr, cx = W - (r + 14 * dpr), cy = (SAFE.t + 70) * dpr + r; P98.bous = { x: cx / dpr, y: cy / dpr, r: r / dpr };
+    c.fillStyle = "rgba(255,248,232,0.9)"; c.beginPath(); c.arc(cx, cy, r, 0, 6.29); c.fill(); c.strokeStyle = "#6a4a22"; c.lineWidth = 2 * dpr; c.stroke();
+    c.fillStyle = "#d0342c"; c.beginPath(); c.moveTo(cx, cy - r * 0.78); c.lineTo(cx + r * 0.22, cy); c.lineTo(cx - r * 0.22, cy); c.fill();
+    c.fillStyle = "#3a2a1a"; c.beginPath(); c.moveTo(cx, cy + r * 0.78); c.lineTo(cx + r * 0.22, cy); c.lineTo(cx - r * 0.22, cy); c.fill();
+    c.font = p98Police(dpr, 9); c.fillStyle = "#3a2410"; c.fillText("N", cx, cy - r - 7 * dpr); }
+  // vignette douce
+  if (!P98.vig || P98.vig.w !== W || P98.vig.h !== H) { const v = nouveauCanvas(W >> 2, H >> 2), x = v.getContext("2d"), g = x.createRadialGradient(v.width / 2, v.height / 2, Math.min(v.width, v.height) * 0.45, v.width / 2, v.height / 2, Math.hypot(v.width, v.height) * 0.6); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(10,20,40,0.35)"); x.fillStyle = g; x.fillRect(0, 0, v.width, v.height); P98.vig = { w: W, h: H, cv: v }; }
+  c.drawImage(P98.vig.cv, 0, 0, W, H);
+  if (AV.teleMode) { const msg = "⚡ Touche un endroit pour t'y téléporter"; c.font = p98Police(dpr, 13); const tw = c.measureText(msg).width + 24 * dpr, y = (SAFE.t + 62) * dpr; c.fillStyle = "rgba(90,20,140,0.9)"; p98RRect(c, W / 2 - tw / 2, y, tw, 28 * dpr, 14 * dpr); c.fill(); c.fillStyle = "#fff"; c.fillText(msg, W / 2, y + 14 * dpr); }
+}
+function p98RRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function p98Epingle(c, x, y, dpr, t) {
+  const b = Math.abs(Math.sin(t * 3)) * 3 * dpr, s = dpr;
+  c.fillStyle = "rgba(0,0,0,0.3)"; c.beginPath(); c.ellipse(x, y, 6 * s, 2.5 * s, 0, 0, 6.29); c.fill();
+  c.save(); c.translate(x, y - b); c.fillStyle = "#e8302a"; c.strokeStyle = "#fff"; c.lineWidth = 2 * s;
+  c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-4 * s, -10 * s, -11 * s, -14 * s, -11 * s, -21 * s); c.arc(0, -21 * s, 11 * s, Math.PI, 0); c.bezierCurveTo(11 * s, -14 * s, 4 * s, -10 * s, 0, 0); c.fill(); c.stroke();
+  c.fillStyle = "#fff"; c.beginPath(); c.arc(0, -21 * s, 4 * s, 0, 6.29); c.fill(); c.restore();
+}
+// animation (zoom/centre doux, inertie du glisser)
+function p98Animer() {
+  const GC = grandeCarte, now = performance.now(), dt = Math.min(0.05, (now - (P98.tA || now)) / 1000); P98.tA = now;
+  const A = P98.anim;
+  if (A) { const f = 1 - Math.exp(-dt * 12); GC.zoom += (A.z - GC.zoom) * f; GC.cx += (A.cx - GC.cx) * f; GC.cy += (A.cy - GC.cy) * f; if (Math.abs(A.z - GC.zoom) < 0.002 * A.z && Math.hypot(A.cx - GC.cx, A.cy - GC.cy) < 2) { GC.zoom = A.z; GC.cx = A.cx; GC.cy = A.cy; P98.anim = null; } GC.limiter(); }
+  const V = P98.vel; if (V && GC.pointeurs.size === 0) { const k = GC.echelle(); GC.cx -= V.x * dt / k; GC.cy -= V.y * dt / k; const d = Math.exp(-dt * 5); V.x *= d; V.y *= d; GC.limiter(); if (Math.hypot(V.x, V.y) < 8) P98.vel = null; }
+}
+function p98Viser(cx, cy, z) { const GC = grandeCarte; P98.vel = null; P98.anim = { cx, cy, z: Math.min(12, Math.max(0.8, z)) }; }
+
+/* ---------------- interface de la carte : boutons ronds, fiche, gestes ---------------- */
+document.head.insertAdjacentHTML("beforeend", `<style>
+#carte{image-rendering:auto!important;background:#1c3f6e!important}
+#carteUI .titreCarte,#carteUI .barreCarte{display:none!important}
+body.p98ouv #gbInfo,body.p98ouv #passerCine{display:none!important}
+#p98ui{position:absolute;inset:0;pointer-events:none;font:600 14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#3a2410}
+#p98ui .p98t{position:absolute;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));padding:7px 16px;border-radius:999px;background:rgba(255,248,232,.94);border:2px solid rgba(110,70,30,.55);box-shadow:0 3px 10px rgba(0,0,0,.3);font-weight:800;font-size:15px;white-space:nowrap;max-width:62vw;overflow:hidden;text-overflow:ellipsis}
+#p98ui .p98b{position:absolute;width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,236,190,.9);background:rgba(34,24,14,.82);color:#fff;font-size:21px;line-height:44px;text-align:center;padding:0;pointer-events:auto;box-shadow:0 3px 10px rgba(0,0,0,.35);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#p98ui .p98b:active{transform:scale(.92)}
+#p98ui .p98b.on{background:#7a2ac8}
+#p98ui .p98b.pt{width:40px;height:40px;line-height:36px;font-size:22px;font-weight:800}
+#p98ui [data-p98=fermer]{right:calc(12px + env(safe-area-inset-right,0px));top:calc(10px + env(safe-area-inset-top,0px));background:rgba(160,30,26,.9)}
+#p98ui [data-p98=centre]{right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+#p98ui [data-p98=plus]{right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(126px + env(safe-area-inset-bottom,0px))}
+#p98ui [data-p98=moins]{right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+#p98ui [data-p98=mondes]{left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+#p98ui [data-p98=tele]{left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+#p98ui .p98f{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(340px,calc(100vw - 150px));min-width:220px;background:rgba(255,248,232,.97);border:2px solid rgba(110,70,30,.6);border-radius:18px;padding:10px 12px 12px;box-shadow:0 6px 20px rgba(0,0,0,.4);pointer-events:auto;animation:p98in .18s ease-out}
+@keyframes p98in{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+#p98ui .p98f h3{margin:0 26px 2px 0;font-size:16px;font-weight:800;display:flex;align-items:center;gap:6px}
+#p98ui .p98f .s{font-size:12.5px;color:#6a4a2a;margin:2px 0 8px}
+#p98ui .p98f .n{display:inline-block;background:#3a2410;color:#ffe070;border-radius:8px;padding:1px 7px;font-size:12px;margin-left:2px}
+#p98ui .p98f .n.r{background:#a8201a;color:#fff}
+#p98ui .p98f .bx{display:flex;gap:8px}
+#p98ui .p98f button{flex:1;border:0;border-radius:12px;padding:10px 6px;font:800 14px system-ui,sans-serif;color:#fff;background:#2f7a3a;touch-action:manipulation}
+#p98ui .p98f button.m{background:#b0302a}#p98ui .p98f button.g{background:#8a8070}
+#p98ui .p98f .x{position:absolute;right:6px;top:4px;flex:none;width:30px;height:30px;padding:0;border-radius:50%;background:transparent;color:#6a4a2a;font-size:18px}
+#p98ui .p98h{position:absolute;left:50%;transform:translateX(-50%);top:calc(56px + env(safe-area-inset-top,0px));padding:5px 12px;border-radius:999px;background:rgba(20,14,8,.72);color:#fff;font-size:12.5px;white-space:nowrap;transition:opacity .6s}
+@media (orientation:landscape){#p98ui [data-p98=plus]{bottom:calc(18px + env(safe-area-inset-bottom,0px));right:calc(126px + env(safe-area-inset-right,0px))}#p98ui [data-p98=moins]{bottom:calc(18px + env(safe-area-inset-bottom,0px));right:calc(76px + env(safe-area-inset-right,0px))}#p98ui [data-p98=tele]{bottom:calc(18px + env(safe-area-inset-bottom,0px));left:calc(72px + env(safe-area-inset-left,0px))}#p98ui .p98f{width:min(360px,calc(100vw - 420px))}}
+</style>`);
+function p98UI() {
+  const GC = grandeCarte; if (P98.ui && P98.ui.isConnected) return P98.ui;
+  const u = P98.ui = document.createElement("div"); u.id = "p98ui";
+  u.innerHTML = `<div class="p98t"></div><div class="p98h">Pince pour zoomer · touche un lieu</div>
+<button class="p98b" data-p98="fermer" aria-label="Fermer">✖</button><button class="p98b" data-p98="centre" aria-label="Recentrer">◎</button>
+<button class="p98b pt" data-p98="plus" aria-label="Zoomer">+</button><button class="p98b pt" data-p98="moins" aria-label="Dézoomer">−</button>
+<button class="p98b" data-p98="mondes" aria-label="Mondes">🌍</button><button class="p98b" data-p98="tele" aria-label="Téléporter">⚡</button><div class="p98f" hidden></div>`;
+  GC.ui.appendChild(u);
+  u.addEventListener("pointerdown", e => e.stopPropagation());
+  u.addEventListener("click", e => {
+    const b = e.target.closest("[data-p98]"); if (!b) return; e.stopPropagation(); try { son.jouer("clic"); } catch (_) { }
+    const a = b.dataset.p98, cx = GC.cx, cy = GC.cy;
+    if (a === "fermer") GC.fermer();
+    else if (a === "plus") { const A = P98.anim; p98Viser(A ? A.cx : cx, A ? A.cy : cy, (A ? A.z : GC.zoom) * 1.6); }
+    else if (a === "moins") { const A = P98.anim; p98Viser(A ? A.cx : cx, A ? A.cy : cy, (A ? A.z : GC.zoom) / 1.6); }
+    else if (a === "centre") { const ev = !dansMonde() && jeu.retour; p98Viser(ev ? jeu.retour.x : perso.x, ev ? jeu.retour.y : perso.y, Math.max(GC.zoom, (P98.fit || 1) * 3)); }
+    else if (a === "mondes") { const o = GC.ui.querySelector('[data-c="p94monde"]'); if (o) o.click(); else p94PanneauMondes(); }
+    else if (a === "tele") { const o = GC.ui.querySelector('[data-c="tele"]'); if (o) o.click(); b.classList.toggle("on", !!AV.teleMode); p98Fiche(null); }
+    else if (a === "aller" || a === "marquer" || a === "demarquer" || a === "xf") p98Action(a);
+  });
+  // gestes : toucher (fiche), double toucher (zoom), inertie
+  const el = GC.el; let d = null, hist = [];
+  el.addEventListener("pointerdown", e => { P98.anim = null; P98.vel = null; d = { x: e.clientX, y: e.clientY, t: performance.now(), n: GC.pointeurs.size, id: e.pointerId }; hist = [[e.clientX, e.clientY, performance.now()]]; p98Hint(false); });
+  el.addEventListener("pointermove", e => { if (GC.pointeurs.size === 1 && d && d.id === e.pointerId) { hist.push([e.clientX, e.clientY, performance.now()]); if (hist.length > 6) hist.shift(); } if (GC.pointeurs.size > 1 && d) d.n = 2; });
+  el.addEventListener("pointerup", e => {
+    if (!d || d.id !== e.pointerId) return; const dd = Math.hypot(e.clientX - d.x, e.clientY - d.y), now = performance.now();
+    if (d.n <= 1 && dd < 10 && now - d.t < 450 && !AV.teleMode) {
+      if (P98.tap && now - P98.tap.t < 320 && Math.hypot(e.clientX - P98.tap.x, e.clientY - P98.tap.y) < 30) { P98.tap = null; const k = GC.echelle(); p98Viser(GC.cx + (e.clientX - innerWidth / 2) / k * 0.45, GC.cy + (e.clientY - innerHeight / 2) / k * 0.45, GC.zoom * 1.8); }
+      else { P98.tap = { t: now, x: e.clientX, y: e.clientY }; p98Toucher(e.clientX, e.clientY); }
+    } else if (d.n <= 1 && hist.length > 2) { const a = hist[0], b = hist[hist.length - 1], dt = (b[2] - a[2]) / 1000; if (dt > 0.01 && now - b[2] < 80) P98.vel = { x: (b[0] - a[0]) / dt, y: (b[1] - a[1]) / dt }; }
+    d = null;
+  });
+  return u;
+}
+function p98Hint(on) { const h = P98.ui && P98.ui.querySelector(".p98h"); if (h) h.style.opacity = on ? "1" : "0"; }
+function p98Toucher(px, py) {
+  const dpr = DPR(), GC = grandeCarte, k = GC.echelle(); let best = null, bd = 26;
+  for (const q of P98.pois || []) { const x = innerWidth / 2 + (q.x - GC.cx) * k, y = innerHeight / 2 + (q.y - GC.cy) * k, dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = q; } }
+  void dpr;
+  if (!best && P98.mk && P98.mk.w === (AV.monde || 1)) { const x = innerWidth / 2 + (P98.mk.x - GC.cx) * k, y = innerHeight / 2 + (P98.mk.y - GC.cy) * k; if (Math.hypot(px - x, py - y + 18) < 26) best = { id: "mk", ty: "lieu", ico: "📍", nom: P98.mk.nom || "Mon repère", x: P98.mk.x, y: P98.mk.y, desc: "Ton repère (visible sur la mini-carte)" }; }
+  if (!best) { const mx = GC.cx + (px - innerWidth / 2) / k, my = GC.cy + (py - innerHeight / 2) / k; if (mx > 0 && my > 0 && mx < MPX() && my < MPX()) best = { id: "pt", ty: "lieu", ico: "📍", nom: "Cet endroit", x: mx, y: my, desc: p98DecrireSol(mx, my), libre: 1 }; }
+  p98Fiche(best);
+}
+function p98DecrireSol(x, y) { try { const n = niveauMonde(x, y); return n <= NIV.EAU ? "En pleine mer" : n === NIV.SABLE ? "Une plage" : n >= 7 ? "Sommet enneigé" : n >= NIV.ROCHE ? "Montagnes" : "Plaine"; } catch (_) { return ""; } }
+function p98Fiche(q) {
+  const u = p98UI(), F = u.querySelector(".p98f"); P98.fiche = q;
+  if (!q) { F.hidden = true; return; }
+  const s = P98_TY[q.ty] || P98_TY.lieu, dec = q.dec !== false, mk = P98.mk && Math.hypot(P98.mk.x - q.x, P98.mk.y - q.y) < 40 && P98.mk.w === (AV.monde || 1);
+  const niv = q.niv ? `<span class="n${prog && prog.niveau < q.niv ? " r" : ""}">niv. ${q.niv} conseillé</span>` : "";
+  const ok = dec && dansMonde();
+  F.innerHTML = `<button class="x" data-p98="xf" aria-label="Fermer la fiche">✕</button><h3><span>${q.ico || s.i}</span><span>${q.nom}</span></h3><div class="s">${q.desc || ""} ${niv}</div>
+<div class="bx">${ok ? `<button data-p98="aller">⚡ Y aller</button>` : `<button class="g" data-p98="aller">${dec ? "⚡ Y aller" : "🔒 Inexploré"}</button>`}<button class="m" data-p98="${mk ? "demarquer" : "marquer"}">${mk ? "✖ Retirer" : "📍 Marquer"}</button></div>`;
+  F.hidden = false;
+}
+function p98Action(a) {
+  const q = P98.fiche; if (a === "xf") return p98Fiche(null); if (!q) return;
+  if (a === "marquer") { P98.mk = { w: AV.monde || 1, x: q.x, y: q.y, nom: q.libre ? "Mon repère" : q.nom }; try { miniCarte.cle = null; } catch (_) { } messageInfo("📍 Repère placé : " + P98.mk.nom); p98Fiche(q); return; }
+  if (a === "demarquer") { P98.mk = null; try { miniCarte.cle = null; } catch (_) { } p98Fiche(q); return; }
+  if (a === "aller") {
+    if (q.dec === false) { messageInfo("Ce lieu n'est pas encore découvert : marque-le et va l'explorer !"); return; }
+    if (!dansMonde()) { messageInfo("Sors d'abord du bâtiment ou de la ville pour te téléporter."); return; }
+    const x = q.gx != null ? q.gx : q.x, y = q.gy != null ? q.gy : q.y + (q.libre ? 0 : 40);
+    p98Fiche(null); teleporter(x, y);
+  }
+}
+(() => {
+  const GC = grandeCarte, lim = GC.limiter;
+  GC.limiter = function () { lim.call(this); this.zoom = Math.min(14, this.zoom); };
+  GC.dessiner = function () { try { p98Dessiner(); } catch (e) { p98Err("dessiner", e); } };
+  const ouv = GC.ouvrir;
+  GC.ouvrir = function () {
+    const r = ouv.apply(this, arguments);
+    if (!this.ouvert) return r;
+    document.body.classList.add("p98ouv");
+    try {
+      const u = p98UI(); u.querySelector(".p98t").textContent = p98TitreMonde();
+      u.querySelector('[data-p98="mondes"]').hidden = !this.ui.querySelector('[data-c="p94monde"]');
+      u.querySelector('[data-p98="tele"]').hidden = !this.ui.querySelector('[data-c="tele"]'); u.querySelector('[data-p98="tele"]').classList.remove("on");
+      p98Fiche(null); P98.anim = null; P98.vel = null; P98.tA = 0;
+      // cadrage : toutes les terres + le joueur
+      const m = jeu.monde, b = { ...p98BBox(m) }, ev = !dansMonde() && jeu.retour, px = ev ? jeu.retour.x : perso.x, py = ev ? jeu.retour.y : perso.y;
+      b.x0 = Math.min(b.x0, px - 400); b.x1 = Math.max(b.x1, px + 400); b.y0 = Math.min(b.y0, py - 400); b.y1 = Math.max(b.y1, py + 400);
+      const pay = innerWidth > innerHeight, aw = innerWidth - (pay ? 140 : 24), ah = innerHeight - (pay ? 70 : 150) - SAFE.t - SAFE.b;
+      const z = Math.min(aw / (b.x1 - b.x0), ah / (b.y1 - b.y0)) / this.base();
+      this.zoom = P98.fit = Math.max(0.8, Math.min(6, z)); this.cx = (b.x0 + b.x1) / 2; this.cy = (b.y0 + b.y1) / 2 + (pay ? 0 : 10 / this.echelle()); this.limiter();
+      p98Hint(true); clearTimeout(P98.hintT); P98.hintT = setTimeout(() => p98Hint(false), 3500);
+      p98BasePas(40);
+    } catch (e) { p98Err("ouvrir", e); }
+    return r;
+  };
+  const fer = GC.fermer;
+  GC.fermer = function () { document.body.classList.remove("p98ouv"); P98.fiche = null; P98.anim = null; P98.vel = null; return fer.apply(this, arguments); };
+  // repère sur la mini-carte
+  const md = miniCarte.dessiner;
+  miniCarte.dessiner = function () {
+    const cle0 = this.cle, r = md.apply(this, arguments);
+    try { const M = P98.mk; if (M && M.w === (AV.monde || 1) && dansMonde() && this.ctx && this.cle !== cle0) { const c = this.ctx, k = this.taille / MPX(), x = Math.round(this.B + M.x * k), y = Math.round(this.B + M.y * k); c.fillStyle = "#1a1008"; c.fillRect(x - 2, y - 6, 5, 5); c.fillRect(x, y - 2, 1, 3); c.fillStyle = "#ff3a2a"; c.fillRect(x - 1, y - 5, 3, 3); } } catch (e) { p98Err("mini", e); }
+    return r;
+  };
+})();
+
+/* ---------------- sauvegardes : migration vers la nouvelle géographie ---------------- */
+(() => {
+  const ma = majAventure;
+  majAventure = function () {
+    const r = ma.apply(this, arguments);
+    try {
+      if (jeu && !jeu.p98mig && !jeu.transition && !AV.cine) {
+        jeu.p98mig = 1;
+        if (dansMonde() && p96Ici()) {
+          if (AV.nav && AV.merry) { if (!coqueLibre(AV.merry.x, AV.merry.y)) { const q = chercherEau(AV.merry.x, AV.merry.y, 900); if (q) placerMerry(q.x, q.y, AV.merry.ang || 0); P98.migre = "bateau"; } }
+          else if (!AV.nuageActif && !perso.libre(perso.x, perso.y)) { perso.placerPres(perso.x, perso.y, 900); camera.x = perso.x; camera.y = perso.y - 10; P98.migre = "pied"; }
+          const M = AV.merry; if (M && !AV.nav && !coqueLibre(M.x, M.y)) { const q = chercherEau(M.x, M.y, 900); if (q) { M.x = q.x; M.y = q.y; P98.migre = (P98.migre || "") + "+merry"; } }
+        }
+      }
+    } catch (e) { p98Err("migr", e); }
+    return r;
+  };
+})();
+
+/* ===== Phase 47 · étape 2 : Reverse Mountain en 3D ===== */
+const P98RM = { D: 14.5, mesh: null };
+function p98RMGeo() {
+  if (P98RM.mesh) return P98RM.mesh;
+  const g = new G3Geo(), gris = [0.42, 0.52, 0.66], ventre = [0.86, 0.84, 0.8], fonce = [0.3, 0.38, 0.5];
+  // baleine (hommage) : corps massif, avant +x
+  g.sph(0, 0, 0, 120, 52, 56, 14, gris, 0.02);
+  g.sph(70, -4, 0, 62, 50, 54, 12, gris);
+  g.sph(20, -26, 0, 110, 26, 44, 12, ventre);
+  for (let k = 0; k < 6; k++) g.box(40 - k * 18, -30, 0, 4, 3, 70, [0.7, 0.68, 0.64]);
+  g.sph(-118, 4, 0, 40, 26, 30, 10, gris);
+  g.sph(-170, 18, 0, 34, 7, 46, 8, fonce); g.sph(-178, 22, 24, 24, 5, 30, 8, fonce); g.sph(-178, 22, -24, 24, 5, 30, 8, fonce);
+  g.sph(10, -14, 50, 34, 6, 22, 8, fonce); g.sph(10, -14, -50, 34, 6, 22, 8, fonce);
+  for (const s of [1, -1]) { g.sph(92, 12, 46 * s, 9, 9, 4, 8, [0.98, 0.98, 0.98]); g.sph(96, 12, 49 * s, 4.5, 4.5, 2, 6, [0.05, 0.05, 0.08]); }
+  // cicatrices sur le front (en hommage)
+  for (let k = 0; k < 5; k++) g.box(96 + k * 4, 26 + (k & 1) * 6, (k - 2) * 9, 3, 18, 3, [0.62, 0.3, 0.3]);
+  g.box(128, -6, 0, 4, 2, 60, [0.2, 0.22, 0.3]);
+  const nu = new G3Geo(); nu.sph(0, 0, 0, 1, 0.55, 1, 9, [1, 1, 1]); nu.sph(0.7, -0.1, 0.2, 0.6, 0.4, 0.6, 7, [0.96, 0.97, 1]); nu.sph(-0.7, -0.05, -0.2, 0.65, 0.42, 0.6, 7, [0.95, 0.96, 1]);
+  return P98RM.mesh = { baleine: g.build(), nuage: nu.build() };
+}
+function p98RMDessiner(C, W, H, dpr) {
+  if (!g3Actif()) { dessinerSommet(Object.assign(C, { t: Math.min(C.t * 9.5 / P98RM.D, 9.4) }), W, H, dpr); return; }
+  const gl = G3.gl, U = g3Unit(), MD = n3Modeles(), K = e3RMMeshes(), B = p98RMGeo(), now = performance.now() / 1000;
+  const dt = Math.min(0.05, Math.max(0.001, now - (C.tp || now))); C.tp = now;
+  if (E3.tier < 0) E3.tier = e3Tier0(); if (window.__e3fixe != null) E3.tier = window.__e3fixe;
+  const TR = E3_TIERS[Math.max(0, E3.tier)]; let RW = Math.round(W / dpr), RH = Math.round(H / dpr); { const f = Math.sqrt(TR.px / (RW * RH)); if (f < 1) { RW = Math.round(RW * f); RH = Math.round(RH * f); } }
+  RW = Math.max(160, RW); RH = Math.max(120, RH);
+  const asp = RW / RH, port = asp < 1, t = C.t, Hm = 321.6, Rm = 178.5;
+  const ease = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+  const zF = f => Rm * Math.pow(1 - Math.min(0.999, f), 0.85) + 1.6, yF = f => -8 + f * Hm + 4.4;
+  // trajectoire du navire
+  let sx = 0, sy = 0, sz = 0, pitch = 0, ph;
+  const T1 = 3, T2 = 7.2, T3 = 8.9, T4 = 11, D = P98RM.D;
+  if (t < T1) { ph = 0; const u = t / T1; sz = 720 - (720 - zF(0)) * (u * (0.6 + 0.4 * u)); sy = 0; }
+  else if (t < T2) { ph = 1; const f = 0.97 * ease((t - T1) / (T2 - T1)) * 0.85 + 0.97 * 0.15 * ((t - T1) / (T2 - T1)); sz = zF(f); sy = yF(f); const f2 = Math.min(0.97, f + 0.01); pitch = Math.atan2(yF(f2) - yF(f), zF(f) - zF(f2)); }
+  else if (t < T3) { ph = 2; const u = (t - T2) / (T3 - T2); sz = zF(0.97) * (1 - 2 * u); sy = yF(0.97) + Math.sin(u * Math.PI) * 8; pitch = 0.25 - u * 0.5; }
+  else if (t < T4) { ph = 3; const u = (t - T3) / (T4 - T3), f = 0.97 * (1 - u * u); sz = -zF(f); sy = yF(f); const f2 = Math.max(0, f - 0.01); pitch = -Math.atan2(yF(f) - yF(f2), zF(f2) - zF(f)); }
+  else { ph = 4; const u = (t - T4) / (D - T4); sz = -zF(0) - 420 * (1 - Math.pow(1 - Math.min(1, u * 1.4), 2)); sy = 0; pitch = Math.max(0, 0.3 - u * 1.5) * -1; }
+  const hou = (x, z) => 1.6 * (Math.sin(x * 0.045 + t * 1.1) + 0.7 * Math.sin(z * 0.06 - t * 0.8 + x * 0.02));
+  if (ph === 0 || ph === 4) sy = hou(sx, sz) * 0.7;
+  // caméra cinématique
+  let eye, tgt; const sh = ph === 1 || ph === 3 ? 1.2 : 0, jx = (Math.random() - 0.5) * sh, jy = (Math.random() - 0.5) * sh;
+  if (ph === 0) { const u = t / T1; eye = [-150 + u * 60, 30 + u * 30, sz + 190 - u * 40]; tgt = [0, 60 + u * 120, sz - 160 - u * 80]; }
+  else if (ph === 1) { const u = (t - T1) / (T2 - T1), a = -0.9 + u * 1.5; eye = [Math.sin(a) * (port ? 175 : 150), sy + 34 + u * 24, sz + Math.cos(a) * (port ? 175 : 150)]; tgt = [0, sy + 20, sz - 30]; }
+  else if (ph === 2) { const u = (t - T2) / (T3 - T2); eye = [320 - u * 80, Hm + 90 + u * 30, 260 - u * 120]; tgt = [0, sy, sz]; }
+  else if (ph === 3) { const u = (t - T3) / (T4 - T3); eye = [(port ? 150 : 170) - u * 30, sy + 80 - u * 30, sz - 240 - u * 40]; tgt = [0, sy - 20, sz - 20]; }
+  else { const u = (t - T4) / (D - T4); eye = [180 + u * 60, 40 + u * 30, -zF(0) - 150 - u * 170]; tgt = [-40, 20 + u * 10, -zF(0) - 560]; }
+  eye[0] += jx; eye[1] += jy;
+  const fov = port ? 1.15 : 0.9, V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 2, 4200), VP = M4.mul(Pm, V);
+  const soir = ph >= 2 ? Math.min(1, (t - T2) / 3) : 0;
+  const hor = [0.78 - soir * 0.02, 0.86 - soir * 0.16, 0.95 - soir * 0.3], top = [0.26, 0.48 - soir * 0.08, 0.86 - soir * 0.1];
+  let L = [0.45, 0.75, 0.48]; { const l = Math.hypot(...L); L = L.map(v => v / l); }
+  g3Debut(RW, RH, { VP, cam: eye, fov, L, amb: [0.56, 0.58, 0.64], sun: [0.66, 0.6 - soir * 0.06, 0.52 - soir * 0.1], fog: [700, 2600], fogC: hor, ciel: [hor, top], hz: 0.5 });
+  const deep = g3RGB(sz < 0 ? "#123a74" : "#1a4a8a"), shal = g3RGB("#3ab8c8");
+  g3Eau(MD.large, { cr: 0.2, t, amp: 1.6, off: [0, Math.round(sz / 64) * 64], y: -9, deep, shal, ciel: hor });
+  const I = M4.trs(0, 0, 0), Rb = M4.trs(0, 0, 0, Math.PI);
+  g3Mesh(K.base, I); g3Mesh(K.peaks, I); g3Mesh(K.canal, I); g3Mesh(K.canal, Rb);
+  for (const s of [1, -1]) for (let k = 0; k < 6; k++) g3Mesh(K.wall, M4.trs(s * (300 + k * 196), -10, 0, Math.PI / 2));
+  // navire
+  const ang = -Math.PI / 2; g3Mesh(U.ombre, M4.trs(sx, sy - 2.4, sz, -ang, 0, 0, 30, 1, 12), { a: 0.25, tint: [0, 0.01, 0.03, 1] });
+  g3Mesh(MD.merry, M4.trs(sx, sy + 3, sz, -ang, Math.sin(t * 2.3) * 0.05, pitch, 1));
+  // baleine qui attend à Grand Line
+  { const bz = -zF(0) - 620, rise = ph === 4 ? ease((t - T4) / 1.4) : ph === 3 ? 0.15 : 0; const by = -40 + rise * 34 + Math.sin(t * 0.9) * 2.5;
+    if (sz < 60) { g3Mesh(B.baleine, M4.trs(-60, by, bz, -0.35, 0, Math.sin(t * 0.7) * 0.03, 1)); if (ph === 4 && Math.random() < 0.7) for (let i = 0; i < 3; i++) g3Part(-60 + Math.cos(-0.35) * 70 + (Math.random() - 0.5) * 6, by + 54, bz - Math.sin(-0.35) * 70, (Math.random() - 0.5) * 14, 60 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.3, 5, "#e8f6ff", { g: 50, add: false, gr: 4 }); } }
+  // écume du courant et embruns
+  if (Math.random() < 0.9) for (let i = 0; i < (ph === 1 || ph === 3 ? 4 : 2); i++) g3Part(sx + (Math.random() - 0.5) * 30, sy + 1, sz + (ph === 3 ? -24 : 24), (Math.random() - 0.5) * 20, 12 + Math.random() * 20, (ph === 3 ? -1 : 1) * Math.random() * 20, 0.8, 3, "#f4fbff", { g: 30, add: false });
+  if (ph === 4 && t - T4 < 0.6) for (let i = 0; i < 8; i++) g3Part(sx + (Math.random() - 0.5) * 50, 2, sz + (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 60, 40 + Math.random() * 60, (Math.random() - 0.5) * 60, 1.1, 4.5, "#ffffff", { g: 70, add: false });
+  g3MajParts(dt); g3DessinerParts(RH);
+  // mer de nuages au sommet
+  { const a0 = ph === 2 ? 0.85 : ph === 1 ? 0.5 * ease((t - T1) / (T2 - T1)) : ph === 3 ? 0.6 * (1 - (t - T3) / (T4 - T3)) : 0.25;
+    for (let k = 0; k < 18; k++) { const a = k / 18 * 6.283 + t * 0.03, r = 120 + (k * 53 % 170); if (Math.abs(Math.cos(a) * r - sx) < 40 && Math.abs(Math.sin(a) * r - sz) < 50) continue; g3Mesh(B.nuage, M4.trs(Math.cos(a) * r, Hm - 70 + (k % 3) * 14, Math.sin(a) * r, a, 0, 0, 30 + (k % 4) * 9, 12 + (k % 3) * 4, 26 + (k % 5) * 7), { a: 0.25 + Math.max(0.15, a0) * 0.45, e: 0.35 }); } }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(G3.cv, 0, 0, W, H); ctx.restore();
+  try { e3Bloom(W, H); } catch (_) { }
+  // brume blanche quand on traverse les nuages
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const brume = ph === 2 ? Math.sin((t - T2) / (T3 - T2) * Math.PI) * 0.55 : 0; if (brume > 0.01) { ctx.fillStyle = "rgba(255,255,255," + brume.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+  const fe = Math.min(1, t / 0.6, (D - t) / 0.5); bandesNoires(W, H, dpr, fe);
+  // textes
+  const txt = ph === 0 ? "Le courant emporte le Vogue Merry…" : ph === 1 ? "On remonte Reverse Mountain !" : ph === 2 ? "Au sommet, entre les nuages…" : ph === 3 ? "Ça descend !!" : "Une baleine géante nous attend…";
+  const fs = Math.round(Math.min(W, H) * (port ? 0.05 : 0.055)); ctx.font = "800 " + fs + "px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.lineWidth = Math.max(3, fs * 0.16); ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fillStyle = "#fff";
+  const ty = H - Math.min(H * 0.1, 46 * dpr) - fs * 1.1; ctx.globalAlpha = Math.min(1, fe * 1.4); ctx.strokeText(txt, W / 2, ty); ctx.fillText(txt, W / 2, ty);
+  if (ph === 2 || t > D - 2.2) { const big = Math.round(fs * 1.7), a = ph === 2 ? Math.sin((t - T2) / (T3 - T2) * Math.PI) : Math.min(1, (t - (D - 2.2)) * 2); ctx.globalAlpha = a; ctx.font = "900 " + big + "px system-ui,sans-serif"; ctx.lineWidth = big * 0.14; const s = ph === 2 ? "REVERSE MOUNTAIN" : "GRAND LINE"; ctx.strokeText(s, W / 2, H * 0.3); ctx.fillStyle = ph === 2 ? "#fff4c8" : "#ffe27a"; ctx.fillText(s, W / 2, H * 0.3); }
+  ctx.restore();
+  if (!C.s1 && ph >= 1) { C.s1 = 1; try { son.jouer("orbe"); } catch (_) { } }
+  if (!C.s3 && ph >= 3) { C.s3 = 1; jeu.tremble = 0.25; }
+  if (!C.s4 && ph >= 4) { C.s4 = 1; try { son.jouer("plouf"); } catch (_) { } }
+}
+const p98_AGL = arriveeGrandLine, p98_Trav = lancerTraversee;
+function p98LancerRM() {
+  try { if (AV.nuageActif) finNuage(true); } catch (_) { }
+  AV.cine = { type: "p98rm", t: 0, plein: true, cacherHUD: true, particules: false,
+    maj(dt) { try { if (jeu.transition && jeu.transition.fait) mettreAJourTransition(dt); } catch (_) { } if (this.t >= P98RM.D) finCine(); },
+    passer() { finCine(); },
+    dessiner(W, H, dpr) { try { p98RMDessiner(this, W, H, dpr); } catch (e) { p98Err("rm", e); if (++P98RM.err > 2) finCine(); } },
+    fin() { try { G3.parts.length = 0; } catch (_) { } p98_AGL(); } };
+  P98RM.err = 0; boutonPasser(true);
+}
+const p98_Som = lancerCineSommet;
+lancerCineSommet = function () { P98RM.som = 1; return p98_Som.apply(this, arguments); };
+arriveeGrandLine = function () {
+  if ((AV.monde || 1) === 1 && !window.__p98sansRM) {
+    if (g3Actif()) return p98LancerRM();
+    if (!P98RM.som) return lancerCineSommet();
+  }
+  P98RM.som = 0; return p98_AGL.apply(this, arguments);
+};
+lancerTraversee = function () { if (g3Actif() && !window.__p98sansRM) return p98LancerRM(); return p98_Trav.apply(this, arguments); };
+
+/* Grand Line : îles peintes (le monde 2 est une mer sans terrain) */
+function p98Mer2(c, X, Y, k, dpr, t) {
+  const R = RM.m2; if (!R) return;
+  const ell = (x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(X(x), Y(y), Math.max(1, rx * k), Math.max(1, ry * k), 0, 0, 6.283); c.fill(); };
+  // Red Line : falaise qui coupe le monde du nord au sud
+  const lw = 150, xr = X(R.x - lw / 2), wr = lw * k, yb = Y(R.y);
+  const g = c.createLinearGradient(xr, 0, xr + wr, 0); g.addColorStop(0, "#6a3b22"); g.addColorStop(0.5, "#b0643a"); g.addColorStop(1, "#5a2f1a");
+  c.fillStyle = "rgba(120,200,230,0.35)"; c.fillRect(xr - 10 * k, Y(0), wr + 20 * k, yb - Y(0));
+  c.fillStyle = g; c.fillRect(xr, Y(0), wr, yb - Y(0));
+  c.fillStyle = "rgba(255,255,255,0.18)"; for (let y = 0; y < R.y; y += 260) c.fillRect(xr, Y(y), wr, Math.max(1, 30 * k));
+  // Reverse Mountain
+  ell(R.x, R.y, RM_RX + 60, RM_RY + 50, "rgba(140,220,240,0.45)"); ell(R.x, R.y, RM_RX, RM_RY, "#5a3a22"); ell(R.x, R.y - 10, RM_RX * 0.6, RM_RY * 0.55, "#8a6a4a"); ell(R.x, R.y - 16, RM_RX * 0.22, RM_RY * 0.22, "#f4f8ff");
+  c.strokeStyle = "#5ab8f0"; c.lineWidth = Math.max(1.5 * dpr, 14 * k); c.beginPath(); c.moveTo(X(R.x), Y(R.y + RM_RY + 60)); c.lineTo(X(R.x), Y(R.y)); c.stroke();
+  // récifs
+  for (const q of RM.rocs || []) { ell(q.x, q.y, 70, 50, "rgba(150,220,235,0.35)"); ell(q.x, q.y, 34, 24, "#7a7068"); }
+  // îles
+  for (const I of ILES) {
+    const q = ilPos(I), rx = I.ex || 200, ry = I.ey || 200, r = mulberry32(I.id.length * 97 + rx);
+    ell(q.x, q.y, rx + 90, ry + 80, "rgba(120,215,230,0.45)"); ell(q.x, q.y, rx + 34, ry + 30, "rgba(170,235,240,0.6)");
+    ell(q.x, q.y, rx, ry, "#ecd9a0"); ell(q.x, q.y - 4, rx * 0.84, ry * 0.8, "#5aa848");
+    for (let i = 0; i < 26; i++) { const a = r() * 6.283, d = Math.sqrt(r()) * 0.72; ell(q.x + Math.cos(a) * rx * d, q.y + Math.sin(a) * ry * d, 26 + r() * 18, 22 + r() * 14, r() < 0.5 ? "#3d8a3a" : "#2f7030"); }
+    if (I.cm) ell(q.x, q.y, rx * 0.22, ry * 0.22, I.cm);
+    c.strokeStyle = "rgba(60,40,20,0.55)"; c.lineWidth = Math.max(1, 1.5 * dpr); c.beginPath(); c.ellipse(X(q.x), Y(q.y), rx * k, ry * k, 0, 0, 6.283); c.stroke();
+  }
+}
+
+/* ===== Phase 47 · étape 4 : petits détails (belvédère, coffre secret, linge, lampadaires, empreintes, sauvegarde) ===== */
+const P98D = { sv: null, spots: null, pas: [], dern: null, toastT: 0 };
+function p98Sv() { if (P98D.sv) return P98D.sv; try { P98D.sv = JSON.parse(localStorage.getItem("sangoku.p98") || "{}") || {}; } catch (_) { P98D.sv = {}; } return P98D.sv; }
+function p98SvSet(k, v) { const s = p98Sv(); s[k] = v; try { localStorage.setItem("sangoku.p98", JSON.stringify(s)); } catch (_) { } }
+function p98Toast(txt, ico) {
+  let el = document.getElementById("p98toast");
+  if (!el) { el = document.createElement("div"); el.id = "p98toast"; document.body.appendChild(el); }
+  el.innerHTML = `<span class="i">${ico || "✨"}</span><span>${txt}</span>`; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  clearTimeout(P98D.toastT); P98D.toastT = setTimeout(() => el.classList.remove("on"), 3200);
+}
+(() => { const st = document.createElement("style"); st.textContent = `
+#p98toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 74px);transform:translate(-50%,-30px);opacity:0;z-index:60;pointer-events:none;display:flex;gap:8px;align-items:center;
+ background:linear-gradient(#fff8e4,#f1dfb4);color:#3a2410;font:800 15px system-ui,sans-serif;padding:9px 16px;border-radius:22px;border:2px solid #b88a4a;box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s;max-width:86vw}
+#p98toast.on{transform:translate(-50%,0);opacity:1}#p98toast .i{font-size:20px}
+#p98sauve{position:fixed;left:calc(env(safe-area-inset-left,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 150px);z-index:40;pointer-events:none;width:30px;height:30px;border-radius:50%;
+ background:rgba(20,30,50,.72);display:flex;align-items:center;justify-content:center;font-size:16px;opacity:0;transition:opacity .3s;border:1.5px solid rgba(255,255,255,.5)}
+#p98sauve.on{opacity:1;animation:p98sv 1s linear infinite}@keyframes p98sv{50%{transform:scale(1.12)}}
+@media (orientation:landscape){#p98sauve{bottom:calc(env(safe-area-inset-bottom,0px) + 96px)}}`; document.head.appendChild(st); })();
+// icône de sauvegarde automatique
+(() => { const s0 = sauvegarder; sauvegarder = function () { const r = s0.apply(this, arguments);
+  try { if (r !== false && jeu && jeu.persoPret) { let el = document.getElementById("p98sauve"); if (!el) { el = document.createElement("div"); el.id = "p98sauve"; el.textContent = "💾"; document.body.appendChild(el); }
+    el.classList.add("on"); clearTimeout(P98D.svT); P98D.svT = setTimeout(() => el.classList.remove("on"), 1300); } } catch (_) { }
+  return r; }; })();
+// emplacements (monde 1, île du sud)
+function p98Spots() {
+  if (!p96Ici()) return null; const m = jeu.monde; const nb = p96NbBat(); if (P98D.spots && P98D.spots.m === m && P98D.spots.nb === nb) return P98D.spots;
+  const G = P96.G, O = P98D.spots && P98D.spots.m === m ? P98D.spots : null, S = { m, nb, belv: O ? O.belv : null, coffre: O ? O.coffre : null, linge: [], lampes: [] };
+  try { if (!O) {
+    // belvédère : point le plus haut, accessible, sur l'île du sud (hors ville)
+    let best = -1; for (let y = 1560; y < 1770; y += 2) for (let x = G.vx - 330; x < G.vx + 330; x += 2) {
+      const i = y * m.NV + x, l = m.L[i]; if (l < NIV.HERBE || l > NIV.ROCHE) continue; const px = x * 16 + 8, py = y * 16 + 8;
+      if (Math.abs(x - G.vx) < 40 && Math.abs(y - G.vy) < 30) continue; const a = m.ALT[i]; if (a <= best) continue;
+      if (!perso.libre(px, py) || !perso.libre(px + 20, py) || !perso.libre(px - 20, py) || !perso.libre(px, py + 18)) continue; best = a; S.belv = { x: px, y: py };
+    }
+    // coffre secret : au fond des bois du croissant est
+    let bf = -1; for (let y = 1130; y < 1420; y += 3) for (let x = 1640; x < 1700; x += 3) {
+      const t = y * m.TT + x; if (!(m.FOR && m.FOR[t] > 0.35)) continue; const px = x * 16 + 8, py = y * 16 + 8; if (!perso.libre(px, py) || !perso.libre(px, py + 14)) continue;
+      const sc = m.FOR[t] + p40H(x, y) * 0.3; if (sc > bf) { bf = sc; S.coffre = { x: px, y: py }; }
+    }
+    }
+    // cordes à linge et lampadaires de Ma Ville
+    const libreZ = (x, y, w, h) => { for (let a = -w; a <= w; a += 6) for (let b = -h; b <= h; b += 6) if (!perso.libre(x + a, y + b)) return false; return true; };
+    const bats = p96Batiments();
+    for (const b of bats) { if (b.t !== "maison" || S.linge.length >= 4) continue; const x = b.x, y = b.y + 30; if (libreZ(x, y, 26, 6)) S.linge.push({ x, y, s: S.linge.length }); }
+    const C = p96C(), cand = [];
+    for (const [dx, dy] of [[-70, 60], [70, 60], [-70, -50], [70, -50]]) cand.push({ t: "maison", x: C.x + dx - 1e9, y: C.y + dy, px: 1 });
+    for (const t of ["maison", "forge", "marche", "auberge"]) (P96_SLOTS[t] || []).forEach((sl, i) => cand.push({ t, x: C.x + sl[0], y: C.y + sl[1] }));
+    for (const b of cand) { if (S.lampes.length >= 10) break; if (b.px) { const x = b.x + 1e9, y = b.y; if (libreZ(x, y, 8, 6) && !S.lampes.some(q => Math.hypot(q.x - x, q.y - y) < 60)) S.lampes.push({ x, y }); continue; } const D = P96_DIM[b.t]; if (!D) continue; for (const sg of [1, -1]) { const x = b.x + sg * (D[0] / 2 + 12), y = b.y + 10; if (libreZ(x, y, 8, 6) && !S.lampes.some(q => Math.hypot(q.x - x, q.y - y) < 60) && !S.linge.some(q => Math.abs(q.x - x) < 40 && Math.abs(q.y - y) < 14)) { S.lampes.push({ x, y }); break; } } }
+  } catch (e) { p98Err("spots", e); }
+  return P98D.spots = S;
+}
+// collisions des petits objets (poteaux)
+(() => { const bl = sceneMonde.bloque; sceneMonde.bloque = function (x, y) {
+  try { const S = P98D.spots; if (S && S.m === this && Math.abs(y - (S.linge[0] ? S.linge[0].y : y)) < 2000) {
+    for (const q of S.lampes) if (Math.abs(x - q.x) < 3 && y > q.y - 3 && y < q.y + 1) return true;
+    for (const q of S.linge) for (const sg of [-1, 1]) if (Math.abs(x - (q.x + sg * 24)) < 2.5 && y > q.y - 3 && y < q.y + 1) return true;
+    if (S.coffre && Math.abs(x - S.coffre.x) < 9 && y > S.coffre.y - 8 && y < S.coffre.y + 1) return true; } } catch (_) { }
+  return bl.apply(this, arguments); }; })();
+function p98DetMeshes() {
+  if (P98D.me) return P98D.me; const g = new G3Geo(), bois = [0.52, 0.34, 0.18], bc = [0.66, 0.46, 0.26];
+  // belvédère : plateforme en bois, garde-corps, longue-vue, fanion
+  g.box(0, 0, 0, 44, 3, 36, bc); for (const [a, b] of [[-20, -16], [20, -16], [-20, 16], [20, 16]]) { g.box(a, -10, b, 3, 24, 3, bois); }
+  g.box(0, 12, -17, 44, 2, 2, bois); g.box(-21, 12, 0, 2, 2, 36, bois); g.box(21, 12, 0, 2, 2, 36, bois);
+  g.cyl(6, 3, -8, 1.2, 1.2, 12, 6, [0.25, 0.25, 0.28]); g.box(6, 15, -8, 3, 3, 12, [0.75, 0.6, 0.2]);
+  g.cyl(-18, 3, 14, 0.8, 0.8, 34, 5, bois); g.q([-18, 37, 14], [-18, 31, 14], [-6, 33, 14], [-6, 35, 14], [0, 0, 1], [0.86, 0.2, 0.2]);
+  const co = new G3Geo(); co.box(0, 0, 0, 16, 9, 10, [0.5, 0.3, 0.14]); co.box(0, 2, 0, 16.4, 1.5, 10.4, [0.9, 0.72, 0.2]); co.box(0, 5.5, 5.1, 2.4, 3, 0.6, [0.95, 0.8, 0.3]);
+  const cv = new G3Geo(); cv.box(0, 0, 0, 16.4, 3, 10.4, [0.55, 0.33, 0.16]); cv.box(0, 0.4, 0, 16.8, 1, 10.8, [0.9, 0.72, 0.2]);
+  const po = new G3Geo(); po.cyl(0, 0, 0, 1.1, 0.9, 30, 6, [0.45, 0.3, 0.16]);
+  const la = new G3Geo(); la.cyl(0, 0, 0, 1.3, 1, 34, 7, [0.16, 0.17, 0.2]); la.box(0, 34, 0, 6, 1.4, 6, [0.16, 0.17, 0.2]); la.box(0, 35.4, 0, 4.6, 5, 4.6, [1, 0.88, 0.55]); la.cyl(0, 40.4, 0, 3.6, 0.4, 3, 6, [0.16, 0.17, 0.2]);
+  return P98D.me = { belv: g.build(), coffre: co.build(), couv: cv.build(), poteau: po.build(), lampe: la.build() };
+}
+const P98_LINGE = [[0.95, 0.3, 0.3], [0.98, 0.95, 0.9], [0.3, 0.55, 0.95], [1, 0.85, 0.3], [0.45, 0.8, 0.45]];
+function p98Det3D(U, A, now, dt) {
+  const S = p98Spots(); if (!S) return; const Me = p98DetMeshes(), sv = p98Sv(), t = AV.temps || now, cx = E3.cx, cz = E3.cz, nu = A.nu || 0;
+  const pres = (x, y, r) => Math.abs(x - cx) < r && Math.abs(y - cz) < r;
+  if (S.belv && pres(S.belv.x, S.belv.y, 560)) { const h = e3Sol(S.belv.x, S.belv.y); g3Mesh(Me.belv, M4.trs(S.belv.x, h + 8, S.belv.y)); if (!sv.belv && Math.random() < 0.1) g3Part(S.belv.x, h + 30, S.belv.y, 0, 8, 0, 1.4, 3, "#ffe680"); }
+  if (S.coffre && pres(S.coffre.x, S.coffre.y, 420)) { const q = S.coffre, h = e3Sol(q.x, q.y), ouv = !!sv.coffre; g3Mesh(Me.coffre, M4.trs(q.x, h + 4.5, q.y - 5));
+    g3Mesh(Me.couv, M4.trs(q.x, h + 9 + (ouv ? 3 : 0), q.y - 5 - (ouv ? 5 : 0), 0, ouv ? -1.1 : 0, 0));
+    if (!ouv && Math.random() < 0.05) g3Part(q.x + (Math.random() - 0.5) * 10, h + 12, q.y - 5, 0, 10, 0, 1, 2.2, "#fff2a0"); }
+  for (const q of S.linge) { if (!pres(q.x, q.y, 480)) continue; const h = e3Sol(q.x, q.y);
+    for (const sg of [-1, 1]) g3Mesh(Me.poteau, M4.trs(q.x + sg * 24, h, q.y));
+    g3Mesh(U.cube, M4.trs(q.x, h + 28.5, q.y, 0, 0, 0, 48, 0.5, 0.5), { tint: [0.9, 0.9, 0.85, 1] });
+    for (let i = 0; i < 5; i++) { const x = q.x - 18 + i * 9, c = P98_LINGE[(i + q.s * 2) % 5], sw = Math.sin(t * 2.2 + i * 1.3 + q.s) * 0.28 + 0.12;
+      g3Mesh(U.cube, M4.trs(x, h + 28 - 5 * Math.cos(sw), q.y + 5 * Math.sin(sw), 0, sw, 0, 6.5, 10, 0.6), { tint: [c[0], c[1], c[2], 1] }); } }
+  for (const q of S.lampes) { if (!pres(q.x, q.y, 520)) continue; const h = e3Sol(q.x, q.y); g3Mesh(Me.lampe, M4.trs(q.x, h, q.y), { e: nu > 0.25 ? 0.5 : 0 });
+    if (nu > 0.25) e3Lueur(q.x, h + 38, q.y, 16, [1, 0.8, 0.45], 0.22 * Math.min(1, (nu - 0.25) * 3)); }
+  // empreintes (sable / neige)
+  const P = P98D.pas; for (let i = P.length - 1; i >= 0; i--) { const f = P[i], age = t - f.t; if (age > 7 || age < 0) { P.splice(i, 1); continue; }
+    g3Mesh(U.ombre, M4.trs(f.x, f.h + 0.35, f.y, f.a, 0, 0, 2.4, 1, 1.3), { a: 0.32 * (1 - age / 7) * (f.n ? 0.8 : 1), tint: f.n ? [0.55, 0.6, 0.7, 1] : [0.35, 0.25, 0.12, 1] }); }
+}
+// mise à jour : empreintes, découvertes
+function p98DetMaj() {
+  if (!p96Ici() || !dansMonde() || AV.nav || AV.vol || AV.cine || jeu.pause) return; const S = p98Spots(); if (!S) return;
+  const t = AV.temps || 0, sv = p98Sv();
+  try { const l = jeu.monde.niveauPx(Math.round(perso.x), Math.round(perso.y)); if ((l === NIV.SABLE || l === NIV.NEIGE) && !(typeof P76 !== "undefined" && P76.air)) { const d = P98D.dern;
+      if (!d || Math.hypot(perso.x - d.x, perso.y - d.y) > 11) { const a = -(perso.angle || 0), s = (P98D.k = (P98D.k || 0) ^ 1) ? 1 : -1, ox = Math.cos(perso.angle + 1.57) * 2.6 * s, oy = Math.sin(perso.angle + 1.57) * 2.6 * s;
+        P98D.pas.push({ x: perso.x + ox, y: perso.y + oy, h: e3Sol(perso.x, perso.y), a, t, n: l === NIV.NEIGE }); if (P98D.pas.length > 44) P98D.pas.shift(); P98D.dern = { x: perso.x, y: perso.y }; } } } catch (_) { }
+  if (S.belv && !sv.belv && Math.hypot(perso.x - S.belv.x, perso.y - S.belv.y) < 34) { p98SvSet("belv", 1); gagnerXP(60); son.jouer("fanfare"); p98Toast("Point de vue découvert ! Admire l'île… +60 XP", "🔭"); try { jeu.tremble = 0; } catch (_) { } }
+  if (S.coffre && !sv.coffre && Math.hypot(perso.x - S.coffre.x, perso.y - (S.coffre.y + 6)) < 24) { p98SvSet("coffre", 1); gagnerZenis(500); son.jouer("fanfare"); p98Toast("Coffre secret trouvé au fond des bois ! +500 Z", "🗝️"); }
+}
+(() => { const ma = majAventure; majAventure = function () { const r = ma.apply(this, arguments); try { p98DetMaj(); } catch (e) { p98Err("detmaj", e); } return r; };
+  const x1 = E3X[1]; E3X[1] = function (U, A, Pl, I, TR, gy, now, dt) { if (x1) x1.apply(this, arguments); try { p98Det3D(U, A, now, dt); } catch (e) { p98Err("det3d", e); } }; })();
+// nouveaux lieux sur la carte
+p98PoisExtra = function () { const L = [], S = p98Spots(), sv = p98Sv(); if (!S) return L;
+  if (S.belv) L.push({ id: "belv", ty: "belv", nom: sv.belv ? "Belvédère ✓" : "Belvédère", x: S.belv.x, y: S.belv.y, desc: sv.belv ? "Le plus beau point de vue de l'île" : "Un point de vue au sommet de l'île… +60 XP" });
+  if (S.coffre && sv.coffre) L.push({ id: "coffre", ty: "secret", nom: "Coffre secret ✓", x: S.coffre.x, y: S.coffre.y, desc: "Tu l'as trouvé !" });
+  return L; };
+// v47 bug : partir vers Pokémon / Konoha / Britannia en étant encore sur le Vogue Merry (retour de Grand Line) → AV.merry nul
+function p98Quai() { try { if (!AV.nav || (AV.monde || 1) !== 1) return; const M = AV.merry; AV.nav = null; if (M && AV.dock) { M.x = AV.dock.x; M.y = AV.dock.y; M.ang = AV.dock.ang || 0; }
+  const q = (AV.dock && AV.dock.quai) || jeu.retour; if (q) { perso.x = q.x; perso.y = q.y; } perso.lv = null; try { placerSuiveur(); } catch (_) { } } catch (e) { p98Err("quai", e); } }
+for (const nm of ["arriveeMondePokemon", "brArriverBritannia", "entrerKonoha"]) { const f = window[nm]; if (typeof f === "function") window[nm] = function () { p98Quai(); return f.apply(this, arguments); }; }
+(() => { const d = perso.dessiner; perso.dessiner = function () { if (AV.nav && !AV.merry) AV.nav = null; return d.apply(this, arguments); }; })();
+// v47 bug : les tuiles Équipement / Survie & construction / Équipe du menu ☰ n'ouvraient rien (le bouton caché n'écoute que "click")
+try { if (typeof L77ACT === "object") {
+  const tard = f => () => setTimeout(() => { try { f(); } catch (e) { p98Err("menu", e); } }, 80);
+  L77ACT.fiche = tard(() => fiOuvrir()); L77ACT.construire = tard(() => suOuvrir()); L77ACT.equipe = tard(() => p45Ouvrir());
+} } catch (e) { }
+// v47 3D max : écume vivante le long des côtes, scintillement du soleil sur l'eau, brume du soir/matin (tiers ≥ 1)
+const P98X = { t: 0, cote: [], cx: 1e9, cz: 1e9 };
+function p98Max3D(U, A, now, dt) {
+  if (!(E3.tier >= 1) || E3.sc) return; const t = now, m = jeu.monde; if (!m || !m.bloque) return;
+  if (now - P98X.t > 0.7 || Math.hypot(E3.cx - P98X.cx, E3.cz - P98X.cz) > 60) {
+    P98X.t = now; P98X.cx = E3.cx; P98X.cz = E3.cz; const C = P98X.cote = [], R = E3.tier >= 2 ? 230 : 180, st = 14, x0 = Math.round(E3.cx / st) * st, z0 = Math.round(E3.cz / st) * st;
+    const eau = (x, y) => { try { return m.niveauPx(x, y) <= NIV.EAU; } catch (_) { return false; } };
+    for (let z = z0 - R; z <= z0 + R * 0.6 && C.length < 90; z += st) for (let x = x0 - R; x <= x0 + R && C.length < 90; x += st) {
+      if (!eau(x, z)) continue; let nx = 0, nz = 0, k = 0;
+      for (const [a, b] of [[st, 0], [-st, 0], [0, st], [0, -st]]) if (!eau(x + a, z + b)) { nx += a; nz += b; k++; }
+      if (k && k < 4) C.push({ x: x + nx * 0.3, z: z + nz * 0.3, a: Math.atan2(nx, nz), ph: (x * 7.1 + z * 3.3) % 6.28 });
+    }
+  }
+  const wy = 0.9, jour = 1 - (A.nu || 0);
+  for (const q of P98X.cote) { const s = Math.sin(t * 1.6 + q.ph), k = 0.5 + 0.5 * s;
+    g3Mesh(U.sph, M4.trs(q.x + Math.sin(q.a) * k * 3, wy + 0.2, q.z + Math.cos(q.a) * k * 3, q.a, 0, 0, 8 + 3 * k, 0.5, 3 + k), { tint: [0.96, 0.99, 1, 1], a: (0.3 + 0.35 * (1 - k)) * (0.6 + 0.4 * jour), e: 0.5 }); }
+  // scintillement du soleil (jour, temps clair)
+  if (jour > 0.5 && !(A.pl > 0) && P98X.cote.length) { const n = E3.tier >= 2 ? 14 : 8;
+    for (let i = 0; i < n; i++) { const q = P98X.cote[(i * 7 + Math.floor(t * 0.7)) % P98X.cote.length], f = Math.sin(t * 5 + i * 2.3); if (f < 0.55) continue;
+      e3Lueur(q.x - Math.sin(q.a) * (14 + i % 3 * 9), wy + 0.6, q.z - Math.cos(q.a) * (14 + i % 3 * 9), 1.3, [1, 0.97, 0.85], (f - 0.55) * 1.6 * jour); } }
+  // brume rasante à l'aube et au crépuscule
+  const d = A.dusk || 0; if (d > 0.15) { const n = E3.tier >= 2 ? 7 : 4;
+    for (let i = 0; i < n; i++) { const g = i / n * 6.283 + t * 0.03, r = 120 + (i % 3) * 40, x = E3.cx + Math.cos(g) * r, z = E3.cz - 40 + Math.sin(g) * r * 0.7;
+      g3Mesh(U.sph, M4.trs(x, e3Sol(x, z) + 4, z, 0, 0, 0, 46, 5, 30), { tint: [1, 0.86, 0.74, 1], a: 0.07 * d, add: true, e: 1 }); } }
+}
+(() => { const x1 = E3X[1]; E3X[1] = function (U, A) { if (x1) x1.apply(this, arguments); try { p98Max3D(U, A, arguments[6], arguments[7]); } catch (e) { p98Err("max3d", e); } }; })();
+
 
 /* ===== fin du module aventure ===== */
 const persoActif = () => !!(jeu && jeu.persoPret);
