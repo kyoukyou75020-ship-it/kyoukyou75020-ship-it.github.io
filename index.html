@@ -2,7 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Sangoku — Monde ouvert</title>
+<title>Mondes Ouverts — Sangoku</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1030">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mondes Ouverts">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #2040a0; }
@@ -38735,6 +38742,202 @@ function p99CheminVille(J) {
   creerJeu = function () { const J = cj.apply(this, arguments); const sP = P75F; try { if (J && J.monde && J.monde.TT) P75F = J.monde.TT; p99CheminVille(J); } catch (e) { console.warn("p99 chemin", e); P99.chemin = "err " + e.message; } finally { P75F = sP; } return J; };
   if (typeof coqueLibre === "function") { const cl = coqueLibre; coqueLibre = function (x, y) { const L = P99.passes; if (L && L.length && (AV.monde || 1) === 1 && typeof p96Ici === "function" && p96Ici()) for (const P of L) if (x > P.x0 && x < P.x1 && y > P.y0 && y < P.y1) return true; return cl.apply(this, arguments); }; }
 })();
+
+/* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
+const P100 = { V: "49.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
+function p100Site() { return /^https?:$/.test(location.protocol); }
+function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
+function p100Install() { try { return matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true; } catch (_) { return false; } }
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); P100.bip = e; p100Badge(); });
+addEventListener("appinstalled", () => { P100.bip = null; try { messageInfo("📲 Appli installée ! Elle est sur ton écran d'accueil."); } catch (_) { } });
+if (p100Site() && "serviceWorker" in navigator) {
+  addEventListener("load", () => { navigator.serviceWorker.register("sw.js").then(r => { P100.reg = r; }).catch(e => p100Err("sw", e)); });
+  setTimeout(() => p100Verifier(true), 6000); setInterval(() => p100Verifier(true), 30 * 60 * 1000);
+}
+async function p100Verifier(silence) {
+  if (!p100Site()) return { err: "local" };
+  try {
+    const r = await fetch("version.json?cb=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json(); P100.verif = Date.now();
+    P100.nv = p100Cmp(j.v, P100.V) > 0 ? j : null; p100Badge();
+    if (P100.nv && silence && !P100.dit) { P100.dit = 1; setTimeout(() => { try { messageInfo("⬆ Nouvelle version " + j.v + " disponible : ⚙ → Mise à jour"); } catch (_) { } }, 1500); }
+    return { v: j.v, nouvelle: !!P100.nv, notes: j.notes || "" };
+  } catch (e) { return { err: navigator.onLine === false ? "hors ligne" : String(e.message || e) }; }
+}
+function p100Badge() {
+  let b = document.getElementById("p100badge");
+  if (!b) { b = document.createElement("div"); b.id = "p100badge"; b.textContent = "1"; document.body.appendChild(b); }
+  const on = !!P100.nv; b.hidden = !on; if (!on) return;
+  const el = [document.getElementById("btnMenuRapide"), document.getElementById("reglages")].find(x => x && !x.hidden && x.offsetParent !== null && getComputedStyle(x).visibility !== "hidden");
+  if (!el) { b.hidden = true; return; }
+  const r = el.getBoundingClientRect(); b.style.left = Math.round(r.right - 9) + "px"; b.style.top = Math.round(r.top - 6) + "px";
+}
+setInterval(() => { try { if (P100.nv) p100Badge(); } catch (_) { } }, 1000);
+async function p100MettreAJour(btn) {
+  if (P100.majEnCours) return; P100.majEnCours = true;
+  const dire = t => { if (btn) btn.querySelector("small") ? btn.querySelector("small").textContent = t : (btn.textContent = t); };
+  try {
+    try { sauvegarder(false); } catch (_) { }
+    if (!p100Site()) { dire("fichier local"); messageInfo("Ouvre le jeu depuis le site (ou l'appli) pour la mise à jour."); return; }
+    dire("vérification…");
+    const v = await p100Verifier(false);
+    if (v.err) { dire(v.err === "hors ligne" ? "hors ligne" : "erreur"); messageInfo(v.err === "hors ligne" ? "📴 Pas d'Internet : réessaie plus tard (le jeu marche hors ligne)." : "Vérification impossible : " + v.err); return; }
+    if (!v.nouvelle) { dire("à jour ✔"); messageInfo("✔ Tu as déjà la dernière version (" + P100.V + ")"); return; }
+    dire("téléchargement…"); messageInfo("⬇ Téléchargement de la version " + v.v + "…");
+    const reg = P100.reg || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration());
+    if (!reg) { location.reload(); return; }
+    await reg.update();
+    const w = reg.waiting || await new Promise(res => { const i = reg.installing; if (!i) return res(null); i.addEventListener("statechange", () => { if (i.state === "installed") res(i); if (i.state === "redundant") res(null); }); setTimeout(() => res(reg.waiting), 20000); });
+    let fait = false; const recharge = () => { if (fait) return; fait = true; try { sauvegarder(false); } catch (_) { } location.reload(); };
+    if (w) { dire("installation…"); navigator.serviceWorker.addEventListener("controllerchange", recharge); w.postMessage("SKIP_WAITING"); setTimeout(recharge, 5000); }
+    else { try { const ks = await caches.keys(); for (const k of ks) if (/^mondes-/.test(k)) await caches.delete(k); } catch (_) { } recharge(); }
+  } catch (e) { p100Err("maj", e); messageInfo("Mise à jour impossible : " + (e.message || e)); }
+  finally { setTimeout(() => { P100.majEnCours = false; }, 1500); }
+}
+async function p100Installer() {
+  if (p100Install()) { messageInfo("✔ Tu joues déjà dans l'appli installée !"); return; }
+  if (P100.bip) { try { const e = P100.bip; P100.bip = null; e.prompt(); const c = await e.userChoice; messageInfo(c && c.outcome === "accepted" ? "📲 Installation en cours… Regarde ton écran d'accueil !" : "Installation annulée : tu peux réessayer quand tu veux."); } catch (e) { p100Err("bip", e); menuReglages.afficher("p100aideInst"); } return; }
+  menuReglages.afficher("p100aideInst");
+}
+function p100AideInstHtml() {
+  const site = p100Site();
+  return `<div class="titre">📲 INSTALLER L'APPLI</div><div class="ligne" style="text-align:left">
+    ${site ? "" : "⚠ Le jeu est ouvert depuis un fichier : ouvre d'abord le site <b>kyoukyou75020-ship-it.github.io</b> dans Chrome.<br><br>"}
+    <b>Sur Android (Chrome)</b> :<br>1️⃣ Ouvre le site du jeu dans <b>Chrome</b>.<br>2️⃣ Touche le menu <b>⋮</b> (3 points, en haut à droite).<br>
+    3️⃣ Choisis <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.<br>4️⃣ Confirme avec <b>Installer</b>.<br>
+    ✅ L'icône <b>Mondes Ouverts</b> apparaît sur ton écran d'accueil : le jeu s'ouvre en plein écran et marche même sans Internet.<br><br>
+    <b>Mise à jour</b> : ⚙ → <b>⬆ Mise à jour</b> (un petit rond rouge t'avertit quand il y a du nouveau). Ta sauvegarde est gardée.</div>
+    <button data-onglet="simple" class="large">◀ Retour</button>`;
+}
+{ const st = document.createElement("style"); st.textContent = `#p100badge { position: fixed; z-index: 60; width: 18px; height: 18px; border-radius: 50%; background: #e02828; color: #fff; font: bold 11px/18px system-ui, sans-serif; text-align: center; border: 2px solid #fff; pointer-events: none; box-shadow: 0 1px 3px #000a; animation: p100pulse 1.2s infinite; }
+#p100badge[hidden] { display: none; } @keyframes p100pulse { 50% { transform: scale(1.2); } }
+body.cine #p100badge, body.accueil #p100badge { display: none; }
+#p100ver { position: fixed; right: calc(6px + env(safe-area-inset-right, 0px)); bottom: calc(4px + env(safe-area-inset-bottom, 0px)); z-index: 300; font: bold 11px system-ui, sans-serif; color: #fff8; pointer-events: none; text-shadow: 0 1px 2px #000; }
+body:not(.accueil) #p100ver { display: none; }`; document.head.appendChild(st);
+  const v = document.createElement("div"); v.id = "p100ver"; v.textContent = "v" + P100.V + (p100Install() ? " · appli" : ""); document.body.appendChild(v); }
+
+/* ===== v49 : PARAMÈTRES SIMPLES — un seul écran, gros boutons ronds ===== */
+Object.assign(PARAMS_DEFAUT, { tailleBtn: 1, lum: 1, fxOff: false });
+try { const p = JSON.parse(localStorage.getItem(PARAMS_CLE) || "null") || {}; for (const k of ["tailleBtn", "lum", "fxOff"]) PARAMS[k] = typeof p[k] === typeof PARAMS_DEFAUT[k] ? p[k] : PARAMS_DEFAUT[k]; } catch (_) { PARAMS.tailleBtn = 1; PARAMS.lum = 1; PARAMS.fxOff = false; }
+{ const sj = son.jouer; son.jouer = function (n) { if (PARAMS.fxOff) return; return sj.apply(this, arguments); }; }
+{ const d0 = l77D; l77D = function () { const D = d0.apply(this, arguments), k = Math.max(0.8, Math.min(1.25, PARAMS.tailleBtn || 1)); if (k !== 1) { D.att = Math.round(D.att * k); D.sau = Math.round(D.sau * k); D.ctx = Math.round(D.ctx * k); D.joy = Math.round(D.joy * k); } return D; }; }
+function p100Lum() {
+  let el = document.getElementById("p100lum"); const v = PARAMS.lum || 1;
+  if (!el) { el = document.createElement("div"); el.id = "p100lum"; el.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:3"; document.body.appendChild(el); }
+  if (Math.abs(v - 1) < 0.01) { el.hidden = true; return; } el.hidden = false;
+  if (v < 1) { el.style.background = `rgba(0,0,0,${(1 - v).toFixed(2)})`; el.style.mixBlendMode = "normal"; }
+  else { el.style.background = `rgba(255,255,255,${((v - 1) * 1.1).toFixed(2)})`; el.style.mixBlendMode = "soft-light"; }
+}
+setTimeout(() => { try { p100Lum(); } catch (_) { } }, 300);
+function p100Gfx() { return PARAMS.eco || PARAMS.qmode === "basse" ? "eco" : PARAMS.qmode === "haute" ? "beau" : "auto"; }
+function p100Rd(ic, nom, act, o = {}) { return `<button class="rd${o.on ? " on" : ""}${o.off ? " off" : ""}" data-p100="${act}"${o.v != null ? ` data-v="${o.v}"` : ""}><b>${ic}</b><span>${nom}</span>${o.sub ? `<small>${o.sub}</small>` : ""}</button>`; }
+function p100Html() {
+  const vol = Math.round((PARAMS.volume ?? 0.75) * 100), g = p100Gfx(), tb = PARAMS.tailleBtn || 1, lum = Math.round((PARAMS.lum || 1) * 100), tx = PARAMS.texte || "normal", j = PARAMS.joystick;
+  const nv = P100.nv, R = p100Rd;
+  return `<div class="titre">⚙ PARAMÈTRES <span class="p100v">v${P100.V}</span></div><div class="p100">
+  <button data-action="continuer" class="large p100go">▶ Reprendre le jeu</button>
+  <div class="sec">🔊 Son</div><div class="rg">
+    ${R("🎵", "Musique", "mus", { on: PARAMS.musique !== false, sub: PARAMS.musique !== false ? "oui" : "non" })}${R("🔔", "Effets", "fx", { on: !PARAMS.fxOff, sub: !PARAMS.fxOff ? "oui" : "non" })}
+    ${R("➖", "Moins fort", "vol", { v: -1 })}<div class="val"><b>${vol}%</b><span>Volume</span></div>${R("➕", "Plus fort", "vol", { v: 1 })}</div>
+  <div class="sec">🖼 Graphismes</div><div class="rg">
+    ${R("⚡", "Auto", "gfx", { v: "auto", on: g === "auto" })}${R("🔋", "Éco", "gfx", { v: "eco", on: g === "eco" })}${R("✨", "Beau", "gfx", { v: "beau", on: g === "beau" })}
+    ${R("🧊", PARAMS.d3 === false ? "Vue 2D" : "Vue 3D", "d3", { on: PARAMS.d3 !== false })}</div>
+  <div class="rg">${R("🌑", "Plus sombre", "lum", { v: -1 })}<div class="val"><b>${lum}%</b><span>Luminosité</span></div>${R("☀", "Plus clair", "lum", { v: 1 })}${R("📈", "Voir les FPS", "fps", { on: !!PARAMS.fps, sub: PARAMS.fps ? "oui" : "non" })}</div>
+  <div class="sec">🎮 Commandes</div><div class="rg">
+    ${R("🔹", "Petits", "btn", { v: 0.85, on: tb < 0.95 })}${R("🔵", "Normaux", "btn", { v: 1, on: tb >= 0.95 && tb <= 1.05 })}${R("⬤", "Grands", "btn", { v: 1.18, on: tb > 1.05 })}
+    ${R("📳", "Vibration", "vib", { on: !!PARAMS.vibration, sub: PARAMS.vibration ? "oui" : "non" })}</div>
+  <div class="rg"><div class="lbl">🕹 Joystick</div>${R("⬅", "À gauche", "joy", { v: "gauche", on: j === "gauche" })}${R("🅰", "Auto", "joy", { v: "auto", on: j === "auto" || j === "zone" })}${R("➡", "À droite", "joy", { v: "droite", on: j === "droite" })}</div>
+  <div class="sec">🎲 Jeu</div><div class="rg"><div class="lbl">💬 Texte</div>
+    ${R("🐢", "Lent", "txt", { v: "lent", on: tx === "lent" })}${R("💬", "Normal", "txt", { v: "normal", on: tx === "normal" })}${R("🐇", "Rapide", "txt", { v: "rapide", on: tx === "rapide" })}</div>
+  <div class="rg"><div class="lbl">⚔ Difficulté</div>${[["paisible", "🌸", "Paisible"], ["facile", "🌱", "Débutant"], ["normal", "⚔", "Moyen"], ["difficile", "🔥", "Expert"]].map(([v, i, n]) => R(i, n, "diff", { v, on: PARAMS.difficulte === v })).join("")}</div>
+  <div class="rg">${R("🇫🇷", "Français", "langue", { on: true })}${R("💾", "Sauver", "sauver")}${R("📂", "Exporter / importer", "sv")}${R("⛶", "Plein écran", "plein")}</div>
+  <div class="sec">📲 Appli & amis</div><div class="rg">
+    ${R("⬆", "Mise à jour", "maj", { on: !!nv, sub: nv ? "v" + nv.v + " dispo !" : "v" + P100.V })}${R("📲", p100Install() ? "Installée ✔" : "Installer l'appli", "inst", { on: !!P100.bip })}${R("🤝", "Inviter un ami", "qr")}</div>
+  <div class="sec">🧰 Autres</div><div class="rg">
+    ${R("🛠", "Avancé", "avance")}${R("❓", "Aide", "aide")}${R("👏", "Crédits", "credits")}${R("🗑", "Réinitialiser", "reinit")}</div>
+  </div>`;
+}
+function p100AvanceHtml() {
+  return `<div class="titre">🛠 AVANCÉ</div><div class="p100"><div class="rg">
+    ${p100Rd("🎼", "Choix des musiques et des sons", "audio")}${p100Rd("🧩", "Tous les réglages détaillés", "detail")}${p100Rd("🏠", "Retour à l'accueil", "accueil")}</div>
+    <div class="ligne petit">Ici, tu retrouves tous les anciens réglages (minicarte, météo, cycle jour/nuit, effets, mode gaucher, daltonien…).</div>
+    <button data-onglet="simple" class="large">◀ Retour aux paramètres</button></div>`;
+}
+function p100CreditsHtml() {
+  return `<div class="titre">👏 CRÉDITS</div><div class="ligne" style="text-align:left">Jeu de fan fait maison, pour s'amuser — pas un jeu officiel.<br><br>
+    Hommages originaux à : Dragon Ball © Akira Toriyama · One Piece © Eiichiro Oda · Naruto © Masashi Kishimoto · Pokémon © Nintendo / Game Freak · Seven Deadly Sins © Nakaba Suzuki.<br><br>
+    Graphismes pixel art, 3D, musiques et sons : tout est dessiné et composé par le code du jeu.<br><br>Version ${P100.V} — Mondes Ouverts. Merci de jouer ! 😉</div>
+    <button data-onglet="simple" class="large">◀ Retour</button>`;
+}
+(() => {
+  const aff = menuReglages.afficher;
+  menuReglages.afficher = function (vue) {
+    const P = this.panneau;
+    try {
+      if (vue === "menu" && this.onglet === "simple") { P.innerHTML = p100Html(); return; }
+      if (vue === "p100avance") { this.onglet = "p100"; P.innerHTML = p100AvanceHtml(); P.scrollTop = 0; return; }
+      if (vue === "p100credits") { this.onglet = "p100"; P.innerHTML = p100CreditsHtml(); P.scrollTop = 0; return; }
+      if (vue === "p100aideInst") { this.onglet = "p100"; P.innerHTML = p100AideInstHtml(); P.scrollTop = 0; return; }
+    } catch (e) { p100Err("aff", e); }
+    return aff.apply(this, arguments);
+  };
+})();
+function p100Set(k, v) { PARAMS[k] = v; sauverParams(); try { appliquerParams(); } catch (_) { } }
+function p100Action(b) {
+  const a = b.dataset.p100, v = b.dataset.v, P = menuReglages.panneau, sc = P.scrollTop;
+  if (a !== "fx") try { son.jouer("clic"); } catch (_) { }
+  const re = () => { menuReglages.onglet = "simple"; menuReglages.afficher("menu"); P.scrollTop = sc; };
+  switch (a) {
+    case "mus": p100Set("musique", PARAMS.musique === false); break;
+    case "fx": PARAMS.fxOff = !PARAMS.fxOff; sauverParams(); try { son.jouer("clic"); } catch (_) { } break;
+    case "vol": { const x = Math.max(0, Math.min(1, Math.round(((PARAMS.volume ?? 0.75) + (+v) * 0.1) * 10) / 10)); PARAMS.volume = x; PARAMS.volMusique = x; PARAMS.son = x > 0; sauverParams(); try { appliquerParams(); son.jouer("clic"); } catch (_) { } break; }
+    case "gfx": if (v === "eco") { p37Set("eco", true); p37Set("qmode", "basse"); } else { p37Set("eco", false); p37Set("qmode", v === "beau" ? "haute" : "auto"); } messageInfo(v === "eco" ? "🔋 Éco : plus fluide, batterie économisée" : v === "beau" ? "✨ Beau : tous les effets" : "⚡ Auto : le jeu s'adapte tout seul"); break;
+    case "d3": PARAMS.d3 = PARAMS.d3 === false; sauverParams(); break;
+    case "lum": PARAMS.lum = Math.max(0.6, Math.min(1.4, Math.round(((PARAMS.lum || 1) + (+v) * 0.1) * 10) / 10)); sauverParams(); p100Lum(); break;
+    case "fps": p100Set("fps", !PARAMS.fps); break;
+    case "btn": PARAMS.tailleBtn = +v; sauverParams(); try { L77.cache.clear(); manette.redimensionner(); l77Tick(true); } catch (_) { } break;
+    case "vib": PARAMS.vibration = !PARAMS.vibration; sauverParams(); if (PARAMS.vibration) vibrer(60); break;
+    case "joy": p37Set("joystick", v); try { L77.cache.clear(); manette.redimensionner(); l77Tick(true); } catch (_) { } break;
+    case "txt": p100Set("texte", v); break;
+    case "diff": p37Set("difficulte", v); break;
+    case "langue": messageInfo("🇫🇷 Le jeu est en français"); break;
+    case "sauver": { const ok = sauvegarder(false); messageInfo(ok === false ? "Sauvegarde impossible pour l'instant" : "💾 Partie sauvegardée !"); break; }
+    case "sv": svVue(P); return;
+    case "plein": try { basculerPleinEcran(); } catch (_) { } break;
+    case "maj": p100MettreAJour(b); return;
+    case "inst": p100Installer(); return;
+    case "qr": try { menuReglages.fermer(); setTimeout(p95OuvrirQR, 30); } catch (e) { p100Err("qr", e); } return;
+    case "avance": menuReglages.afficher("p100avance"); return;
+    case "audio": menuReglages.afficher("p95audio"); return;
+    case "detail": menuReglages.onglet = "jeu"; menuReglages.afficher("menu"); P.scrollTop = 0; return;
+    case "accueil": try { sauvegarder(false); } catch (_) { } menuReglages.fermer(); afficherAccueil(); return;
+    case "aide": menuReglages.afficher("p37aide"); return;
+    case "credits": menuReglages.afficher("p100credits"); return;
+    case "reinit": menuReglages.afficher("reinit1"); return;
+  }
+  re();
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-p100]"); if (!b) return;
+  const P = document.getElementById("panneau"); if (!P || P.hidden || !P.contains(b)) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  try { p100Action(b); } catch (er) { p100Err("act", er); console.warn(er); }
+}, true);
+{ const st = document.createElement("style"); st.textContent = `
+#panneau .p100 .sec { margin: 12px 0 4px; padding: 3px 8px; font: bold 15px system-ui, sans-serif; color: #ffd860; border-left: 4px solid #f0c040; background: #0003; text-align: left; }
+#panneau .p100 .rg { display: flex; flex-wrap: wrap; justify-content: space-evenly; align-items: flex-start; gap: 6px 2px; margin: 4px 0; }
+#panneau .p100 .lbl { width: 100%; font: bold 12px system-ui, sans-serif; color: #e8d8b8; text-align: left; margin: 2px 0 -2px 4px; }
+#panneau .p100 button.rd { width: 70px; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #fff4d8; font: bold 12px/1.15 system-ui, sans-serif; text-align: center; }
+#panneau .p100 button.rd b { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; background: radial-gradient(circle at 35% 30%, #6a9a54, #2c5a24); border: 3px solid #a8d878; box-shadow: 0 3px 0 #0008; }
+#panneau .p100 button.rd.on b { background: radial-gradient(circle at 35% 30%, #ffe27a, #e09018); border-color: #fff4c0; box-shadow: 0 3px 0 #0008, 0 0 12px #ffd04088; }
+#panneau .p100 button.rd small { font: 11px system-ui, sans-serif; color: #ffe9a0; opacity: .9; }
+#panneau .p100 button.rd:active b { transform: scale(.92); }
+#panneau .p100 .val { width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 62px; color: #fff; font: 12px system-ui, sans-serif; }
+#panneau .p100 .val b { font-size: 20px; color: #ffe27a; }
+#panneau .p100v { font-size: 12px; color: #ffe9a0; opacity: .75; }
+#panneau .p100 button.p100go { margin-top: 2px; min-height: 50px; font-size: 17px; border-radius: 26px; }
+@media (orientation: landscape) and (max-height: 500px) { #panneau .p100 button.rd { width: 70px; } #panneau .p100 button.rd b { width: 48px; height: 48px; font-size: 22px; } #panneau .p100 .val { height: 52px; } }`; document.head.appendChild(st); }
 
 
 /* ===== fin du module aventure ===== */
