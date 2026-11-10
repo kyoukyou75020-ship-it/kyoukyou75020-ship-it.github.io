@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.6", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.7", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -44155,6 +44155,458 @@ try { Object.assign(BR_LOOKS.king, { id: "l_king2", h: "#a8703a" }); Object.assi
   return r;
 }; }
 
+
+
+/* ===== v53.7 — personnages : vrais modèles 3D (hommages) pour les 16 combattants qui n'avaient qu'un corps générique
+   (Freezer, Cell, Kaido, Barbe Noire, Mewtwo, Méca-Miaouss, Pain, Kyubi, Estarossa, Démon rouge, Diane, Ban, King, Gowther, Merlin, Escanor) ;
+   proportions un peu plus adultes (tête moins grosse) pour les méchants ; même taille pour tous sauf Mewtwo (Pokémon) ===== */
+const P537 = { err: [] };
+function p537Err(w, e) { if (P537.err.length < 10) P537.err.push(w + ": " + (e && e.message || e)); }
+const P537_IDS = ["freezer", "cell", "kaido", "barbenoire", "mewtwo", "robotr", "pain", "kyubi", "estarossa", "demonrouge", "diane", "ban", "king", "gowther", "merlin", "escanor",
+  "crochep", "bill", "gorille", "cierge", "krag", "sharkon", "octo"];
+// méchants des îles de Luffy (sprites IL_LOOKS / IL40_L) → modèle 3D propre
+const P537_LOOKID = { il_crochep: "crochep", il_bill: "bill", il_gorille: "gorille", il40_cierge: "cierge", il40_krag: "krag", il40_sharkon: "sharkon", il40_octo: "octo" };
+const P537_CHAUVE = { freezer: 1, cell: 1, mewtwo: 1, robotr: 1, kyubi: 1, demonrouge: 1, gorille: 1 };
+{ const st0 = v41Style; v41Style = function (id, P) {
+  const S = st0(id, P);
+  if (id === "nami" || id === "ondine") { const H = v41H; try { if (id === "nami") Object.assign(S, { top: H("#f4f4f0"), sleeve: H("#f4f4f0"), pants: H("#e8782a"), shin: H("#f6c9a0"), boots: H("#c86a2a"), belt: H("#3a6ad0") }); else Object.assign(S, { top: H("#f0d020"), sleeve: H("#f0d020"), pants: H("#3a6ad0"), shin: H("#f6c9a0"), boots: H("#d83a2a"), belt: H("#3a6ad0") }); S.p537b = 1; } catch (e) { p537Err("style2", e); } return S; }
+  if (P537_IDS.indexOf(id) < 0) return S;
+  const H = v41H, c = (o) => Object.assign(S, o);
+  try { switch (id) {
+    case "freezer": c({ skin: H("#f2f0f6"), hair: H("#7a3aa8"), eye: H("#c8202a"), top: H("#f2f0f6"), sleeve: H("#f2f0f6"), fore: H("#f2f0f6"), pants: H("#f2f0f6"), shin: H("#8a4ab8"), boots: H("#f2f0f6"), belt: H("#f2f0f6"), hs: 0.94 }); break;
+    case "cell": c({ skin: H("#ece2ea"), hair: H("#3a8a3a"), eye: H("#b03050"), top: H("#4a9a3a"), sleeve: H("#4a9a3a"), fore: H("#4a9a3a"), pants: H("#4a9a3a"), shin: H("#1e2a1e"), boots: H("#f0f0f0"), belt: H("#1e2a1e"), hs: 0.9 }); break;
+    case "kaido": c({ skin: H("#d8a272"), hair: H("#16121c"), eye: H("#2a1a10"), top: H("#4a2a6a"), sleeve: H("#4a2a6a"), fore: H("#d8a272"), pants: H("#e8e2d8"), shin: H("#e8e2d8"), boots: H("#2a2228"), belt: H("#e8c860"), hs: 0.86 }); break;
+    case "barbenoire": c({ skin: H("#d09868"), hair: H("#141018"), eye: H("#1a1010"), top: H("#ece6d8"), sleeve: H("#262230"), fore: H("#262230"), pants: H("#262230"), boots: H("#3a2a1a"), belt: H("#b02a2a"), hs: 0.88 }); break;
+    case "mewtwo": c({ skin: H("#e2d8ea"), hair: H("#e2d8ea"), eye: H("#7a3ab0"), top: H("#e2d8ea"), sleeve: H("#e2d8ea"), fore: H("#e2d8ea"), pants: H("#e2d8ea"), shin: H("#e2d8ea"), boots: H("#d2c6dc"), belt: H("#9a5ac8"), sc: 1.1, hs: 0.86 }); break;
+    case "robotr": c({ skin: H("#f2e2b0"), hair: H("#f2e2b0"), eye: H("#1a1a1a"), top: H("#9aa2b0"), sleeve: H("#7a828e"), fore: H("#9aa2b0"), pants: H("#7a828e"), shin: H("#9aa2b0"), boots: H("#4a525e"), belt: H("#c83030"), hs: 1.0 }); break;
+    case "pain": c({ skin: H("#f0c8a0"), hair: H("#e8681c"), eye: H("#b8a0d8"), top: H("#1a1a24"), sleeve: H("#1a1a24"), fore: H("#1a1a24"), pants: H("#1a1a24"), boots: H("#3a3a48"), belt: H("#1a1a24"), hs: 0.9 }); break;
+    case "kyubi": c({ skin: H("#ec7018"), hair: H("#ec7018"), eye: H("#d81a1a"), top: H("#ec7018"), sleeve: H("#ec7018"), fore: H("#ec7018"), pants: H("#ec7018"), shin: H("#ec7018"), boots: H("#3a1a10"), belt: H("#d86010"), hs: 0.9 }); break;
+    case "estarossa": c({ hair: H("#d0d4dc"), eye: H("#3a3a48"), top: H("#1c1c24"), sleeve: H("#1c1c24"), fore: H("#1c1c24"), pants: H("#2a2a36"), boots: H("#1a1a1a"), belt: H("#5a5a6a"), hs: 0.92 }); break;
+    case "demonrouge": c({ skin: H("#c42a1e"), hair: H("#c42a1e"), eye: H("#f0d020"), top: H("#c42a1e"), sleeve: H("#c42a1e"), fore: H("#c42a1e"), pants: H("#3a1a14"), shin: H("#c42a1e"), boots: H("#2a0e0a"), belt: H("#2a0e0a"), hs: 0.84 }); break;
+    case "diane": c({ hair: H("#7a4a2a"), eye: H("#7a4ab0"), top: H("#4a8a3a"), sleeve: H("#4a8a3a"), fore: H("#f6c9a0"), pants: H("#4a8a3a"), shin: H("#f6c9a0"), boots: H("#6a4428"), belt: H("#2a5a2a"), hs: 0.96 }); break;
+    case "ban": c({ hair: H("#ececf2"), eye: H("#c8202a"), top: H("#a82828"), sleeve: H("#a82828"), fore: H("#a82828"), pants: H("#8a1e1e"), boots: H("#2a1a1a"), belt: H("#2a1a1a"), hs: 0.92 }); break;
+    case "king": c({ hair: H("#8a5a30"), eye: H("#c8a040"), top: H("#6aa84a"), sleeve: H("#6aa84a"), fore: H("#6aa84a"), pants: H("#3a5a2a"), boots: H("#5a3a20"), belt: H("#3a5a2a"), sc: 0.94 }); break;
+    case "gowther": c({ hair: H("#f0a0c0"), eye: H("#d8a020"), top: H("#a8c8e8"), sleeve: H("#a8c8e8"), fore: H("#f2f2f2"), pants: H("#f2f2f2"), boots: H("#6a6a8a"), belt: H("#6a6a8a") }); break;
+    case "merlin": c({ hair: H("#221a2a"), eye: H("#e0a020"), top: H("#4a2a6a"), sleeve: H("#4a2a6a"), fore: H("#f6c9a0"), pants: H("#2a1a3a"), boots: H("#1a1220"), belt: H("#c8a040"), hs: 0.94 }); break;
+    case "crochep": c({ skin: H("#d89868"), hair: H("#1a1a1a"), eye: H("#3a1a10"), top: H("#1a1a2a"), sleeve: H("#1a1a2a"), fore: H("#1a1a2a"), pants: H("#3a2a1a"), boots: H("#1a1010"), belt: H("#c8a040"), arme: "crochet", hs: 0.88 }); break;
+    case "bill": c({ skin: H("#e8b888"), hair: H("#5a3a1a"), eye: H("#2a1a10"), top: H("#d8d0b0"), sleeve: H("#a83a2a"), fore: H("#e8b888"), pants: H("#6a4a2a"), boots: H("#3a2a1a"), belt: H("#a83a2a"), hs: 0.88 }); break;
+    case "gorille": c({ skin: H("#4a4a54"), hair: H("#2a2a32"), eye: H("#d8a020"), top: H("#3a3a44"), sleeve: H("#3a3a44"), fore: H("#3a3a44"), pants: H("#2e2e36"), shin: H("#3a3a44"), boots: H("#22222a"), belt: H("#6a1a1a"), hs: 0.86 }); break;
+    case "cierge": c({ skin: H("#f0c8a0"), hair: H("#1a1a1a"), eye: H("#2a2a3a"), top: H("#e8e4d8"), sleeve: H("#e8e4d8"), fore: H("#e8e4d8"), pants: H("#3a3a4a"), boots: H("#1a1a1a"), belt: H("#c83a3a"), hs: 0.9 }); break;
+    case "krag": c({ skin: H("#e8b888"), hair: H("#1a1a1a"), eye: H("#2a1a10"), top: H("#d8b030"), sleeve: H("#d8b030"), fore: H("#c8a020"), pants: H("#6a5a2a"), shin: H("#d8b030"), boots: H("#a88a20"), belt: H("#8a6a10"), hs: 0.86 }); break;
+    case "sharkon": c({ skin: H("#6a9ad8"), hair: H("#1a2a4a"), eye: H("#f0d020"), top: H("#f0f0e8"), sleeve: H("#f0f0e8"), fore: H("#6a9ad8"), pants: H("#3a5a3a"), boots: H("#2a2a2a"), belt: H("#2a3a2a"), hs: 0.86 }); break;
+    case "octo": c({ skin: H("#e86a6a"), hair: H("#a83a3a"), eye: H("#2a1a1a"), top: H("#3a3a5a"), sleeve: H("#e86a6a"), fore: H("#e86a6a"), pants: H("#3a3a5a"), boots: H("#2a2a3a"), belt: H("#f0c040"), hs: 0.92 }); break;
+    case "escanor": c({ hair: H("#c8963a"), eye: H("#3a2a1a"), top: H("#e8a048"), sleeve: H("#e8a048"), fore: H("#f6c9a0"), pants: H("#5a3a20"), boots: H("#2a1a10"), belt: H("#2a1a10"), arme: "hache", hs: 0.86 }); break;
+  } } catch (e) { p537Err("style", e); }
+  S.p537 = 1; S.sleeve = S.sleeve || S.top; S.shin = S.shin || S.pants; return S; }; }
+/* tête : visage d'origine (yeux, bouche) puis traits propres à chacun */
+{ const t0 = v41Tete; v41Tete = function (g, S, lite) {
+  if (!S || !S.p537) return t0.apply(this, arguments);
+  const chauve = !!P537_CHAUVE[S.id], S2 = Object.assign({}, S, { coif: chauve ? "krilin" : "p537", spiky: false, hat: false });
+  const r = t0.call(this, g, S2, lite);
+  try { p537Tete(g, S, lite); } catch (e) { p537Err("tete:" + S.id, e); }
+  return r; }; }
+function p537Tete(g, S, lite) {
+  const H = v41H, K = v41K, hair = S.hair, hL = K(hair, 1.2), hD = K(hair, 0.75), n = lite ? 9 : 12, m = lite ? 6 : 8, f = lite ? 5 : 6;
+  const cal = (col, b0 = -0.22, o = {}) => g.ell(0, 5.15, 0.05, 4.98, 5.15, 4.78, col, n, m, Object.assign({ b0, rot: [0, -0.48, 0] }, o));
+  const mech = (b, d, L, r, col) => g.meche(b, d, L, r, col || hair, f, hL);
+  const S0 = (x, y, k = 0) => v41Surf(x, y, k);
+  switch (S.id) {
+    case "freezer": { const pu = H("#7a3aa8"); g.ell(0, 6.2, -0.1, 4.95, 4.1, 4.75, pu, n, m, { b0: 0.12 }); g.ell(-1.4, 8.6, 1.6, 1.1, 0.7, 1.2, K(pu, 1.5), 8, 5);
+      for (const s of [-1, 1]) g.ell(s * 4.5, 4.6, 0.1, 0.9, 1.3, 1.0, pu, 8, 5);
+      for (const s of [-1, 1]) g.tube([s * 1.05, 3.6, S0(s * 1.05, 3.6, -0.1)], [s * 1.55, 2.9, S0(s * 1.55, 2.9, -0.15)], 0.16, 0.08, H("#7a3aa8"), 4, false); break; }
+    case "cell": { const gr = H("#3a8a3a"), nr = H("#1a2a1a"); g.ell(0, 5.6, -0.2, 4.95, 4.6, 4.75, gr, n, m, { b0: 0.2 });
+      for (const [x, y, z] of [[-1.8, 8.8, 0.8], [1.5, 9.1, 0.2], [0, 9.6, -1.4], [-2.6, 7.6, -2.2], [2.8, 7.4, -1.6]]) g.ell(x, y, z, 0.55, 0.5, 0.55, nr, 6, 4);
+      for (const s of [-1, 1]) { g.meche2([s * 2.0, 8.7, 0.6], [s * 0.35, 1, -0.1], [s * 0.15, 0.6, -1], 6.2, 1.25, gr); }
+      for (const s of [-1, 1]) g.ell(s * 2.2, 2.9, S0(s * 2.2, 2.9, -0.2), 0.75, 0.42, 0.2, H("#e88aa8"), 6, 4); break; }
+    case "kaido": { cal(hair); for (let k = 0; k < 9; k++) { const a = -1.2 + k * 0.3; mech([Math.sin(a) * 3.6, 6.6, -2.6 - Math.cos(a) * 0.8], [Math.sin(a) * 0.4, -0.65, -1], 9 + (k % 3), 1.6); }
+      for (const s of [-1, 1]) g.meche2([s * 2.3, 8.6, 1.6], [s * 0.55, 1, 0.45], [s * 0.9, 0.5, -0.4], 7.5, 1.0, H("#ece6d6"));
+      g.ell(0, 1.0, 2.7, 3.1, 2.6, 2.3, hair, n, m - 2); for (const s of [-1, 1]) g.meche2([s * 0.7, 2.6, S0(s * 0.7, 2.6, 0.2)], [s * 1, -0.2, 0.3], [s * 0.4, -1, 0.2], 6.5, 0.45, hair); break; }
+    case "barbenoire": { cal(hair, -0.1); const rg = H("#b02a2a"); g.ell(0, 6.6, 0.1, 5.15, 2.0, 4.95, rg, n, 4); mech([0, 6.8, -4.6], [0, -0.6, -1], 4, 1.2, rg);
+      g.ell(0, 1.4, 2.4, 3.6, 2.9, 2.6, hair, n, m - 2); for (let k = 0; k < 7; k++) { const a = -1.3 + k * 0.43; g.ell(Math.sin(a) * 3, 0.2 + Math.cos(a * 1.3) * 0.6, 2.3 + Math.cos(a) * 1.2, 1.1, 1.2, 1.1, K(hair, 1.1), 7, 5); }
+      g.ell(0, 2.75, S0(0, 2.75, 0.35), 0.9, 0.35, 0.3, H("#f0ead8"), 6, 4); break; }
+    case "mewtwo": { const pu = H("#9a5ac8"); for (const s of [-1, 1]) g.tube([s * 1.9, 8.6, -0.4], [s * 2.5, 10.9, -0.9], 0.95, 0.62, S.skin, 7, true);
+      g.tube([0, 3.8, -3.9], [0, -1.6, -2.6], 1.15, 0.95, S.skin, 8, true); g.ell(0, 2.6, 2.4, 2.4, 1.6, 1.7, S.skin, n, m - 2); break; }
+    case "robotr": { const br = H("#5a3a2a"), go = H("#f0c030");
+      for (const s of [-1, 1]) { g.tube([s * 3.0, 7.9, 0], [s * 4.2, 11.0, -0.4], 1.6, 0.2, S.skin, 6, false); g.tube([s * 3.0, 8.1, 0.35], [s * 3.9, 10.4, 0.0], 0.9, 0.12, br, 5, false); }
+      g.ell(0, 7.6, S0(0, 7.6, 0.12), 1.35, 1.35, 0.35, go, 10, 5); g.ell(0, 7.6, S0(0, 7.6, 0.4), 0.7, 0.7, 0.15, K(go, 0.8), 8, 3);
+      for (const s of [-1, 1]) for (const dy of [-0.3, 0.4]) g.tube([s * 2.6, 2.9 + dy, S0(s * 2.6, 2.9, 0)], [s * 5.4, 3.0 + dy * 2, S0(s * 2.6, 2.9, -0.8)], 0.1, 0.06, H("#2a2a2a"), 4, false); break; }
+    case "pain": { cal(hair, -0.2); for (let k = 0; k < 12; k++) { const a = k / 12 * 6.2832; mech([Math.sin(a) * 3, 8.2, Math.cos(a) * 2.8 - 0.3], [Math.sin(a) * 0.8, 0.8, Math.cos(a) * 0.8 - 0.25], 4.2, 1.5); }
+      const fe = H("#9aa0ac"); for (const [x, y, k] of [[-0.35, 4.2, 0.2], [0.35, 4.2, 0.2], [0, 3.4, 0.35], [-1.2, 2.2, 0.15], [1.2, 2.2, 0.15], [-2.6, 3.5, 0.1], [2.6, 3.5, 0.1], [-0.5, 1.9, 0.2], [0.5, 1.9, 0.2]]) g.ell(x, y, S0(x, y, k), 0.24, 0.24, 0.24, fe, 5, 3); break; }
+    case "kyubi": { const fo = S.skin, nr = H("#2a1008"); g.ell(0, 2.8, 3.3, 2.1, 1.7, 2.6, fo, n, m - 2); g.ell(0, 3.4, 5.7, 0.7, 0.55, 0.5, nr, 8, 5);
+      for (const s of [-1, 1]) { g.meche([s * 2.7, 8.4, -0.4], [s * 0.4, 1, -0.15], 5.2, 1.7, fo, f, H("#3a1408")); g.ell(s * 1.0, 2.0, 5.0, 0.18, 0.5, 0.15, H("#f8f8f0"), 4, 3); }
+      for (const s of [-1, 1]) g.tube([s * 1.3, 5.6, S0(s * 1.3, 5.6, 0)], [s * 2.6, 5.0, S0(s * 2.6, 5.0, 0)], 0.25, 0.15, nr, 4, false);
+      for (let k = 0; k < 7; k++) { const a = -1.4 + k * 0.47; mech([Math.sin(a) * 3.8, 3.6, Math.cos(a) * 2.2], [Math.sin(a), -0.5, 0.1], 2.4, 1.0, K(fo, 1.15)); } break; }
+    case "estarossa": { cal(hair); for (let k = 0; k < 11; k++) { const a = k / 11 * 6.2832 + 0.3; if (Math.cos(a) > 0.75) continue; mech([Math.sin(a) * 3, 7.4, Math.cos(a) * 2.6 - 0.5], [Math.sin(a), 0.25 + (k % 3) * 0.2, Math.cos(a) - 0.2], 4 + (k % 2), 1.6); }
+      for (const x of [-2.4, -1, 0.5, 2]) g.meche([x, 8.2, S0(x, 8.2, -0.35)], [x * 0.15, -1, 0.4], 3.6, 1.2, hair, f, hL);
+      g.ell(0, 6.6, S0(0, 6.6, 0.05), 0.9, 0.55, 0.15, H("#1a1a1a"), 8, 4); g.tube([-0.9, 6.9, S0(-0.9, 6.9, 0.02)], [-1.9, 7.6, S0(-1.9, 7.6, 0.02)], 0.18, 0.05, H("#1a1a1a"), 4, false); break; }
+    case "demonrouge": { const co = H("#2a1a14"); for (const s of [-1, 1]) g.meche2([s * 2.6, 8.0, 0.6], [s * 1, 0.5, 0.2], [s * 0.3, 1, -0.3], 7, 1.2, co);
+      g.ell(0, 5.6, S0(0, 5.6, -0.1), 2.6, 0.45, 0.4, K(S.skin, 0.6), 8, 4); for (const s of [-1, 1]) g.tube([s * 2.2, 3.6, S0(s * 2.2, 3.6, 0)], [s * 3.2, 1.6, S0(s * 3.2, 1.6, -0.2)], 0.2, 0.1, co, 4, false);
+      g.ell(0, 2.4, 2.5, 3.6, 2.4, 2.4, K(S.skin, 0.95), n, m - 2); break; }
+    case "diane": { cal(hair); for (const s of [-1, 1]) { g.ell(s * 3.6, 7.0, -1.4, 1.2, 1.2, 1.2, H("#e8c050"), 8, 5); g.tube([s * 4.0, 6.6, -1.6], [s * 5.6, 1.2, -2.8], 1.9, 0.8, hair, 8, true); g.tube([s * 5.6, 1.2, -2.8], [s * 5.2, -2.6, -3.0], 0.8, 0.25, hair, 6, false); } break; }
+    case "ban": { cal(hair); for (let k = 0; k < 9; k++) { const a = -1.1 + k * 0.28; mech([Math.sin(a) * 3.4, 8.2, 1.2 - Math.abs(a) * 0.6], [Math.sin(a) * 0.5, 0.75, -1], 6 + (k % 2), 1.6); }
+      g.tube([-2.2, 2.0, S0(-2.2, 2.0, 0.05)], [-1.2, 1.2, S0(-1.2, 1.2, 0.05)], 0.12, 0.08, H("#a07060"), 4, false); break; }
+    case "king": { cal(hair); for (let k = 0; k < 10; k++) { const a = k / 10 * 6.2832; mech([Math.sin(a) * 3.2, 7.6, Math.cos(a) * 3 - 0.3], [Math.sin(a) * 0.9, 0.35, Math.cos(a) * 0.9], 3.6, 1.5); }
+      for (const x of [-2.2, -0.8, 0.7, 2.1]) g.meche([x, 7.9, S0(x, 7.9, -0.35)], [x * 0.12, -1, 0.42], 2.8, 1.1, hair, f, hL); break; }
+    case "gowther": { cal(hair); for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) g.meche([x, 7.9, S0(x, 7.9, -0.35)], [x * 0.12, -1, 0.42], 2.8, 1.1, hair, f, hL);
+      g.ell(0, 3.0, -2.6, 4.5, 4.2, 2.2, hair, n, m); g.meche([1.2, 9.2, 0.6], [0.3, 1, -0.2], 3.6, 0.8, hair, f, hL);
+      const nr = H("#1a1a1a"); for (const s of [-1, 1]) { const x0 = s * 0.55, x1 = s * 2.85, y0 = 3.2, y1 = 5.3, z = (x, y) => S0(x, y, 0.45); g.tube([x0, y1, z(x0, y1)], [x1, y1, z(x1, y1)], 0.14, 0.14, nr, 4, false); g.tube([x0, y0, z(x0, y0)], [x1, y0, z(x1, y0)], 0.14, 0.14, nr, 4, false); g.tube([x0, y0, z(x0, y0)], [x0, y1, z(x0, y1)], 0.14, 0.14, nr, 4, false); g.tube([x1, y0, z(x1, y0)], [x1, y1, z(x1, y1)], 0.14, 0.14, nr, 4, false); } break; }
+    case "merlin": { cal(hair); g.ell(0, 3.0, -2.2, 4.8, 5.6, 2.8, hair, n, m); g.tube([0, 1.5, -2.8], [0, -5.5, -3.4], 3.6, 2.0, hair, 8, true);
+      for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) g.meche([x, 8.0, S0(x, 8.0, -0.35)], [x * 0.18, -1, 0.42], 3.2, 1.1, hair, f, hL); for (const s of [-1, 1]) g.tube([s * 4.3, 5.4, 1.2], [s * 4.5, -0.6, 1.4], 1.1, 0.5, hair, 6, true); break; }
+    case "crochep": { cal(hair, -0.1); const ch = H("#6a1a1a"); g.ell(0, 7.4, 0.0, 6.2, 0.6, 5.6, ch, n, 4); g.ell(0, 8.6, -0.2, 4.4, 2.6, 4.2, ch, n, m, { b0: -0.1 }); for (const s of [-1, 1]) g.ell(s * 4.6, 7.9, -1.4, 1.6, 1.2, 2.2, ch, 8, 5);
+      g.ell(0, 9.6, 2.8, 0.9, 0.9, 0.3, H("#f0ead8"), 8, 4); g.ell(0, 1.2, 2.5, 3.2, 2.4, 2.4, hair, n, m - 2); for (const s of [-1, 1]) g.meche2([s * 0.6, 2.8, S0(s * 0.6, 2.8, 0.2)], [s, -0.1, 0.3], [s * 0.6, 0.5, 0], 3.2, 0.4, hair); break; }
+    case "bill": { cal(hair); const co = H("#c8a040"); g.ell(0, 8.2, 0, 4.2, 1.6, 4.0, co, n, 5); for (let k = 0; k < 5; k++) { const a = -1 + k * 0.5; g.meche([Math.sin(a) * 3.6, 9.3, Math.cos(a) * 3.4], [Math.sin(a) * 0.2, 1, 0.1], 2.2, 0.8, co, f, H("#f0d870")); }
+      g.ell(0, 1.3, 2.4, 3.4, 2.6, 2.4, hair, n, m - 2); g.ell(0, 3.0, S0(0, 3.0, 0.3), 1.3, 0.5, 0.4, H("#c87a6a"), 8, 4); break; }
+    case "gorille": { const mu = H("#8a8a92"); g.ell(0, 2.8, 3.0, 2.9, 2.2, 2.0, mu, n, m - 2); g.ell(0, 3.4, 4.9, 0.9, 0.5, 0.4, H("#1a1a1e"), 8, 4); g.ell(0, 5.8, S0(0, 5.8, 0.2), 3.4, 0.8, 0.8, K(S.skin, 0.7), n, 4);
+      g.ell(0, 6.4, -0.3, 4.9, 4.0, 4.7, S.hair, n, m, { b0: 0.1 }); for (const s of [-1, 1]) g.ell(s * 4.4, 4.6, 0.0, 0.8, 1.1, 0.8, mu, 8, 5); break; }
+    case "cierge": { cal(hair, 0.0); const ci = H("#f4eed8"); g.tube([0, 8.6, -0.4], [0, 12.6, -0.6], 1.6, 1.4, ci, 8, true); g.tube([0, 12.4, -0.6], [0, 13.6, -0.6], 0.14, 0.14, H("#2a2a2a"), 4, false); g.ell(0, 14.6, -0.6, 0.9, 1.5, 0.9, H("#ffb030"), 8, 6); g.ell(0, 14.4, -0.6, 0.5, 0.9, 0.5, H("#fff0a0"), 6, 4);
+      for (const s of [-1, 1]) g.meche2([s * 2.2, 8.4, 0.2], [s * 0.6, 1, -0.2], [s * 1, 0.1, 0.2], 3.6, 1.1, hair); const nr = H("#1a1a1a"); for (const s of [-1, 1]) g.ell(s * 1.65, 4.3, S0(s * 1.65, 4.3, 0.42), 1.25, 1.25, 0.12, nr, 10, 3, { b0: -1.5, b1: 1.5 }); g.tube([-0.5, 4.5, S0(0, 4.5, 0.5)], [0.5, 4.5, S0(0, 4.5, 0.5)], 0.14, 0.14, nr, 4, false); break; }
+    case "krag": { cal(hair, -0.05); for (let k = 0; k < 7; k++) { const a = -0.9 + k * 0.3; mech([Math.sin(a) * 3.2, 8.4, 1.0], [Math.sin(a) * 0.3, 0.45, -1], 5.5, 1.5); } g.ell(0, 1.4, 2.4, 2.4, 2.0, 2.0, hair, n, m - 2); break; }
+    case "sharkon": { cal(hair, 0.1); for (let k = 0; k < 7; k++) { const a = -1.2 + k * 0.4; mech([Math.sin(a) * 3.4, 7.8, -1.0 - Math.cos(a)], [Math.sin(a) * 0.4, -0.2, -1], 5 + (k % 2), 1.4); }
+      const sc = K(S.skin, 0.9); g.tube([0, 3.9, S0(0, 3.9, -0.3)], [0, 3.6, S0(0, 3.6, 0) + 6.5], 0.8, 0.45, sc, 7, true); for (let k = 0; k < 5; k++) for (const s of [-1, 1]) g.tube([s * 0.4, 3.75, S0(0, 3.7, 0) + 1.4 + k * 1.1], [s * 1.1, 3.7, S0(0, 3.7, 0) + 1.6 + k * 1.1], 0.18, 0.02, H("#f4f4f0"), 4, false);
+      g.ell(0, 2.0, S0(0, 2.0, 0.1), 2.0, 0.4, 0.4, H("#f4f4f0"), 8, 3); break; }
+    case "octo": { cal(hair); for (const s of [-1, 1]) g.ell(s * 2.4, 9.2, -0.4, 1.4, 1.2, 1.4, hair, 8, 5); g.ell(0, 2.8, S0(0, 2.8, 0.3), 1.1, 0.9, 0.9, K(S.skin, 0.85), 8, 5); break; }
+    case "escanor": { cal(hair, -0.1); for (let k = 0; k < 7; k++) { const a = -0.9 + k * 0.3; mech([Math.sin(a) * 3, 8.6, 1.6], [Math.sin(a) * 0.3, 0.9, -0.8], 5.5, 1.7); }
+      const mo = H("#6a4420"); for (const s of [-1, 1]) g.meche2([s * 0.3, 2.85, S0(s * 0.3, 2.85, 0.25)], [s * 1, 0.05, 0.2], [s * 0.6, 0.7, 0], 4.2, 0.7, mo); break; }
+  }
+}
+/* corps : pièces en plus (queue, ailes, cape, coussin, orbe…) */
+{ const c0 = v41Corps; v41Corps = function (S, lite) {
+  const M = c0.apply(this, arguments); if (!S || !(S.p537 || S.p537b)) return M;
+  try { const g = new G3Geo(), q = new G3Geo(); const ok = p537Corps(g, q, S, lite); if (ok & 1) M.p537x = g.build(); if (ok & 2) M.queue = q.build(); } catch (e) { p537Err("corps:" + S.id, e); }
+  return M; }; }
+function p537Queue(q, P, r0, col, colB) { for (let i = 0; i < P.length - 1; i++) { const k = i / (P.length - 1); q.tube(P[i], P[i + 1], r0 * (1 - k * 0.55), r0 * (1 - (i + 1) / (P.length - 1) * 0.55), i === P.length - 2 && colB ? colB : col, 7, i ? 2 : true); } }
+function p537Corps(g, q, S, lite) {
+  const H = v41H, K = v41K, n = lite ? 9 : 12, m = lite ? 6 : 8; let ok = 0;
+  switch (S.id) {
+    case "freezer": { const pu = H("#8a4ab8"); for (const s of [-1, 1]) g.ell(s * 4.2, 8.3, 0, 2.0, 1.55, 2.0, pu, n, m, { b0: -0.2 }); g.ell(0, 6.6, 2.15, 2.7, 1.6, 0.7, pu, n, m); ok = 3;
+      p537Queue(q, [[0, 1.2, -2.3], [0.4, -1.5, -5.0], [1.6, -3.8, -7.4], [3.2, -4.6, -9.4], [4.2, -3.4, -11.0], [4.0, -1.4, -11.6]], 1.25, S.skin, pu); break; }
+    case "cell": { const ai = H("#1e3a1e"); for (const s of [-1, 1]) g.ell(s * 2.3, 6.4, -3.3, 2.0, 4.8, 0.45, ai, n, m, { rot: [0.2, 0, s * 0.4] }); g.ell(0, 4.2, 2.5, 2.5, 3.0, 0.4, K(S.top, 0.8), n, m - 2);
+      for (const [x, y, z] of [[-2.4, 6.5, 2.5], [2.2, 4.4, 2.6], [0.4, 2.2, 2.6], [-1.5, 3.4, 2.6], [3.0, 7.2, 1.2], [-3.2, 4.0, 1.4], [0, 6.0, -2.6], [2.4, 2.6, -2.3]]) g.ell(x, y, z, 0.55, 0.5, 0.25, H("#1a2a1a"), 6, 4);
+      ok = 3; p537Queue(q, [[0, 1.0, -2.4], [0, -2.0, -4.6], [0.4, -5.0, -5.6], [0.6, -7.6, -5.0]], 0.9, H("#4a9a3a"), H("#f0f0f0")); break; }
+    case "kaido": { const ro = H("#e8c860"); g.tube([-3.8, 2.5, 2.4], [3.8, 2.5, 2.4], 0.8, 0.8, ro, 6, true); g.ell(0, 4.6, -0.4, 4.5, 5.2, 3.2, K(S.top, 1.05), n, m, { a0: 0.55, a1: 0.95 }); for (const s of [-1, 1]) g.ell(s * 4.4, 8.4, 0, 2.3, 1.9, 2.3, K(S.top, 0.9), n, m); ok = 1; break; }
+    case "barbenoire": { const co = H("#262230"); g.ell(0, 4.2, -0.2, 3.95, 5.0, 2.95, co, n, m, { a0: 0.3, a1: 0.95 }); g.tube([-3.7, 2.3, 2.5], [3.7, 2.3, 2.5], 0.6, 0.6, H("#b02a2a"), 6, true); ok = 1; break; }
+    case "mewtwo": { const pu = H("#9a5ac8"); g.ell(0, 2.0, 2.2, 3.0, 2.6, 0.9, pu, n, m - 2); ok = 3;
+      p537Queue(q, [[0, 1.2, -2.2], [0, -1.6, -5.0], [0.6, -4.4, -7.2], [1.8, -6.2, -9.2], [3.6, -6.4, -10.6], [5.0, -5.0, -11.0]], 2.1, S.skin, pu); break; }
+    case "robotr": { const ro = H("#c83030"); g.ell(0, 5.8, 2.5, 2.2, 2.2, 0.5, H("#f4f4f0"), n, m - 2); g.box(0, 5.8, 3.0, 0.5, 2.6, 0.3, ro); g.box(0.6, 6.7, 3.0, 1.2, 0.5, 0.3, ro); g.box(0.6, 4.9, 3.0, 1.3, 0.5, 0.3, ro);
+      for (const s of [-1, 1]) g.tube([s * 1.4, 8.8, -2.4], [s * 2.2, 12.5, -3.4], 0.5, 0.3, H("#5a626e"), 5, true); g.ell(0, 5.4, -3.0, 3.0, 3.0, 1.2, H("#6a727e"), n, m - 2); ok = 1; break; }
+    case "pain": { const nr = S.top, ro = H("#c82a2a"), bl = H("#f4f4f4"); g.ell(0, 0.4, 0, 3.95, 3.0, 2.95, nr, n, m); g.tube([0, 8.3, 0], [0, 10.6, 0], 2.6, 2.2, nr, 10, false);
+      for (const [x, y, z] of [[-2.0, 6.2, 2.7], [1.9, 3.6, 2.7], [-1.0, 1.0, 2.9], [0.3, 6.0, -2.7], [2.6, 0.6, -2.5]]) { g.ell(x, y, z, 1.15, 0.7, 0.3, bl, 8, 4); g.ell(x, y, z + Math.sign(z) * 0.12, 0.95, 0.55, 0.3, ro, 8, 4); } ok = 1; break; }
+    case "kyubi": { ok = 2; const fo = S.skin, bl = H("#f8f0e0"); for (let k = 0; k < 9; k++) { const a = -1.15 + k * 0.29, ca = Math.cos(a), sa = Math.sin(a);
+        p537Queue(q, [[0, 1.4, -2.2], [sa * 3, 1.0 + ca * 2.6, -5.5], [sa * 6.5, 2.6 + ca * 5.2, -7.6], [sa * 8.5, 5.4 + ca * 6.8, -8.6]], 1.6, fo, bl); } break; }
+    case "estarossa": { g.ell(0, 7.4, 0.05, 4.3, 2.6, 2.85, H("#3a3a48"), n, m, { a0: 0.4, a1: 0.6 }); ok = 1; break; }
+    case "demonrouge": { const co = K(S.skin, 0.8); for (const s of [-1, 1]) g.ell(s * 4.4, 8.4, 0, 2.5, 2.1, 2.5, co, n, m); g.ell(0, 6.6, 2.0, 3.2, 1.8, 1.1, co, n, m); g.ell(0, 1.0, 0.2, 4.0, 2.4, 3.0, S.pants, n, m); ok = 1; break; }
+    case "diane": { ok = 0; break; }
+    case "nami": { const bl = H("#3a6ad0"); for (const [y, rx, rz] of [[3.6, 3.62, 2.6], [5.4, 3.95, 2.82], [7.2, 4.45, 3.0]]) g.ell(0, y, 0.05, rx, 0.45, rz, bl, n, 4); ok = 1; break; }
+    case "ondine": { const ro = H("#d83a2a"); for (const s of [-1, 1]) { g.tube([s * 1.8, 2.4, 2.65], [s * 2.0, 8.6, 2.2], 0.32, 0.32, ro, 5, false); g.tube([s * 1.8, 2.4, -2.65], [s * 2.0, 8.6, -2.2], 0.32, 0.32, ro, 5, false); } ok = 1; break; }
+    case "ban": { const ch = H("#b8bcc8"); for (let k = 0; k < 6; k++) g.ell(Math.sin(k / 6 * 6.28) * 2.4, 9.0, 0.3 + Math.cos(k / 6 * 6.28) * 2.2, 0.5, 0.35, 0.5, ch, 6, 4); g.ell(0, 7.3, 2.6, 2.4, 1.4, 0.4, H("#f6c9a0"), 8, 4); ok = 1; break; }
+    case "king": { const co = H("#f0d890"), ve = H("#3a7a3a"); g.ell(0, 8.6, -2.0, 3.6, 1.5, 2.2, K(S.top, 0.85), n, m); g.ell(0, 7.2, -6.6, 3.8, 2.6, 1.5, co, n, m); for (const x of [-2, 0, 2]) g.ell(x, 7.2, -6.6, 0.4, 2.62, 1.55, ve, 6, m); for (const s of [-1, 1]) for (const t of [-1, 1]) g.ell(s * 3.6, 7.2 + t * 2.3, -6.6, 0.5, 0.5, 0.5, ve, 6, 4); ok = 1; break; }
+    case "gowther": { g.ell(0, 7.6, 0.05, 4.25, 2.2, 2.85, H("#f2f2f2"), n, m, { a0: 0.38, a1: 0.62 }); ok = 1; break; }
+    case "merlin": { const or = H("#f09030"); g.ell(5.6, 12.4, 1.4, 1.5, 1.5, 1.5, or, 10, 7); g.ell(5.6, 12.4, 1.4, 1.9, 1.9, 1.9, K(or, 1.2), 8, 5, { a0: 0, a1: 0.25 }); g.ell(0, 4.6, -0.2, 3.95, 5.4, 2.95, K(S.top, 0.85), n, m, { a0: 0.3, a1: 0.95 }); ok = 1; break; }
+    case "crochep": { g.ell(0, 4.6, 0.1, 3.8, 4.4, 2.75, H("#8a1a1a"), n, m, { a0: -0.12, a1: 0.12 }); g.ell(0, 2.8, -0.2, 4.0, 5.6, 2.95, S.top, n, m, { a0: 0.3, a1: 0.95, b1: 0.4 }); for (const s of [-1, 1]) g.ell(s * 4.3, 8.4, 0, 2.0, 1.4, 2.0, H("#c8a040"), 8, 5, { b0: 0 }); ok = 1; break; }
+    case "bill": { g.ell(0, 3.4, 1.0, 4.6, 4.4, 4.0, S.top, n, m); g.ell(0, 6.0, 0.5, 4.2, 3.0, 3.4, H("#a83a2a"), n, m, { a0: 0.3, a1: 0.7 }); g.ell(0, 3.2, 4.9, 0.4, 0.4, 0.2, H("#8a6a40"), 6, 3); ok = 1; break; }
+    case "gorille": { const fu = S.top; for (const s of [-1, 1]) g.ell(s * 4.6, 8.0, 0, 2.6, 2.4, 2.6, fu, n, m); g.ell(0, 6.4, 0, 4.6, 3.6, 3.2, fu, n, m); g.ell(0, 5.4, 2.2, 2.6, 2.2, 1.0, H("#6a6a72"), n, m - 2); g.ell(0, 5.8, 0.1, 4.7, 3.4, 3.3, H("#6a1a1a"), n, m, { a0: 0.3, a1: 0.7 }); ok = 1; break; }
+    case "cierge": { const gi = H("#c83a3a"); g.ell(0, 5.0, 0.0, 3.8, 3.9, 2.75, gi, n, m, { a0: 0.12, a1: 0.88 }); g.ell(0, 8.0, 2.4, 0.8, 0.5, 0.3, H("#1a1a1a"), 6, 3); ok = 1; break; }
+    case "krag": { const go = H("#e8c040"), gD = H("#a88a20"); g.ell(0, 5.6, 0.0, 4.0, 4.4, 3.0, go, n, m); for (const s of [-1, 1]) { g.ell(s * 4.6, 8.6, 0, 2.8, 1.8, 2.8, go, n, m, { b0: -0.3 }); g.ell(s * 4.6, 8.0, 0, 2.9, 0.4, 2.9, gD, n, 3); }
+      for (const y of [3.4, 5.6]) g.ell(0, y, 0.02, 4.05, 0.3, 3.05, gD, n, 3); g.ell(0, 5.0, -3.0, 4.6, 6.0, 1.0, H("#5a1a1a"), n, m, { a0: 0.3, a1: 0.7 }); ok = 1; break; }
+    case "sharkon": { const fi = K(S.skin, 0.85); g.tube([0, 5.0, -2.6], [0, 8.6, -5.2], 1.6, 0.2, fi, 6, false); for (const [x, y] of [[-1.6, 6.4], [1.4, 4.2], [-0.8, 2.4], [1.8, 7.2]]) g.ell(x, y, 2.7, 0.8, 0.8, 0.25, H("#e84a6a"), 8, 4); ok = 1; break; }
+    case "octo": { const sk = S.skin; for (const s of [-1, 1]) for (const [y, a] of [[6.2, 0.6], [4.4, 1.0]]) { g.tube([s * 3.6, y, 0.6], [s * 6.6, y - 1.6, 2.4 + a], 1.05, 0.85, sk, 7, true); g.tube([s * 6.6, y - 1.6, 2.4 + a], [s * 7.6, y - 4.2, 4.0 + a], 0.85, 0.7, sk, 7, true); g.ell(s * 7.8, y - 4.8, 4.2 + a, 1.2, 1.3, 1.2, sk, 8, 5); } ok = 1; break; }
+    case "escanor": { for (const s of [-1, 1]) g.ell(s * 4.3, 8.3, 0, 2.2, 1.9, 2.2, S.top, n, m); g.ell(0, 6.8, 1.0, 4.4, 2.8, 2.6, S.top, n, m); g.ell(0, 7.0, 2.85, 1.6, 1.2, 0.25, H("#f6c9a0"), 8, 4); ok = 1; break; }
+  }
+  return ok;
+}
+{ const d0 = v41Dessin0; v41Dessin0 = function (M, R, J, S, o) { const r = d0.apply(this, arguments); if (M && M.p537x) try { v41Draw(M.p537x, R.T, { tint: o.tint, ol: o.ol }); } catch (e) { p537Err("dess", e); } return r; }; }
+/* hache d'Escanor (Rhitta) */
+{ const a0 = v41Arme; v41Arme = function (k) { if (k === "crochet") { const H = v41H, g = new G3Geo(), ac = H("#d8dce4"); g.tube([0, 0, 0], [0, 0, 3.2], 0.5, 0.5, ac, 6, true); g.tube([0, 0, 3.2], [0, 1.4, 4.4], 0.4, 0.35, ac, 6, true); g.tube([0, 1.4, 4.4], [0, 2.6, 3.4], 0.35, 0.05, ac, 6, false); return g.build(); }
+  if (k !== "hache") return a0.apply(this, arguments); const H = v41H, g = new G3Geo();
+  g.tube([0, 0, -6], [0, 0, 11], 0.6, 0.55, H("#5a3a1a"), 6, true); g.ell(0, -3.2, 10.6, 0.5, 4.6, 3.2, H("#d8dce4"), 10, 6, { b0: -1.2, b1: 1.2 }); g.ell(0, -1.0, 10.6, 0.55, 1.2, 1.4, H("#e8b030"), 8, 5); return g.build(); };
+  const m0 = v41ArmeM; v41ArmeM = function (R, J, S) { if (S && S.arme === "crochet") return M4.mul(R.hand[0], M4.trs(0, -0.6, 0.2, 0, 1.4, 0)); if (S && S.arme === "hache" && !J.w) return M4.mul(M4.mul(R.T, M4.trs(0, 5.6, -3.6, 0, 0, 0.5)), M4.trs(0, 0, 0, Math.PI / 2)); return m0.apply(this, arguments); }; }
+/* dans le monde : les sprites de ces personnages reçoivent leur identité (modèle 3D) */
+{ const ik = imageKPNJ; imageKPNJ = function (L) { const r = ik.apply(this, arguments); try { if (r && r.width && (!r.e3id || r.e3id === "pnj") && L) { const id = p537IdLook(L); if (id) r.e3id = id; } } catch (_) { } return r; }; }
+function p537IdLook(L) {
+  if (L.__p537 !== undefined) return L.__p537; let id = L.id && P537_LOOKID[L.id] || null;
+  if (!id) try { for (const k of P537_IDS) { if (typeof TB_LOOKS !== "undefined" && TB_LOOKS[k] === L) { id = k; break; } if (typeof BR_LOOKS !== "undefined" && BR_LOOKS[k] === L) { id = k; break; } } } catch (_) { }
+  try { L.__p537 = id; } catch (_) { } return id;
+}
+
+
+/* ===== v53.7 — arène v53 : chaque combattant a sa façon de bouger et de se battre (dash, enchaînement, KI, spécial), équilibrée ===== */
+// coups propres (la frappe est gérée ici : portée, cône, coups multiples) ; les poses réutilisent les images clés v51
+const P537K = (n, o) => Object.assign({}, P99_COUPS[n], o);
+const P537_COUPS = {
+  etire: P537K("jab", { dur: 0.3, h: 0.42, r: 58, cone: 0.5, m: 1.0, kb: 90, K: [[0, { aR: [-0.9, 0.2, 0.5, -1.9], ty: -0.2 }], [0.4, { aR: [-1.56, 0.03, 0.1, 0], sR: 7, ty: 0.4, bz: 1 }], [0.7, { aR: [-1.56, 0.03, 0.1, 0], sR: 4 }], [1, {}]], fx: "etire" }),
+  etire2: P537K("direct", { dur: 0.32, h: 0.42, r: 58, cone: 0.5, m: 1.05, kb: 110, K: [[0, { aL: [-0.9, 0.2, 0.5, -1.9], ty: 0.2 }], [0.4, { aL: [-1.56, 0.03, 0.1, 0], sL: 7, ty: -0.4, bz: 1 }], [0.7, { aL: [-1.56, 0.03, 0.1, 0], sL: 4 }], [1, {}]], fx: "etire" }),
+  fouet: P537K("pied", { dur: 0.42, h: 0.45, r: 52, cone: 0.7, m: 1.5, kb: 240, pop: 60, K: [[0, { lR: [-0.4, 0.1, 1.3], ty: 0.35 }], [0.42, { lR: [-1.6, 0.3, 0.1], lsR: 4, ty: -0.6, tp: -0.3 }], [0.7, { lR: [-1.55, 0.3, 0.1], lsR: 2.5 }], [1, {}]], fx: "etire" }),
+  lame: P537K("direct", { dur: 0.3, h: 0.45, r: 36, cone: 1.1, m: 1.0, kb: 90, fx: "lame" }),
+  lame2: P537K("jab", { dur: 0.3, h: 0.45, r: 36, cone: 1.1, m: 1.0, kb: 90, fx: "lame" }),
+  lame3: P537K("upper", { dur: 0.4, h: 0.42, r: 38, cone: 1.3, m: 1.7, kb: 160, pop: 200, fx: "lame" }),
+  griffe: P537K("jab", { dur: 0.16, h: 0.4, r: 27, cone: 1.2, m: 0.62, kb: 45, fx: "griffe" }),
+  griffe2: P537K("direct", { dur: 0.18, h: 0.4, r: 27, cone: 1.2, m: 0.7, kb: 60, fx: "griffe" }),
+  griffe3: P537K("pied", { dur: 0.3, h: 0.4, r: 30, cone: 1.4, m: 1.25, kb: 200, pop: 60, fx: "griffe" }),
+  lourd: P537K("direct", { dur: 0.36, h: 0.5, r: 32, cone: 1.0, m: 1.4, kb: 150, fx: "lourd" }),
+  lourd2: P537K("jab", { dur: 0.36, h: 0.5, r: 32, cone: 1.0, m: 1.4, kb: 150, fx: "lourd" }),
+  lourd3: P537K("upper", { dur: 0.56, h: 0.5, r: 36, cone: 1.4, m: 2.6, kb: 300, pop: 160, fx: "lourd" }),
+  psy: P537K("jab", { dur: 0.26, h: 0.5, r: 44, cone: 0.6, m: 0.85, kb: 80, fx: "psy" }),
+  psy2: P537K("direct", { dur: 0.28, h: 0.5, r: 44, cone: 0.6, m: 0.95, kb: 100, fx: "psy" }),
+  psy3: P537K("proj", { dur: 0.42, h: 0.55, r: 48, cone: 0.7, m: 1.6, kb: 260, pop: 120, fx: "psy", K: [[0, { aR: [-1.4, 0.1, 0.2, -0.5], aL: [-1.4, 0.1, 0.2, -0.5], tp: 0.2 }], [0.5, { aR: [-1.6, 0.4, 0.2, 0], aL: [-1.6, 0.4, 0.2, 0], tp: -0.1 }], [1, {}]] }),
+  queue: P537K("pied", { dur: 0.36, h: 0.45, r: 36, cone: 1.6, m: 1.5, kb: 230, pop: 50, fx: "lame" }),
+  rendan: P537K("pied", { dur: 0.44, h: 0.3, r: 30, cone: 1.2, m: 0.95, kb: 140, pop: 80, multi: 2, gap: 0.12, fx: "griffe" }),
+  envol: P537K("upper", { dur: 0.36, h: 0.4, r: 30, cone: 1.2, m: 1.65, kb: 110, pop: 260 })
+};
+for (const k in P537_COUPS) { const c = P537_COUPS[k]; c.hit = 99; P99_COUPS["s_" + k] = c; }
+/* styles : dep = vitesse, dash, coups (3), ki/spe = type + couleur */
+const P537_STY = {
+  sangoku: { dep: 1.05, dash: "eclair", coups: ["jab", "direct", "envol"], ki: ["boule", "#8ad8ff"], spe: ["rayon", "#8ad8ff"] },
+  luffy: { dep: 1.0, dash: "elastique", coups: ["etire", "etire2", "fouet"], ki: ["etire", "#f2c49a"], spe: ["gatling", "#f2c49a"] },
+  naruto: { dep: 1.08, dash: "fumee", clone: 1, coups: ["jab", "direct", "rendan"], ki: ["eventail", "#b8c0cc"], spe: ["ruee", "#7ad0ff"] },
+  krilin: { dep: 1.05, dash: "eclair", coups: ["jab", "direct", "pied"], ki: ["disque", "#ffe040"], spe: ["eventail5", "#ffd070"] },
+  zoro: { dep: 1.0, dash: "tranche", coups: ["lame", "lame2", "lame3"], ki: ["rayon", "#7ae07a"], spe: ["ruee", "#c8ffc8"] },
+  sakura: { dep: 0.98, dash: "fumee", coups: ["jab", "direct", "lourd3"], ki: ["zone", "#ff8ab0"], spe: ["zone", "#ff5a90"] },
+  tortue: { dep: 0.9, dash: "ivrogne", coups: ["jab", "lourd", "pied"], ki: ["boule", "#8ad8ff"], spe: ["rayon", "#a8e8ff"] },
+  tao: { dep: 1.02, dash: "bond", coups: ["jab", "direct", "pied"], ki: ["rayon", "#ffe8a0"], spe: ["foudre", "#d8b080"] },
+  nami: { dep: 1.04, dash: "fumee", clone: 1, coups: ["lame2", "lame", "pied"], ki: ["foudre", "#ffe840"], spe: ["foudre", "#8ae0ff"] },
+  baggy: { dep: 1.0, dash: "bara", coups: ["etire", "etire2", "pied"], ki: ["eventail", "#d8dce8"], spe: ["disque", "#ff5030"] },
+  ondine: { dep: 1.02, dash: "glisse", coups: ["jab", "direct", "pied"], ki: ["rayon", "#5ab0ff"], spe: ["eventail5", "#7ac8ff"] },
+  jessie: { dep: 1.0, dash: "glisse", coups: ["griffe", "griffe2", "pied"], ki: ["zone", "#b070e0"], spe: ["zone", "#9a50d0"] },
+  kakashi: { dep: 1.06, dash: "fumee", coups: ["jab", "direct", "pied"], ki: ["ruee", "#9ae8ff"], spe: ["foudre", "#9ae8ff"] },
+  zabuza: { dep: 1.0, dash: "brume", coups: ["lame", "lame2", "lourd3"], ki: ["rayon", "#5a9ae8"], spe: ["ruee", "#c8d8e8"] },
+  theo: { dep: 1.0, dash: "glisse", coups: ["jab", "direct", "pied"], ki: ["foudre", "#ffe040"], spe: ["rayon", "#ffe040"] },
+  freezer: { dep: 1.05, dash: "eclair", coups: ["jab", "queue", "psy3"], ki: ["laser", "#ff70d0"], spe: ["disque", "#ff90e0"] },
+  cell: { dep: 1.02, dash: "eclair", coups: ["griffe", "direct", "queue"], ki: ["boule", "#b8ff8a"], spe: ["rayon", "#8ad8ff"] },
+  kaido: { dep: 0.88, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["rayon", "#ff8a30"], spe: ["zone", "#c8a0ff"] },
+  barbenoire: { dep: 0.92, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["zone", "#3a2a5a"], spe: ["zone", "#5a3a8a"] },
+  mewtwo: { dep: 1.0, dash: "eclair", coups: ["psy", "psy2", "psy3"], ki: ["boule", "#6a3aa8"], spe: ["zone", "#c88aff"] },
+  robotr: { dep: 0.9, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["eventail", "#ff6a3a"], spe: ["foudre", "#ff6a3a"] },
+  pain: { dep: 0.98, dash: "eclair", coups: ["psy", "psy2", "psy3"], ki: ["zone", "#e8d8ff"], spe: ["foudre", "#c8b0ff"] },
+  kyubi: { dep: 1.04, dash: "bond", coups: ["griffe", "griffe2", "griffe3"], ki: ["eventail", "#ff7a2a"], spe: ["rayon", "#7a3a9a"] },
+  meliodas: { dep: 1.04, dash: "tranche", coups: ["lame", "lame2", "lame3"], ki: ["contre", "#4a2a6a"], spe: ["ruee", "#2a1a3a"] },
+  diane: { dep: 0.92, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["zone", "#c8a070"], spe: ["zone", "#a07040"] },
+  ban: { dep: 1.06, dash: "tranche", vol: 1, coups: ["griffe", "griffe2", "griffe3"], ki: ["ruee", "#ff5050"], spe: ["eventail5", "#ff7070"] },
+  king: { dep: 1.0, dash: "vol", coups: ["psy", "psy2", "psy3"], ki: ["eventail", "#9ae070"], spe: ["foudre", "#9ae070"] },
+  gowther: { dep: 1.0, dash: "eclair", coups: ["psy", "psy2", "psy3"], ki: ["rayon", "#ff9ad0"], spe: ["zone", "#ffb0e0"] },
+  merlin: { dep: 1.0, dash: "eclair", coups: ["psy", "psy2", "psy3"], ki: ["foudre", "#ffa040"], spe: ["zone", "#c080ff"] },
+  escanor: { dep: 0.9, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["disque", "#ffb030"], spe: ["foudre", "#ffd040"] },
+  estarossa: { dep: 1.04, dash: "eclair", coups: ["lame", "lame2", "lame3"], ki: ["contre", "#3a3a4a"], spe: ["boule", "#2a1a2a"] },
+  demonrouge: { dep: 0.86, dash: "charge", coups: ["lourd", "lourd2", "lourd3"], ki: ["zone", "#ff5020"], spe: ["rayon", "#ff5020"] }
+};
+const P537_DASH_NOM = { eclair: "Téléportation", elastique: "Élastique", fumee: "Shunshin", tranche: "Ruée tranchante", ivrogne: "Pas de l'ivrogne", bond: "Bond", bara: "Bara Bara", glisse: "Glissade", brume: "Brume", charge: "Charge", vol: "Vol" };
+// équilibre : chaque enchaînement de 3 coups vise ~4,4 dégâts/s (réf. jab+direct+pied), un peu moins pour les longues portées
+(function p537Equilibre() {
+  const ref = (0.85 + 1 + 1.65) / (0.2 + 0.24 + 0.35);
+  for (const id in P537_STY) { const S = P537_STY[id]; const cs = S.coups.map(k => P537_COUPS[k] || P99_COUPS[k]); const dmg = cs.reduce((a, c) => a + (c.m || 0) * (c.multi || 1), 0), dur = cs.reduce((a, c) => a + c.dur, 0);
+    const reach = cs.reduce((a, c) => a + (c.r || 27), 0) / 3, cible = ref * (reach > 45 ? 0.82 : reach > 34 ? 0.92 : 1) * (S.dep < 0.95 ? 1.08 : 1);
+    S.km = Math.max(0.6, Math.min(1.6, cible / (dmg / dur))); }
+})();
+// nom affiché : KI = 1re technique d'attaque, spécial = la plus forte (jamais une technique de recharge ou de soin)
+function p537NomTech(F, sup) { const T = (F.techs || []).filter(t => !(t.cout === 0 || t.soin || (t.ki && !t.mult))); if (!T.length) return null; if (!sup) return T[0].nom; let b = T[0]; for (const t of T) if ((t.mult || 0) * (t.multi || 1) > (b.mult || 0) * (b.multi || 1)) b = t; return b === T[0] && T.length > 1 ? T[1].nom : b.nom; }
+function p537Sty(F) { return F && F.id && P537_STY[F.id] || null; }
+// coups : le 1er/2e/3e coup de l'enchaînement devient celui du personnage
+{ const a0 = p99Action; p99Action = function (F, a) {
+  const C = AV.cine, S = p537Sty(F); if (!S || !C || C.type !== "p99duel") return a0.apply(this, arguments);
+  const st0 = F.st, t0 = F.t, ki0 = F.ki, cd0 = F.cd.d, x0 = F.x, z0 = F.z;
+  const r = a0.apply(this, arguments);
+  try {
+    if (a === "frap" && F.st === "att" && F.t === 0 && st0 !== "att" && F.coup !== "proj") {
+      const k = S.coups[(F.combo || 1) - 1]; if (k && k !== F.coup) { const nk = P537_COUPS[k] ? "s_" + k : k; if (P99_COUPS[nk]) { F.coup = nk; F.dur = P99_COUPS[nk].dur; } }
+      F.h537 = 0; const CP = P99_COUPS[F.coup]; if (CP && CP.r > 34) { const O = p99Foe(F), d = Math.hypot(O.x - F.x, O.z - F.z); if (d < CP.r + 4) { F.lunge = 0; F.vx = F.vz = 0; } }
+    }
+    if (a === "dash" && F.st === "dash" && F.t === 0 && (st0 !== "dash" || cd0 <= 0)) p537Dash(C, F, S, x0, z0);
+    if ((a === "ki" || a === "spe") && F.st === "cast" && F.t === 0 && F.ki < ki0) { F.ty537 = a === "spe" ? S.spe : S.ki; F.tir537 = 0; const nm = p537NomTech(F, a === "spe"); if (nm) F.txt = { s: nm, t: 0 }; }
+  } catch (e) { p537Err("action", e); }
+  return r; }; }
+function p537Clamp(F) { F.x = Math.max(-P99A.x + 4, Math.min(P99A.x - 4, F.x)); F.z = Math.max(-P99A.z + 4, Math.min(P99A.z - 4, F.z)); }
+function p537Fum(x, z, n, col) { for (let i = 0; i < n; i++) p99Fx("poussiere", { x: x + (Math.random() - 0.5) * 22, z: z + (Math.random() - 0.5) * 22, vie: 0.6, r: 5 + Math.random() * 4 }); p99Fx("flash", { x, z, y: 12, vie: 0.25, r: 9, col: col || [0.9, 0.9, 0.9] }); }
+function p537Dash(C, F, S, x0, z0) {
+  const O = p99Foe(F), l = Math.hypot(F.vx, F.vz) || 1, ux = F.vx / l, uz = F.vz / l, col = g3Col(F.col), t = S.dash;
+  F.d537 = { t, x0, z0, hit: 0 };
+  if (t === "eclair" || t === "bara") {
+    let tx = F.x + ux * 88, tz = F.z + uz * 88; const dO = Math.hypot(O.x - F.x, O.z - F.z), dot = ((O.x - F.x) * ux + (O.z - F.z) * uz) / (dO || 1);
+    if (dO < 110 && dot > 0.7 && !O.ko) { tx = O.x + ux * 22; tz = O.z + uz * 22; F.cd.d = 0.95; } else F.cd.d = 0.6;   // passe derrière l'adversaire
+    C.clones537 = C.clones537 || []; C.clones537.push({ F, x: F.x, z: F.z, yaw: F.yaw, t: 0, vie: 0.35, a: 0.55 });
+    F.x = tx; F.z = tz; p537Clamp(F); F.vx = F.vz = 0; F.dur = 0.1; F.inv = Math.max(F.inv, 0.3); F.yaw = Math.atan2(O.x - F.x, O.z - F.z);
+    p99Fx("flash", { x: x0, z: z0, y: 12, vie: 0.25, r: 10, col }); p99Fx("flash", { x: F.x, z: F.z, y: 12, vie: 0.2, r: 8, col: [1, 1, 1] });
+    if (t === "bara") for (let i = 0; i < 6; i++) p99Fx("poussiere", { x: x0 + (Math.random() - 0.5) * 16, z: z0 + (Math.random() - 0.5) * 16, vie: 0.4, r: 3 });
+    p99Fx("txt", { x: F.x, z: F.z, y: 40, s: t === "bara" ? "BARA BARA !" : "ZANZOKEN !", col: "#e8f4ff", vie: 0.5 });
+  } else if (t === "elastique") { F.vx *= 1.1; F.vz *= 1.1; F.dur = 0.26; F.cd.d = 0.55; F.inv = Math.max(F.inv, 0.2); }
+  else if (t === "fumee" || t === "brume") { p537Fum(x0, z0, t === "brume" ? 12 : 7, [0.9, 0.95, 1]); F.dur = 0.15; F.cd.d = 0.7; if (t === "brume") { F.inv = Math.max(F.inv, 0.45); C.brume537 = 1.4; }
+    if (S.clone) { C.clones537 = C.clones537 || []; C.clones537 = C.clones537.filter(c => !(c.F === F && c.piege)); C.clones537.push({ F, x: x0, z: z0, yaw: F.yaw, t: 0, vie: 2.4, a: 0.75, piege: 1 }); p99Fx("txt", { x: x0, z: z0, y: 40, s: F.id === "nami" ? "MIRAGE !" : "CLONE !", col: "#ffe8a0", vie: 0.6 }); } }
+  else if (t === "tranche") { F.dur = 0.19; F.cd.d = 0.6; }
+  else if (t === "ivrogne") { F.dur = 0.24; F.vx = F.vx * 0.7 + (-uz) * 140 * (Math.random() < 0.5 ? 1 : -1); F.vz = F.vz * 0.7 + ux * 140; F.inv = Math.max(F.inv, 0.38); F.cd.d = 0.5; }
+  else if (t === "bond" || t === "vol") { F.vy = t === "bond" ? 210 : 120; F.dur = t === "bond" ? 0.34 : 0.32; F.vx *= 0.78; F.vz *= 0.78; F.cd.d = 0.6; F.inv = Math.max(F.inv, 0.25); }
+  else if (t === "charge") { F.vx = ux * 330; F.vz = uz * 330; F.dur = 0.32; F.inv = 0; F.armure537 = 0.45; F.cd.d = 0.9; P99.shake = Math.max(P99.shake, 0.25); p99Fx("txt", { x: F.x, z: F.z, y: 40, s: "CHARGE !", col: "#ffd0a0", vie: 0.5 }); }
+}
+// super-armure (charge) et contre (Full Counter)
+{ const c0 = p99Coup; p99Coup = function (F, O, mult, kb, pop, x, z) {
+  try {
+    if (O && O.contre537 > 0 && F && F !== O && !F.ko) { O.contre537 = 0; p99Fx("txt", { x: O.x, z: O.z, y: O.y + 40, s: "FULL COUNTER !", col: "#d8a0ff", vie: 0.9 }); p99Fx("anneau", { x: O.x, z: O.z, vie: 0.5, r: 60, col: [0.7, 0.4, 1] }); const sv = O.inv; O.inv = 0; F.inv = 0; const r = c0.call(this, O, F, mult * 1.5, Math.max(kb, 220), 80); O.inv = sv; return false; }
+    if (O && O.armure537 > 0 && kb > 0) { const sv = O.st, vx = O.vx, vz = O.vz; const r = c0.call(this, F, O, mult * 0.7, 0, 0, x, z); if (!O.ko) { O.st = sv; O.stun = 0; O.vx = vx; O.vz = vz; O.hurt = 0.1; } return r; }
+  } catch (e) { p537Err("coup", e); }
+  return c0.apply(this, arguments); }; }
+// mise à jour : vitesse propre, frappes des coups propres, dashs, techniques
+{ const m0 = p99Maj; p99Maj = function (C, dt) {
+  const r = m0.apply(this, arguments);
+  try { if (C && C.type === "p99duel") p537Maj(C, Math.min(dt, 0.05)); } catch (e) { p537Err("maj", e); }
+  return r; }; }
+function p537Maj(C, dt) {
+  if (C.dec > 0 || C.clash) return;
+  if (C.brume537 > 0) { C.brume537 -= dt; if (Math.random() < dt * 30) p99Fx("poussiere", { x: (Math.random() - 0.5) * P99A.RX * 1.6, z: (Math.random() - 0.5) * P99A.RZ * 1.6, vie: 0.9, r: 10 + Math.random() * 8 }); }
+  if (C.clones537) { for (const c of C.clones537) { c.t += dt; if (c.piege && !c.mort) { const O = p99Foe(c.F); if (!O.ko && Math.hypot(O.x - c.x, O.z - c.z) < 20) { c.mort = 1; c.t = c.vie; p537Fum(c.x, c.z, 8); if (O.stun <= 0 && O.inv <= 0) { O.st = "hurt"; O.stun = 0.4; O.hurt = 0.2; O.vx = O.vz = 0; p99Fx("txt", { x: O.x, z: O.z, y: O.y + 34, s: "PIÉGÉ !", col: "#ffe080", vie: 0.7 }); } } } }
+    C.clones537 = C.clones537.filter(c => c.t < c.vie); }
+  if (C.zones537) { for (const Z of C.zones537) { Z.t += dt; if (!Z.ok && Z.t >= Z.dl) { Z.ok = 1; p537Frappe(Z); } } C.zones537 = C.zones537.filter(Z => Z.t < Z.dl + 0.6); }
+  if (C.res) return;
+  for (const F of [C.A, C.B]) {
+    const S = p537Sty(F), O = F === C.A ? C.B : C.A; F.armure537 = Math.max(0, (F.armure537 || 0) - dt); F.contre537 = Math.max(0, (F.contre537 || 0) - dt);
+    if (F.contre537 > 0 && Math.random() < dt * 20) p99Fx("flash", { x: F.x, z: F.z, y: 14, vie: 0.2, r: 7, col: [0.6, 0.35, 1] });
+    if (!S || F.ko) continue;
+    // vitesse propre
+    if (F.st === "idle" && F.stun <= 0 && !F.garde && S.dep !== 1) { F.x += F.mx * 104 * (S.dep - 1) * dt * (F.y > 1 ? 0.8 : 1); F.z += F.mz * 104 * (S.dep - 1) * dt * (F.y > 1 ? 0.8 : 1); }
+    // coups propres
+    const CP = F.st === "att" && P99_COUPS[F.coup]; if (CP && CP.hit === 99) {
+      const n = CP.multi || 1; F.h537 = F.h537 || 0;
+      while (F.h537 < n && F.t >= F.dur * CP.h + F.h537 * (CP.gap || 0)) { F.h537++; p537CoupPropre(C, F, O, CP, S); }
+      if (CP.fx === "etire" && F.t < F.dur * 0.8 && F.t > F.dur * 0.25) { const L = Math.min(CP.r, Math.hypot(O.x - F.x, O.z - F.z) + 6); F.bras537 = { L, t: performance.now() }; } }
+    // dashs
+    const D = F.d537; if (D && F.st === "dash") {
+      if (D.t === "elastique" && Math.random() < 0.7) p99Fx("trait", { x: D.x0, z: D.z0, x1: F.x, z1: F.z, vie: 0.12, col: [0.95, 0.75, 0.6] });
+      if ((D.t === "tranche" || D.t === "charge") && !D.hit && !O.ko && Math.hypot(O.x - F.x, O.z - F.z) < 20 && Math.abs(O.y - F.y) < 18) { D.hit = 1;
+        if (D.t === "tranche") { p99Coup(F, O, 0.75 * S.km, 140, 40); p99Fx("anneau", { x: O.x, z: O.z, vie: 0.3, r: 26, col: g3Col(F.col) }); if (S.vol) { O.ki = Math.max(0, O.ki - 12); F.ki = Math.min(100, F.ki + 12); p99Fx("txt", { x: F.x, z: F.z, y: 44, s: "SNATCH ! +12 KI", col: "#ff9090", vie: 0.7 }); } }
+        else { p99Coup(F, O, 1.0 * S.km, 280, 70); F.vx *= 0.2; F.vz *= 0.2; } }
+      if (D.t === "charge" && Math.random() < 0.8) p99Fx("poussiere", { x: F.x, z: F.z, vie: 0.5, r: 5 }); }
+    else if (D && F.st !== "dash") F.d537 = null;
+    // techniques KI / spécial
+    if (F.st === "cast" && F.ty537 && F.tir && !F.tir537) { F.tir537 = 1; p537Tech(C, F, O, F.ty537, F.sup); }
+    if (F.ruee537) { const R = F.ruee537; R.t += dt; const dx = O.x - F.x, dz = O.z - F.z, d = Math.hypot(dx, dz) || 1;
+      if (R.t < 0.34 && !R.hit && !O.ko) { F.st = "dash"; F.t = 0; F.dur = 1; F.vx = dx / d * 520; F.vz = dz / d * 520; F.yaw = Math.atan2(dx, dz); if (Math.random() < 0.8) p99Fx("flash", { x: F.x, z: F.z, y: 13, vie: 0.18, r: 6, col: R.col });
+        if (d < 18) { R.hit = 1; const ok = p99Coup(F, O, R.m, 320, 110); p99Fx("flash", { x: O.x, z: O.z, y: 14, vie: 0.3, r: 10, col: R.col }); p99Fx("anneau", { x: O.x, z: O.z, vie: 0.5, r: 70, col: R.col }); } }
+      else { F.ruee537 = null; F.st = "idle"; F.vx *= 0.2; F.vz *= 0.2; } }
+    if (F.gat537) { const G = F.gat537; G.t += dt; if (G.t >= G.next && G.n < 6) { G.n++; G.next += 0.09; const d = Math.hypot(O.x - F.x, O.z - F.z); F.bras537 = { L: Math.min(70, d + 6), t: performance.now(), g: G.n };
+        if (d < 72 && Math.abs(O.y - F.y) < 18) { const sv = O.inv; if (G.n > 1) O.inv = 0; p99Coup(F, O, G.m, G.n === 6 ? 260 : 40, G.n === 6 ? 90 : 0); if (G.n > 1) O.inv = sv; } }
+      if (G.n >= 6) F.gat537 = null; }
+  }
+}
+function p537Cone(F, O, cone) { const a = Math.atan2(O.x - F.x, O.z - F.z); return Math.abs(angDiff(a, F.yaw)) <= cone; }
+function p537CoupPropre(C, F, O, CP, S) {
+  const d = Math.hypot(O.x - F.x, O.z - F.z), col = g3Col(F.col);
+  if (CP.fx === "lame") p99Fx("anneau", { x: F.x + Math.sin(F.yaw) * 14, z: F.z + Math.cos(F.yaw) * 14, vie: 0.22, r: CP.r * 0.9, col: [1, 1, 1] });
+  if (CP.fx === "psy") p99Fx("flash", { x: F.x + Math.sin(F.yaw) * Math.min(d, CP.r), z: F.z + Math.cos(F.yaw) * Math.min(d, CP.r), y: 14, vie: 0.25, r: 9, col });
+  if (CP.fx === "lourd") { P99.shake = Math.max(P99.shake, 0.3); p99Fx("onde", { x: F.x + Math.sin(F.yaw) * 18, z: F.z + Math.cos(F.yaw) * 18, vie: 0.35, r: 22, col: [1, 0.9, 0.7] }); }
+  if (d > CP.r || Math.abs(O.y - F.y) > 18 || O.ko || !p537Cone(F, O, CP.cone || 1)) return;
+  if (!C.clash && (C.clashCd || 0) <= 0 && O.st === "att" && d < 30 && O.y < 2 && F.y < 2 && !F.out && !O.out && Math.random() < 0.5) { p99ClashDebut(C, F, O); return; }
+  p99Face(F, O); const sv = O.inv; if ((CP.multi || 1) > 1 && F.h537 > 1) O.inv = 0;
+  p99Coup(F, O, CP.m * S.km, CP.kb, CP.pop || 0); if ((CP.multi || 1) > 1 && F.h537 > 1) O.inv = sv;
+  F.vx *= 0.2; F.vz *= 0.2;
+}
+/* techniques : boule / rayon / laser / éventail / zone / foudre / ruée / étirement / gatling / disque / contre */
+function p537Tech(C, F, O, T, sup) {
+  const typ = T[0], hex = T[1], col = g3Col(hex), p = C.proj.length && C.proj[C.proj.length - 1].o === F ? C.proj[C.proj.length - 1] : null, base = sup ? 3.2 : 1.5;
+  const tue = () => { if (p) p.mort = 1, C.proj.pop(); };
+  if (p) p.col = col;
+  if (typ === "boule") { if (p) { p.r *= sup ? 1.25 : 1; } return; }
+  if (typ === "rayon" || typ === "laser") { if (!p) return; const k = typ === "laser" ? 2.3 : 1.7; p.vx *= k; p.vz *= k; p.t = 0.6; p.r = typ === "laser" ? 3.5 : p.r * 1.25; p.mult = base * (typ === "laser" ? 0.95 : 1.05); p.trace537 = 1; return; }
+  if (typ === "disque") { if (!p) return; p.vx *= 0.62; p.vz *= 0.62; p.t = 0.6; p.r = sup ? 13 : 8; p.mult = base * 1.1; p.perce537 = 1; p.disque537 = 1; return; }
+  if (typ === "eventail" || typ === "eventail5") { if (!p) return; const n = typ === "eventail5" ? 5 : 3, sp = Math.hypot(p.vx, p.vz), a0 = Math.atan2(p.vx, p.vz); tue();
+    for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * 0.22; C.proj.push({ o: F, x: F.x + Math.sin(a) * 12, z: F.z + Math.cos(a) * 12, y: F.y + 14, vx: Math.sin(a) * sp * 1.15, vz: Math.cos(a) * sp * 1.15, r: sup ? 7 : 4.5, mult: base * (n === 5 ? 0.34 : 0.52), t: i === (n - 1) >> 1 ? 0 : 0.6, col }); } return; }
+  tue();
+  if (typ === "zone") { const R = sup ? 78 : 52, dx = O.x - F.x, dz = O.z - F.z, d = Math.hypot(dx, dz) || 1, av = Math.min(d, sup ? 50 : 70); (C.zones537 = C.zones537 || []).push({ F, x: F.x + dx / d * av, z: F.z + dz / d * av, t: 0, dl: 0.12, R, m: base * 0.95, col, pop: sup ? 170 : 110, kb: sup ? 360 : 260 }); P99.shake = Math.max(P99.shake, sup ? 0.6 : 0.35); return; }
+  if (typ === "foudre") { const n = sup ? 3 : 1; for (let i = 0; i < n; i++) { const jx = i ? (Math.random() - 0.5) * 40 : 0, jz = i ? (Math.random() - 0.5) * 30 : 0; (C.zones537 = C.zones537 || []).push({ F, x: O.x + jx, z: O.z + jz, t: 0, dl: 0.55 + i * 0.18, R: 24, m: base * (sup ? 0.45 : 1.15), col, pop: 150, kb: 160, ciel: 1 }); } return; }
+  if (typ === "ruee") { F.ruee537 = { t: 0, m: base * 1.05, col }; return; }
+  if (typ === "etire") { const d = Math.hypot(O.x - F.x, O.z - F.z); F.bras537 = { L: Math.min(115, d + 6), t: performance.now() }; if (d < 115 && Math.abs(O.y - F.y) < 18 && p537Cone(F, O, 0.6)) { p99Coup(F, O, base * 1.0, 230, 40); p99Fx("flash", { x: O.x, z: O.z, y: 14, vie: 0.25, r: 7, col }); } return; }
+  if (typ === "gatling") { F.gat537 = { t: 0, next: 0, n: 0, m: base * 0.24 }; return; }
+  if (typ === "contre") { F.contre537 = sup ? 1.4 : 0.9; p99Fx("anneau", { x: F.x, z: F.z, vie: 0.4, r: 30, col }); return; }
+}
+function p537Frappe(Z) {
+  const C = AV.cine; if (!C || C.type !== "p99duel") return; const F = Z.F, O = p99Foe(F);
+  p99Fx("anneau", { x: Z.x, z: Z.z, vie: 0.5, r: Z.R * 1.4, col: Z.col }); p99Fx("flash", { x: Z.x, z: Z.z, y: Z.ciel ? 30 : 8, vie: 0.3, r: Z.R * 0.22, col: Z.col }); p99Fx("onde", { x: Z.x, z: Z.z, vie: 0.5, r: Z.R, col: Z.col });
+  if (Z.ciel) { for (let k = 0; k < 6; k++) p99Fx("flash", { x: Z.x + (Math.random() - 0.5) * 6, z: Z.z, y: 10 + k * 12, vie: 0.25, r: 6, col: [1, 1, 1] }); P99.shake = Math.max(P99.shake, 0.4); p99Son("boum"); }
+  if (!O.ko && Math.hypot(O.x - Z.x, O.z - Z.z) < Z.R && O.y < 30) p99Coup(F, O, Z.m, Z.kb, Z.pop, Z.x, Z.z);
+}
+// projectiles : les disques percent la garde ; traînées
+{ const c1 = p99Coup; p99Coup = function (F, O, mult, kb, pop, x, z) { if (P537.perce && O && O.garde) { const g = O.garde; O.garde = false; try { return c1.apply(this, arguments); } finally { O.garde = g; } } return c1.apply(this, arguments); }; }
+{ const m1 = p99Maj; p99Maj = function (C, dt) { let pc = null; try { if (C && C.proj) pc = C.proj.filter(p => p.perce537); } catch (_) { }
+  if (pc && pc.length) { const A = C.A, B = C.B; P537.perce = 0; for (const p of pc) { const O = p.o === A ? B : A; if (Math.hypot(O.x - p.x, O.z - p.z) < p.r + 12) P537.perce = 1; } }
+  try { return m1.apply(this, arguments); } finally { P537.perce = 0; try { if (C && C.proj) for (const p of C.proj) if ((p.trace537 || p.disque537) && Math.random() < 0.7) p99Fx("trait", { x: p.x - p.vx * 0.06, z: p.z - p.vz * 0.06, x1: p.x, z1: p.z, vie: 0.15, col: p.col }); } catch (_) { } } }; }
+/* rendu 3D : clones (images rémanentes / clone piège), bras élastiques, marqueurs de foudre, aura du contre */
+{ const f0 = e3Figure; e3Figure = function (P, spiky, body, o) {
+  const r = f0.apply(this, arguments);
+  try { const C = AV.cine; if (C && C.type === "p99duel" && o && o.p92 && !P537.dans) { P537.dans = 1; try { p537D3(C, P, spiky, body, o); } finally { P537.dans = 0; } } } catch (e) { p537Err("d3", e); }
+  return r; }; }
+function p537D3(C, P, spiky, body, o) {
+  const bx = body[12], bz = body[14], dA = Math.hypot(C.A.x - bx, C.A.z - bz), dB = Math.hypot(C.B.x - bx, C.B.z - bz), F = dA <= dB ? C.A : C.B; if (Math.min(dA, dB) > 6) return;
+  const FY = P99A.FY, sc = 1.12 * 1.3;
+  for (const c of (C.clones537 || [])) if (c.F === F) { const u = c.t / c.vie, B = M4.trs(c.x, FY, c.z, c.yaw, 0, 0, sc, sc, sc); f0Clone(P, spiky, B, c.piege ? [1, 1, 1, 0] : [0.7, 0.85, 1, 0.45 + 0.4 * u]); }
+  if (F.bras537 && performance.now() - F.bras537.t < 90) { const L = F.bras537.L, k = F.bras537.g ? ((F.bras537.g % 3) - 1) * 5 : 0, ux = Math.sin(F.yaw), uz = Math.cos(F.yaw), sx = F.x - uz * k, sz = F.z + ux * k;
+    for (let i = 1; i <= 7; i++) e3Lueur(sx + ux * L * i / 7, FY + 15 + F.y, sz + uz * L * i / 7, 2.4, [0.98, 0.78, 0.62], 0.55); e3Lueur(sx + ux * L, FY + 15 + F.y, sz + uz * L, 5, [1, 0.9, 0.75], 0.9); }
+  for (const Z of (C.zones537 || [])) if (Z.F === F && !Z.ok) { const u = Z.t / Z.dl; e3Lueur(Z.x, FY + 1, Z.z, Z.R * (0.4 + 0.6 * u), Z.col, 0.25 + 0.3 * u); if (Z.ciel) e3Lueur(Z.x, FY + 60, Z.z, 8, Z.col, 0.4 * u); }
+  if (F.contre537 > 0) e3Lueur(F.x, FY + 14 + F.y, F.z, 16, [0.6, 0.35, 1], 0.35);
+  if (F.armure537 > 0) e3Lueur(F.x, FY + 14 + F.y, F.z, 14, [1, 0.6, 0.3], 0.3);
+}
+function f0Clone(P, spiky, B, tint) { try { const id = V41.curId; e3Figure(P, spiky, B, { p92: 1, sw: 0, att: 0, tint: tint[3] > 0 ? tint : null, hero: false }); V41.curId = id; } catch (_) { } }
+/* rendu 2D (sans WebGL) : mêmes repères */
+{ const d0 = p99D2; p99D2 = function (C, W, H, dpr, now) {
+  const r = d0.apply(this, arguments);
+  try { if (r && r.X) p537D2(C, r, dpr); } catch (e) { p537Err("d2", e); }
+  return r; }; }
+function p537D2(C, V, dpr) {
+  const X = V.X, Y = V.Y, sc = V.sc; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const c of (C.clones537 || [])) { let im = null; try { im = c.F.sprite(0); } catch (_) { } if (!im) continue; const h = 40 * sc, w = h * im.width / im.height; ctx.globalAlpha = c.piege ? 0.9 : 0.4 * (1 - c.t / c.vie); ctx.drawImage(im, X(c.x) - w / 2, Y(c.z) - h, w, h); }
+  ctx.globalAlpha = 1;
+  for (const F of [C.A, C.B]) { if (F.bras537 && performance.now() - F.bras537.t < 90) { const L = F.bras537.L; ctx.strokeStyle = "#f2c49a"; ctx.lineWidth = 4 * sc; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X(F.x), Y(F.z) - (F.y + 15) * sc); ctx.lineTo(X(F.x + Math.sin(F.yaw) * L), Y(F.z + Math.cos(F.yaw) * L) - (F.y + 15) * sc); ctx.stroke(); }
+    if (F.contre537 > 0 || F.armure537 > 0) { ctx.strokeStyle = F.contre537 > 0 ? "rgba(170,110,255,.8)" : "rgba(255,160,80,.8)"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.ellipse(X(F.x), Y(F.z) - 20 * sc, 16 * sc, 24 * sc, 0, 0, 6.29); ctx.stroke(); } }
+  for (const Z of (C.zones537 || [])) if (!Z.ok) { const u = Z.t / Z.dl; ctx.strokeStyle = `rgba(${Z.col.map(v => Math.round(v * 255)).join(",")},${0.4 + 0.5 * u})`; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.ellipse(X(Z.x), Y(Z.z), Z.R * sc, Z.R * sc * 0.82, 0, 0, 6.29); ctx.stroke(); }
+  for (const p of C.proj) { ctx.fillStyle = `rgb(${(p.col || [1, 1, 1]).map(v => Math.round(v * 255)).join(",")})`; ctx.beginPath(); ctx.arc(X(p.x), Y(p.z) - p.y * sc, p.r * sc * 0.7, 0, 6.29); ctx.fill(); }
+  ctx.restore();
+}
+/* bandeau du style au début du combat */
+{ const l0 = p99Lancer; p99Lancer = function (opt) { const r = l0.apply(this, arguments); try { const C = AV.cine; if (r && C && C.type === "p99duel") { const S = p537Sty(C.A); if (S) C.A.txt = { s: "Style : " + (P537_DASH_NOM[S.dash] || "") , t: -1.5 }; } } catch (e) { p537Err("lancer", e); } return r; }; }
+
+
+/* ===== v53.7 — déplacements propres à chaque héros (mêmes commandes, même vitesse) :
+   Sangoku pas d'art martial, Luffy démarche élastique qui rebondit, Naruto course ninja + images rémanentes, Meliodas nonchalant,
+   Théo sprint énergique, Krilin petits pas rapides, Zoro main sur les sabres, Kakashi mains dans les poches, Tortue Géniale voûté… ===== */
+{ const l0 = v41Loco; v41Loco = function (J, H, now, jump, S) {
+  const r = l0.apply(this, arguments);
+  try { if (!jump && S && S.id) p537Loco(J, H, now, S); } catch (e) { p537Err("loco", e); }
+  return r; }; }
+function p537Loco(J, H, now, S) {
+  const mv = H.mv || 0, ph = H.ph || 0, s = Math.sin(ph), c = Math.cos(ph), run = Math.min(1, Math.max(0, (H.sp || 0) - 70) / 60), m = mv;
+  switch (S.id) {
+    case "sangoku": case "krilin": // poings fermés près du corps, genoux hauts
+      J.aR = [-s * 0.45 * m - 0.35 * m, 0.16, 0.12, -1.35 * m - 0.25]; J.aL = [s * 0.45 * m - 0.35 * m, 0.16, 0.12, -1.35 * m - 0.25];
+      J.lR[2] += Math.max(0, -c) * 0.55 * m; J.lL[2] += Math.max(0, c) * 0.55 * m; J.tp += 0.08 * m * (1 + run); if (S.id === "krilin") J.by -= 0.2 * m; break;
+    case "luffy": { // rebond élastique, bras ballants qui s'étirent un peu
+      const hop = Math.abs(Math.sin(ph)) * m; J.lift = (J.lift || 0) + hop * (1.6 + run * 1.2); J.by += hop * 0.3;
+      J.aR = [-s * 0.9 * m, 0.45 * m + 0.12, 0.1, -0.25 - 0.2 * m]; J.aL = [s * 0.9 * m, 0.45 * m + 0.12, 0.1, -0.25 - 0.2 * m];
+      J.sR = 1 + Math.max(0, s) * 0.22 * m; J.sL = 1 + Math.max(0, -s) * 0.22 * m; J.hy += s * 0.12 * m; J.tr = (J.tr || 0) + s * 0.08 * m; break; }
+    case "naruto": if (m > 0.3) { J.aR = [1.15, 0.3, 0, -0.15]; J.aL = [1.15, 0.3, 0, -0.15]; J.tp = 0.3 + 0.12 * run; J.hp = -0.18; } break; // course ninja dès qu'il trottine
+    case "meliodas": // nonchalant : une main derrière la tête, épaules qui roulent
+      J.aL = [-2.6 * Math.max(0.35, m), 0.9, -0.6, -1.9]; J.aR = [-s * 0.35 * m, 0.14, 0.05, -0.35]; J.tr = (J.tr || 0) + s * 0.07 * m; J.tp = 0.02 + 0.06 * m; break;
+    case "theo": J.aR[3] -= 0.4 * m; J.aL[3] -= 0.4 * m; J.aR[0] *= 1.25; J.aL[0] *= 1.25; J.lift = (J.lift || 0) + Math.abs(s) * 0.6 * m; break; // sprint énergique
+    case "zoro": J.aL = [0.15, 0.35, 0.35, -1.3]; J.tr = (J.tr || 0) + s * 0.05 * m; J.tp = 0.02 + 0.04 * m; break; // main gauche sur les sabres
+    case "kakashi": J.aR = [0.12, 0.2, -0.1, -0.7]; J.aL = [0.12, 0.2, -0.1, -0.7]; J.tp = 0.12; J.hp = 0.14; break; // mains dans les poches, dos rond
+    case "tortue": J.tp = 0.28; J.hp = -0.2; J.aL = [0.5, 0.2, 0.3, -1.6]; J.lR[0] *= 0.6; J.lL[0] *= 0.6; break; // voûté, main dans le dos
+    case "tao": J.aR = [-s * 0.25 * m, 0.08, 0, -0.08]; J.aL = [s * 0.25 * m, 0.08, 0, -0.08]; J.tp = -0.04; J.lR[2] *= 0.4; J.lL[2] *= 0.4; break; // raide, militaire
+    case "nami": case "sakura": J.lift = (J.lift || 0) + Math.abs(s) * 0.8 * m; J.hy += s * 0.06 * m; break; // pas légers
+    case "zabuza": J.tp = 0.16; J.aR[0] *= 0.5; J.aL[0] *= 0.5; break; // lourd, épée dans le dos
+    case "baggy": J.aR = [-s * 1.2 * m - 0.3, 0.6, 0.2, -0.6]; J.aL = [s * 1.2 * m - 0.3, 0.6, 0.2, -0.6]; J.lift = (J.lift || 0) + Math.abs(s) * 1.0 * m; break; // sautille en paradant
+  }
+}
+/* 2D : mêmes signatures visibles (rebond de Luffy, clones rémanents de Naruto, traits de vitesse de Sangoku, roulis de Meliodas) */
+const P537L = { hist: [], t: 0 };
+{ const d0 = perso.dessiner; perso.dessiner = function (alpha) {
+  let id = null; try { id = typeof v41Id === "function" ? v41Id() : null; } catch (_) { }
+  if (!id || !this.bouge || this.att || this.kame || this.ko || alpha !== undefined && alpha < 1) return d0.apply(this, arguments);
+  const now = performance.now() / 1000;
+  try {
+    const e = camera.echelle(), k = Math.max(1, e), o = camera.origine(e);
+    const H = P537L.hist; if (!H.length || now - H[H.length - 1].t > 0.05) { H.push({ t: now, x: this.x, y: this.y }); if (H.length > 8) H.shift(); }
+    if (id === "naruto" && this.court) { const { img, ox, oy } = this.image(); for (const i of [2, 5]) { const q = H[H.length - 1 - i]; if (!q || now - q.t > 0.5) continue; ctx.save(); ctx.globalAlpha = 0.28; ctx.filter = "sepia(1) saturate(3) hue-rotate(-15deg)"; ctx.drawImage(img, Math.round((q.x - o.x) * e - ox * k), Math.round((q.y - o.y) * e - oy * k), img.width * k, img.height * k); ctx.restore(); } }
+    if ((id === "sangoku" || id === "krilin") && this.court) { const q = H[0]; if (q) { const dx = this.x - q.x, dy = this.y - q.y, l = Math.hypot(dx, dy); if (l > 8) { ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = Math.max(1, k * 0.8); for (let i = -1; i <= 1; i++) { const px = -dy / l * i * 6, py = dx / l * i * 6, sx = (this.x - o.x) * e + px * e, sy = (this.y - 10 - o.y) * e + py * e; ctx.beginPath(); ctx.moveTo(sx - dx / l * 10 * e, sy - dy / l * 10 * e); ctx.lineTo(sx - dx / l * 26 * e, sy - dy / l * 26 * e); ctx.stroke(); } ctx.restore(); } } }
+  } catch (e) { p537Err("d2pre", e); }
+  if (id === "luffy") { const hop = Math.abs(Math.sin(now * (this.court ? 14 : 10))) * (this.court ? 5 : 3.5), y0 = this.y; this.y -= hop; try { return d0.apply(this, arguments); } finally { this.y = y0; } }
+  if (id === "meliodas") { const e = camera.echelle(), o = camera.origine(e), sx = (this.x - o.x) * e, sy = (this.y - o.y) * e; ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.sin(now * 9) * 0.06); ctx.translate(-sx, -sy); try { return d0.apply(this, arguments); } finally { ctx.restore(); } }
+  return d0.apply(this, arguments); }; }
+
+// v53.7 : boutons ronds uniquement (le canvas d'attaque était rond à l'œil mais carré au toucher/contour)
+try{ (function(){ const st=document.createElement('style'); st.textContent='#attaque{border-radius:50% !important;overflow:hidden}'; document.head.appendChild(st); })(); }catch(e){ try{ P537.err=(P537.err||0)+1; }catch(_){} }
 
 </script>
 </body>
