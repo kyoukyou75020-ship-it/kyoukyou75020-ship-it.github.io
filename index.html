@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.7", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.8", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -44607,6 +44607,456 @@ const P537L = { hist: [], t: 0 };
 
 // v53.7 : boutons ronds uniquement (le canvas d'attaque était rond à l'œil mais carré au toucher/contour)
 try{ (function(){ const st=document.createElement('style'); st.textContent='#attaque{border-radius:50% !important;overflow:hidden}'; document.head.appendChild(st); })(); }catch(e){ try{ P537.err=(P537.err||0)+1; }catch(_){} }
+
+
+/* =====================================================================
+   v53.8 — MOYENS DE TRANSPORT (un par monde + voyage rapide)
+   - Sangoku : nuage magique (quête de Karine, existant) via le bouton rond
+   - Grand Line : Vogue Merry (existant) + barques de pêcheurs entre îles visitées
+   - Pokémon : voler sur un Pokémon de type Vol (niv. 18+) de l'équipe
+   - Konoha : invoquer le crapaud Gamakichi (quête de l'Ermite des Crapauds)
+   - Britannia : cheval (acheté) ; voyage rapide = Boar Hat de Hawk Mama
+   - voyage rapide : seulement vers les lieux découverts, débloqué par la progression
+   Un seul bouton rond (monter / descendre), pas d'accélérateur ni d'auto.
+   ===================================================================== */
+const T538 = { on: null, err: [], ph: 0, mv: 0, t: 0, conf: 0, mir: false, mesh: null, pk: null, pose: 0, aut: 0, tPous: 0, seat3: 14, el: null, sig: "" };
+function t538Err(w, e) { if (T538.err.length < 12) T538.err.push(w + ": " + (e && e.message || e)); try { console.warn("t538", w, e); } catch (_) { } }
+try { if (!AV.t538) AV.t538 = { ch: 0 }; } catch (_) { }
+const T538_DEF = {
+  nuage: { id: "nuage", w: 1, ic: "☁", nom: "Nuage magique", ext: 1, col: "#d89a1a" },
+  barque: { id: "barque", w: 2, ic: "🚣", nom: "Barque", ext: 1, col: "#2a6aa8", prix: 15 },
+  pkvol: { id: "pkvol", w: 3, ic: "🪽", nom: "Vol", type: "vol", vit: 2.2, col: "#3a8ad8" },
+  crapaud: { id: "crapaud", w: 4, ic: "🐸", nom: "Gamakichi", type: "sol", vit: 1.6, col: "#d86a22" },
+  cheval: { id: "cheval", w: 5, ic: "🐎", nom: "Cheval", type: "sol", vit: 1.8, col: "#8a5a32", prix: 250 },
+};
+function t538W() { return (typeof AV !== "undefined" && AV.monde) || 1; }
+function t538Def() {
+  const w = t538W();
+  try {
+    if (w === 1) return luffyActif() || AV.nav ? null : T538_DEF.nuage;
+    if (w === 2) return ILE.dedans && jeu.scene && jeu.scene.ile ? T538_DEF.barque : null;
+    if (w === 3) return T538_DEF.pkvol; if (w === 4) return T538_DEF.crapaud; if (w === 5) return T538_DEF.cheval;
+  } catch (_) { }
+  return null;
+}
+function t538PkVol() {
+  try { let b = null; for (const P of PK.equipe || []) { const E = PK_ESP[P.e]; if (E && E[1].includes("vol") && (P.n | 0) >= 18 && (!b || P.n > b.n)) b = P; } return b; } catch (_) { return null; }
+}
+function t538IlesVues() { try { return ILES.filter(I => ILE.vis[I.id]); } catch (_) { return []; } }
+function t538Etat(D) {
+  if (!D) return { ok: false, why: "" };
+  if (D.id === "nuage") return AV.nuage && AV.nuage.debloque ? { ok: true } : { ok: false, why: "🔒 Le nuage magique se mérite : monte voir Karine au sommet de sa tour (niveau 5 et 3 missions réussies)." };
+  if (D.id === "barque") return t538IlesVues().length >= 2 ? { ok: true } : { ok: false, why: "🔒 Les barques de pêcheurs relient les îles déjà visitées : explore au moins deux îles." };
+  if (D.id === "pkvol") { const P = t538PkVol(); return P ? { ok: true, P } : { ok: false, why: "🔒 Pour voler, il faut un Pokémon de type Vol niveau 18 ou plus dans ton équipe (Roucoups, Dracaufeu…)." }; }
+  if (D.id === "crapaud") { let ok = false; try { ok = !!(KN.q && KN.q.B2 && KN.q.B2.st === "fini"); } catch (_) { } return ok ? { ok: true } : { ok: false, why: "🔒 Termine la quête « L'Ermite des Crapauds » (près de la cascade) pour invoquer Gamakichi." }; }
+  if (D.id === "cheval") return AV.t538 && AV.t538.ch ? { ok: true } : { ok: false, achat: D.prix, why: "" };
+  return { ok: false, why: "" };
+}
+function t538Niveau() { let n = 1; try { n = Math.max(n, prog.niveau | 0); } catch (_) { } for (const f of [() => PK.niv, () => KN.niv, () => BR.niv]) { try { n = Math.max(n, f() | 0); } catch (_) { } } return n; }
+function t538Voyage() {
+  if (t538W() === 5) { let ok = false; try { ok = !!(BR.q.elizabeth && BR.q.elizabeth.st === "fini"); } catch (_) { } return ok ? { ok: true } : { ok: false, why: "🔒 Le Boar Hat de Hawk Mama te transportera de lieu en lieu une fois Elizabeth sauvée." }; }
+  return t538Niveau() >= 3 ? { ok: true } : { ok: false, why: "🔒 Le voyage rapide se débloque au niveau 3." };
+}
+function t538Peut() { return !!(jeu && jeu.persoPret !== false && !AV.cine && !jeu.transition && !perso.ko && jeu.scene === sceneMonde && !AV.nav && !(typeof PK !== "undefined" && PK.combat)); }
+
+/* ---------- collisions ---------- */
+const t538Lib0 = perso.libre;
+function t538Libre0(x, y) { return t538Lib0.call(perso, x, y); }
+perso.libre = function (x, y) {
+  const D = T538.on && T538_DEF[T538.on];
+  if (D && D.type === "vol" && jeu.scene === sceneMonde) {
+    if (!(x > 12 && y > 12 && x < MPX() - 12 && y < MPX() - 12)) return false;
+    try { if (t538W() === 3) { const z = pkZoneA(x, y); if (z && !pkZoneOuverte(z)) return false; } } catch (_) { }
+    try { if (niveauMonde(x, y) >= NIV.NEIGE && niveauMonde(this.x, this.y) < NIV.NEIGE) return false; } catch (_) { }
+    return true;
+  }
+  return t538Lib0.call(this, x, y);
+};
+{
+  const mj = perso.mettreAJour;
+  perso.mettreAJour = function (dt, vx, vy) {
+    const D = T538.on && T538_DEF[T538.on];
+    if (D && !AV.nav && jeu.scene === sceneMonde) { const v0 = CONFIG.VITESSE_PERSO; CONFIG.VITESSE_PERSO = v0 * D.vit; try { return mj.call(this, dt, vx, vy); } finally { CONFIG.VITESSE_PERSO = v0; } }
+    return mj.call(this, dt, vx, vy);
+  };
+  const bl = perso.blesser;
+  perso.blesser = function () { const D = T538.on && T538_DEF[T538.on]; if (D && D.type === "vol") return false; return bl.apply(this, arguments); };
+  if (typeof p76Saut === "function") { const ps = p76Saut; p76Saut = function () { if (T538.on) return; return ps.apply(this, arguments); }; }
+}
+
+/* ---------- monter / descendre ---------- */
+function t538Monter(D) {
+  if (!t538Peut()) { messageInfo("Monte dehors, quand tout est calme !"); return false; }
+  if (AV.nuageActif) finNuage(true);
+  if (D.type === "sol" && !t538Libre0(perso.x, perso.y)) { messageInfo("Pas assez de place ici !"); return false; }
+  const E = t538Etat(D); if (!E.ok) return false;
+  T538.on = D.id; T538.t = 0; T538.mv = 0; T538.pk = E.P ? E.P.e : null;
+  perso.att = null; perso.kame = null;
+  try {
+    if (D.id === "crapaud") { fumee(perso.x, perso.y - 6); fumee(perso.x + 10, perso.y); son.jouer("orbe"); messageInfo("Kuchiyose ! Gamakichi arrive dans un nuage de fumée !"); }
+    else if (D.id === "cheval") { poussiere(perso.x, perso.y); son.jouer("clic"); messageInfo("🐎 En selle !"); }
+    else { poussiere(perso.x, perso.y); son.jouer("nuage"); messageInfo("🪽 " + pkNom(T538.pk) + " t'emporte dans les airs !"); }
+  } catch (e) { t538Err("monter", e); }
+  t538MajBouton(true); return true;
+}
+function t538Descendre(force) {
+  const D = T538.on && T538_DEF[T538.on]; if (!D) { T538.on = null; return true; }
+  if (D.type === "vol") {
+    let p = null;
+    try { if (solMonde(perso.x, perso.y) && t538Libre0(perso.x, perso.y)) p = { x: perso.x, y: perso.y }; } catch (_) { }
+    if (!p) { const q = chercherSol(perso.x, perso.y, force ? 700 : 60, 4); if (q && (force || t538Libre0(q.x, q.y))) p = q; }
+    if (!p) { if (!force) { messageInfo("Impossible d'atterrir ici : survole la terre ferme !"); return false; } p = { x: perso.x, y: perso.y }; }
+    perso.x = p.x; perso.y = p.y;
+  }
+  T538.on = null; T538.pk = null;
+  try { if (D.id === "crapaud") fumee(perso.x, perso.y - 6); else poussiere(perso.x, perso.y); if (!force) son.jouer("clic"); } catch (_) { }
+  try { if (typeof placerSuiveur === "function" && t538W() === 1) placerSuiveur(); } catch (_) { }
+  t538MajBouton(true); return true;
+}
+function t538Bouton() {
+  const D = t538Def(); if (!D) return;
+  const E = t538Etat(D);
+  if (D.id === "nuage") { if (AV.nuageActif) return finNuage(); if (!E.ok) return messageInfo(E.why); return appelerNuage(); }
+  if (D.id === "barque") { if (!E.ok) return messageInfo(E.why); return t538Barque(); }
+  if (T538.on) return t538Descendre(false);
+  if (!E.ok) {
+    if (E.achat) {
+      const now = performance.now() / 1000, prix = E.achat, a = prog.argent | 0;
+      if (a < prix) { messageInfo(`🔒 Un cheval coûte ${prix} Z (tu as ${a} Z). Gagne de l'argent avec les quêtes !`); return; }
+      if (T538.conf > now) { prog.argent = a - prix; AV.t538.ch = 1; T538.conf = 0; try { son.jouer("fanfare"); } catch (_) { } messageInfo("🐎 Cheval acheté ! Le bouton rond te fait monter et descendre."); try { sauvegarder(false); } catch (_) { } t538MajBouton(true); return; }
+      T538.conf = now + 4; messageInfo(`🐎 Acheter un cheval pour ${prix} Z ? Touche encore le bouton pour confirmer.`); return;
+    }
+    return messageInfo(E.why);
+  }
+  t538Monter(D);
+}
+
+/* ---------- barques entre les îles visitées ---------- */
+function t538Barque() {
+  const L = t538IlesVues().filter(I => I.id !== ILE.dedans); if (!L.length) { messageInfo("Aucune autre île visitée pour l'instant."); return; }
+  let P = document.getElementById("t538P");
+  if (!P) { P = document.createElement("div"); P.id = "t538P"; document.body.appendChild(P);
+    P.addEventListener("pointerdown", e => { e.stopPropagation(); const b = e.target.closest("button[data-i]"); if (!b) { if (e.target === P) P.hidden = true; return; } e.preventDefault(); const id = b.dataset.i; P.hidden = true; if (id === "x") return; t538AllerIle(id); }); }
+  const pr = T538_DEF.barque.prix;
+  P.innerHTML = `<div class="c"><div class="t">🚣 Barques de pêcheurs</div><div class="s">Traversée : ${pr} Z</div><div class="g">${L.map(I => `<div class="o"><button data-i="${I.id}" aria-label="${I.nom}">🏝</button><span>${String(I.nom).toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())}</span></div>`).join("")}</div><div class="o"><button data-i="x" class="x" aria-label="Fermer">✖</button></div></div>`;
+  P.hidden = false;
+}
+function t538AllerIle(id) {
+  const I = ILES.find(i => i.id === id); if (!I) return;
+  const pr = T538_DEF.barque.prix, a = prog.argent | 0;
+  if (a < pr) { messageInfo(`Il faut ${pr} Z pour la traversée.`); return; }
+  if (jeu.transition || AV.cine) return;
+  prog.argent = a - pr; messageInfo("🚣 Les pêcheurs t'emmènent à " + I.nom + " !");
+  try { ilAccoster(I); } catch (e) { t538Err("barque", e); }
+}
+
+/* ---------- voyage rapide : lieux découverts seulement ---------- */
+if (typeof p98Action === "function") {
+  const pa = p98Action;
+  p98Action = function (a) {
+    if (a !== "aller") return pa.apply(this, arguments);
+    const q = P98.fiche;
+    if (q && q.libre) { messageInfo("Le voyage rapide mène seulement à un lieu découvert : touche un lieu connu sur la carte."); return; }
+    try { if (q && q.ty === "ile" && /^M/.test(q.id || "") && !ILE.vis[q.id.slice(1)]) { messageInfo("Île pas encore visitée : va l'explorer en bateau !"); return; } } catch (_) { }
+    const E = t538Voyage(); if (!E.ok) { messageInfo(E.why); return; }
+    T538.aut = 1; try { return pa.apply(this, arguments); } finally { T538.aut = 0; }
+  };
+}
+if (typeof p98Fiche === "function") {
+  const pf = p98Fiche;
+  p98Fiche = function (q) {
+    const r = pf.apply(this, arguments);
+    try { if (q) { const b = P98.ui && P98.ui.querySelector('.p98f [data-p98="aller"]'); if (b) { const E = t538Voyage(); if (q.libre) { b.className = "g"; b.textContent = "🔒 Lieu inconnu"; } else if (!E.ok && q.dec !== false) { b.className = "g"; b.textContent = "🔒 Voyage rapide"; } } } } catch (e) { t538Err("fiche", e); }
+    return r;
+  };
+}
+{
+  const tp = teleporter;
+  teleporter = function (mx, my) {
+    if (!T538.aut) { messageInfo("Le voyage rapide se fait depuis la carte, vers un lieu découvert."); try { grandeCarte.fermer(); } catch (_) { } return false; }
+    if (T538.on) t538Descendre(true);
+    const r = tp.apply(this, arguments);
+    if (r && t538W() === 5) setTimeout(() => { try { messageInfo("🐷 Hawk Mama porte le Boar Hat jusqu'ici. Bwaah !"); } catch (_) { } }, 300);
+    return r;
+  };
+}
+
+/* ---------- bouton rond ---------- */
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `#t538B { position: fixed; z-index: 5; left: var(--x, -200px); top: var(--y, -200px); width: var(--w, 58px); height: var(--w, 58px); transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid rgba(255,244,210,.92);
+    background-image: radial-gradient(circle at 34% 26%, rgba(255,255,255,.38), rgba(255,255,255,0) 58%); box-shadow: 0 3px 9px rgba(0,0,0,.55), inset 0 -5px 0 rgba(0,0,0,.28); color: #fff; padding: 0; margin: 0;
+    display: none; flex-direction: column; align-items: center; justify-content: center; font: bold 24px system-ui, sans-serif; line-height: 1; touch-action: none; -webkit-tap-highlight-color: transparent; overflow: hidden; box-sizing: border-box; }
+  #t538B.on538 { display: flex; } #t538B.lock { filter: grayscale(.75) brightness(.8); } #t538B.monte { box-shadow: 0 0 10px 3px rgba(255,230,120,.75), inset 0 -5px 0 rgba(0,0,0,.28); }
+  #t538B small { font-size: 9px; margin-top: 2px; letter-spacing: 0; white-space: nowrap; text-shadow: 1px 1px 0 #000; }
+  #t538B:active { filter: brightness(1.25); }
+  [data-p98="tele"], .teleCarte { display: none !important; }
+  body.m538 #btnSaut { display: none !important; }
+  body.accueil #t538B, body.cine #t538B, body.traverse #t538B, body.tbcombat #t538B, body.p98ouv #t538B { visibility: hidden !important; }
+  body.p77 #actionAv { width: 60px !important; height: 60px !important; min-width: 0 !important; border-radius: 50% !important; padding: 0 !important; flex-direction: column; font: bold 22px system-ui, sans-serif !important; line-height: 1; white-space: nowrap; }
+  body.p77 #actionAv small { font-size: 9px; margin-top: 2px; letter-spacing: 0; text-shadow: 1px 1px 0 #000; max-width: 56px; overflow: hidden; }
+  #t538P { position: fixed; inset: 0; z-index: 60; background: rgba(8,10,20,.55); display: flex; align-items: center; justify-content: center; }
+  #t538P[hidden] { display: none; }
+  #t538P .c { background: #1c2a3e; border: 3px solid #e8d8a8; border-radius: 18px; padding: 14px 16px; color: #fff; font: 14px system-ui, sans-serif; text-align: center; max-width: 92vw; }
+  #t538P .t { font-weight: bold; font-size: 17px; } #t538P .s { opacity: .8; margin: 2px 0 10px; }
+  #t538P .g { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 10px; }
+  #t538P .o { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 84px; font-size: 11px; }
+  #t538P button { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,244,210,.92); background: #2a6aa8; color: #fff; font-size: 26px; padding: 0; touch-action: none; }
+  #t538P button.x { width: 44px; height: 44px; font-size: 18px; background: #6a2a2a; }`;
+  document.head.appendChild(st);
+  const b = document.createElement("button"); b.id = "t538B"; b.type = "button"; b.innerHTML = "<span></span><small></small>"; document.body.appendChild(b); T538.el = b;
+  b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); try { t538Bouton(); } catch (er) { t538Err("bouton", er); } t538MajBouton(true); });
+  b.addEventListener("click", e => e.preventDefault());
+})();
+function t538Visible() {
+  try {
+    const D = t538Def(); if (!D || !jeu || AV.cine || jeu.transition || jeu.pause) return null;
+    if (typeof PK !== "undefined" && PK.combat) return null;
+    if (D.id === "barque") return D;
+    if (jeu.scene !== sceneMonde || AV.nav) return null;
+    return D;
+  } catch (_) { return null; }
+}
+function t538MajBouton(force) {
+  const b = T538.el; if (!b) return;
+  const D = t538Visible();
+  if (!D) { if (b.classList.contains("on538")) b.classList.remove("on538"); if (!T538.on) document.body.classList.remove("m538"); T538.sig = ""; return; }
+  const E = t538Etat(D), on = D.id === "nuage" ? !!AV.nuageActif : D.id === "barque" ? false : !!T538.on;
+  const ic = on ? "⬇" : D.ic, lb = on ? "DESCENDRE" : !E.ok ? (E.achat ? E.achat + " " + monnaie().court : "🔒") : D.id === "barque" ? "BARQUE" : D.id === "nuage" ? "NUAGE" : D.id === "pkvol" ? "VOLER" : "MONTER";
+  const sig = D.id + "|" + ic + "|" + lb + "|" + (E.ok ? 1 : 0) + "|" + on;
+  if (sig !== T538.sig || force) {
+    T538.sig = sig; b.querySelector("span").textContent = ic; b.querySelector("small").textContent = lb;
+    b.style.backgroundColor = on ? "#b83a3a" : D.col; b.classList.toggle("lock", !E.ok); b.classList.toggle("monte", on); document.body.classList.toggle("m538", !!T538.on);
+    const ti = on ? "Descendre" : E.ok ? D.nom : D.nom + " (verrouillé)"; b.title = ti; b.setAttribute("aria-label", ti);
+  }
+  if (!b.classList.contains("on538")) { b.classList.add("on538"); }
+}
+function t538Placer() {
+  const b = T538.el; if (!b || !b.classList.contains("on538")) return;
+  const A = document.getElementById("attaque"); const ra = A && A.getBoundingClientRect();
+  const D = l77D(), sz = D.ctx, W = innerWidth, H = innerHeight;
+  let AC, ar;
+  if (ra && ra.width > 4) { AC = { x: ra.left + ra.width / 2, y: ra.top + ra.height / 2 }; ar = ra.width / 2; } else { AC = { x: D.left ? D.sl + D.mx + D.att / 2 : W - D.mx - D.att / 2, y: H - D.mb - D.att / 2 }; ar = D.att / 2; }
+  const sg = D.left ? -1 : 1, L = [];
+  for (const el of document.querySelectorAll("#attaque,#btnSaut,#actionAv,#special,#padCombat button,#p77Cyc,#btnMenuRapide,#minicarte,#knJutsus button,#btnPkSac,#sac,#j2pad,#j2act button,.btnBasAv")) {
+    if (el === b || !l77V(el)) continue; const r = el.getBoundingClientRect(); if (r.width < 4 || r.width > 330) continue; L.push([r.left, r.top, r.right, r.bottom]);
+  }
+  const exc = [D.left ? [W * 0.5, H * (D.land ? 0.34 : 0.45), W, H] : [0, H * (D.land ? 0.34 : 0.45), W * (D.land ? 0.4 : 0.5), H], [0, 0, W, D.st + D.mm + 24]];
+  const hit = (r, q, p) => r[0] < q[2] + p && r[2] > q[0] - p && r[1] < q[3] + p && r[3] > q[1] - p;
+  const ok = r => r[0] >= D.sl + 4 && r[2] <= W - D.sr - 4 && r[1] >= 4 && r[3] <= H - Math.max(8, D.sb + 6) && !L.some(q => hit(r, q, 6)) && !exc.some(q => hit(r, q, 0));
+  let best = null;
+  for (const ex of [0, 56, 112, 168]) { for (const a of [128, 145, 112, 160, 96, 175, 80]) { const R = ar + sz / 2 + 10 + ex, t = a * Math.PI / 180, cx = AC.x - sg * R * Math.cos(t), cy = AC.y - R * Math.sin(t); if (ok([cx - sz / 2, cy - sz / 2, cx + sz / 2, cy + sz / 2])) { best = { x: cx, y: cy }; break; } } if (best) break; }
+  if (!best) best = { x: AC.x - sg * (ar + sz), y: Math.max(sz, AC.y - ar - sz * 1.6) };
+  const s = b.style, k = Math.round(best.x) + "," + Math.round(best.y) + "," + sz;
+  if (b.dataset.k !== k) { b.dataset.k = k; s.setProperty("--x", Math.round(best.x) + "px"); s.setProperty("--y", Math.round(best.y) + "px"); s.setProperty("--w", sz + "px"); }
+}
+if (typeof l77Tick === "function") {
+  const lt = l77Tick;
+  let n538 = 0;
+  l77Tick = function () { const r = lt.apply(this, arguments); try { t538MajBouton(); const b = T538.el, vis = b && b.classList.contains("on538"); if (vis && (!T538.vis || (++n538 % 3) === 0)) t538Placer(); T538.vis = vis; } catch (e) { t538Err("placer", e); } return r; };
+}
+if (typeof l77Choix === "function") {
+  const lc = l77Choix;
+  l77Choix = function () { const o = lc.apply(this, arguments); try { if (o && o.list) { const i = o.list.indexOf("nuage"); if (i >= 0) o.list.splice(i, 1); } } catch (_) { } return o; };
+}
+// bouton d'action contextuel : rond (icône + mot), le nuage passe par le bouton de transport
+{
+  const ad = actionDispo;
+  actionDispo = function () { const A = ad.apply(this, arguments); if (A && AV.nuageActif && /^(☁ Descendre|⬇ Atterrir)/.test(A.txt || "")) return null; return A; };
+  majActionAv = function () {
+    const A = actionDispo(), b = BOUTONS_AV.actionAv; if (!b) return;
+    const txt = A ? A.txt : "";
+    if (b.dataset.t538 !== txt) {
+      b.dataset.t538 = txt;
+      const m = txt.match(/^(\S+)\s+(.*)$/); let ic = "❗", lb = txt;
+      if (m && !/[A-Za-zÀ-ÿ0-9]/.test(m[1])) { ic = m[1]; lb = m[2]; }
+      const mot = (lb.replace(/[()«»!?]/g, " ").trim().split(/\s+/)[0] || "").slice(0, 10).toUpperCase() + (/!\s*$/.test(txt) ? "!" : "");
+      b.innerHTML = ""; const s1 = document.createElement("span"); s1.textContent = ic; const s2 = document.createElement("small"); s2.textContent = mot; b.append(s1, s2);
+      b.title = txt; b.setAttribute("aria-label", txt);
+    }
+    const cache = !A; if (b.hidden !== cache) { b.hidden = cache; if (!cache) placerBoutonsAventure(); }
+  };
+}
+
+/* ---------- boucle ---------- */
+{
+  const ma = majAventure;
+  majAventure = function (dt) {
+    ma.apply(this, arguments);
+    try {
+      dt = Math.min(0.1, +dt || 0);
+      const D = T538.on && T538_DEF[T538.on];
+      if (D) {
+        if (jeu.scene !== sceneMonde || t538W() !== D.w || AV.nav || AV.nuageActif || perso.ko || (typeof PK !== "undefined" && PK.combat)) { const sc = jeu.scene !== sceneMonde; t538Descendre(true); if (sc) messageInfo(D.id === "cheval" ? "Tu attaches ton cheval dehors." : D.id === "crapaud" ? "Gamakichi disparaît dans un nuage de fumée." : "Ton Pokémon se pose."); }
+        else {
+          T538.t += dt; const sp = perso.vitesse || 0;
+          T538.mv += ((sp > 8 ? 1 : 0) - T538.mv) * Math.min(1, dt * 8);
+          T538.ph += dt * (D.id === "cheval" ? 3 + sp * 0.06 : D.id === "crapaud" ? 2.2 + sp * 0.035 : 3);
+          if (perso.dir === "gauche") T538.mir = true; else if (perso.dir === "droite") T538.mir = false;
+          if (D.type === "vol") { try { PK.inv = Math.max(PK.inv || 0, 0.4); } catch (_) { } }
+          else if (T538.mv > 0.6 && (T538.tPous -= dt) < 0) { T538.tPous = D.id === "crapaud" ? 0.6 : 0.3; try { poussiere(perso.x - (T538.mir ? -10 : 10), perso.y); } catch (_) { } }
+        }
+      }
+    } catch (e) { t538Err("maj", e); }
+  };
+}
+
+/* ---------- sauvegarde ---------- */
+{
+  const es = etatSauvegarde;
+  etatSauvegarde = function () {
+    const D = T538.on && T538_DEF[T538.on]; let x0 = null;
+    if (D && D.type === "vol") { try { if (!(solMonde(perso.x, perso.y) && t538Libre0(perso.x, perso.y))) { const q = chercherSol(perso.x, perso.y, 700, 4); if (q) { x0 = [perso.x, perso.y]; perso.x = q.x; perso.y = q.y; } } } catch (_) { } }
+    let d; try { d = es.apply(this, arguments); } finally { if (x0) { perso.x = x0[0]; perso.y = x0[1]; } }
+    if (d) d.t538 = { ch: AV.t538 && AV.t538.ch ? 1 : 0 };
+    return d;
+  };
+  const re = restaurer;
+  restaurer = function (d) {
+    const r = re.apply(this, arguments);
+    try { AV.t538 = { ch: d && d.t538 && d.t538.ch ? 1 : 0 }; T538.on = null; } catch (_) { }
+    return r;
+  };
+  // la partie est déjà restaurée par demarrer() avant ce bloc : on relit la sauvegarde ici (migration : absent → aucun cheval)
+  try { const sv = lireSauvegarde(); AV.t538 = { ch: sv && sv.t538 && sv.t538.ch ? 1 : 0 }; } catch (e) { AV.t538 = { ch: 0 }; t538Err("init", e); }
+}
+
+/* ---------- 2D : sprites (cheval, crapaud) ---------- */
+Object.assign(SP_ANIMAUX, {
+  m538cheval(f) {
+    const p = new Pix(42, 31), P = pattes(p, [9, 12, 28, 31], 19, 29, f, "b", "B", "k");
+    P.loin();
+    p.ligne(7, 11, 3, 19, "m", 2); p.ligne(6, 12, 2, 22, "m", 2); p.ligne(5, 14, 4, 23, "m");
+    p.ell(19, 15, 12.5, 5.6, "b"); p.ell(30, 12.5, 4.6, 5.2, "b"); p.ell(8.5, 13.5, 4.5, 4.6, "b");
+    p.tri(27, 13, 33, 2.5, 37, 8, "b"); p.ell(36.5, 5.5, 3.7, 2.7, "b"); p.ell(39.2, 7, 2.1, 1.9, "c");
+    p.tri(33.4, 3.6, 34.2, -0.5, 35.6, 3.2, "b");
+    p.ligne(28.5, 5, 33, 1.5, "m", 2); p.ligne(27, 8, 31.5, 3, "m", 2); p.ligne(26.5, 10, 29, 6, "m");
+    p.px(36, 4.5, "e"); p.px(40, 6.6, "e"); p.ligne(35.5, 6.5, 38.5, 7.5, "w");
+    p.ell(19, 15.8, 11, 1.4, "v");
+    p.ell(18.5, 10.3, 6.2, 2.3, "s"); p.rect(13, 11, 24, 12, "t"); p.rect(18, 12, 19, 17, "y"); p.ligne(31, 9, 37, 7.5, "y");
+    P.proche();
+    return p;
+  },
+  m538crapaud(f) {
+    const p = new Pix(40, 30);
+    p.ell(10, 23, 7.5, 5.5, "B"); p.ell(8, 28, 5, 1.6, "B");
+    p.ell(20, 18, 15, 10, "b"); p.ell(25, 22.5, 9, 5, "v");
+    p.ell(14, 13, 11, 4.6, "j"); p.ell(14, 12, 9, 3.5, "j");
+    p.ell(26, 8.5, 4, 3.8, "b"); p.ell(33, 9.5, 3.4, 3.2, "b");
+    p.ell(26.5, 7.8, 2.6, 2.6, "w"); p.ell(33.2, 9, 2.1, 2.1, "w"); p.rect(27, 7, 27, 9, "e"); p.rect(33, 8, 33, 10, "e");
+    p.ligne(27, 17, 38, 15.5, "m"); p.ligne(38, 15.5, 36, 18, "m");
+    for (const [x, y] of [[10, 17], [15, 20], [18, 15], [8, 20]]) p.px(x, y, "m");
+    p.ligne(31, 23, 33, 28, "b", 2); p.rect(31, 28, 36, 29, "b"); p.ligne(13, 26, 16, 29, "b", 2); p.rect(13, 29, 18, 29, "b");
+    return p;
+  },
+});
+Object.assign(PAL_ANIMAUX, {
+  m538cheval: { b: ["#8a5a32", "#aa7444", "#5e3a1c"], B: "#4a2e16", c: ["#a8744a", "#c08a5a", "#7a5030"], m: "#2e1c10", k: "#1e140c", e: "#0c0808", w: "#f4ecd8", v: ["#7a4e2a", "#8a5a32", "#5e3a1c"], s: ["#b02a2a", "#d04848", "#7a1a1a"], t: "#2a4a9a", y: "#e8c050", o: "#1a0e06" },
+  m538crapaud: { b: ["#e0782a", "#f49a4a", "#a8501a"], B: "#a8501a", v: ["#f4d8a0", "#fff0c8", "#c8a870"], j: ["#3a4a9a", "#5a6ac8", "#24306a"], w: "#ffffff", e: "#101010", m: "#7a3010", o: "#2a1006" },
+});
+function t538Im2D(D) {
+  const f = Math.floor(T538.ph * 1.6) & 3;
+  if (D.id === "cheval") return { im: imageAnimal("m538cheval", T538.mv > 0.3 ? f : 0, T538.mir, false), dy: 0, lift: 11 + (T538.mv > 0.3 && (f & 1) ? 1 : 0), cut: 13, ow: 30, rx: -1 };
+  if (D.id === "crapaud") { const hop = Math.max(0, Math.sin(T538.ph * 2)) * 9 * T538.mv; return { im: imageAnimal("m538crapaud", 0, T538.mir, false), dy: hop, lift: 13 + hop, cut: 15, ow: 30, rx: -3 }; }
+  const im = imagePk(T538.pk || "roucoups", T538.mir), alt = 14 + Math.sin(AV.temps * 2.4) * 2 + Math.max(0, 0.6 - T538.t) * -20;
+  return { im, dy: Math.max(0, alt), lift: Math.max(0, alt) + Math.round(im.height * 0.5), cut: Math.round(im.height * 0.55), ow: 22, rx: 0 };
+}
+{
+  const pd = perso.dessiner;
+  perso.dessiner = function (alpha = 1) {
+    const D = T538.on && T538_DEF[T538.on];
+    if (!D || (AV.cine && AV.cine.cacherPerso) || jeu.scene !== sceneMonde) return pd.apply(this, arguments);
+    try {
+      const e = camera.echelle(), o = camera.origine(e), k = Math.max(1, e), sx = Math.round((this.x - o.x) * e), sy = Math.round((this.y - o.y) * e);
+      const R = t538Im2D(D), w = R.im.width * k, h = R.im.height * k, mx = sx - Math.round(w / 2), my = sy - h - Math.round(R.dy * k) + 2 * k;
+      ctx.drawImage(ombreAnimal(R.ow), sx - R.ow / 2 * k, sy - 2 * k, R.ow * k, R.ow / 2 * k);
+      ctx.drawImage(R.im, mx, my, w, h);
+      ctx.save(); ctx.translate(Math.round((T538.mir ? -R.rx : R.rx) * k), -Math.round(R.lift * k)); pd.call(this, alpha); ctx.restore();
+      if (R.cut != null) { ctx.save(); ctx.beginPath(); ctx.rect(mx, my + R.cut * k, w, h - R.cut * k); ctx.clip(); ctx.drawImage(R.im, mx, my, w, h); ctx.restore(); }
+    } catch (er) { t538Err("2d", er); return pd.apply(this, arguments); }
+  };
+}
+
+/* ---------- 3D : montures en volume (toon + contour) ---------- */
+function t538Meshes() {
+  if (T538.mesh) return T538.mesh;
+  const H = v41H, M = {};
+  { // cheval (avant = +z)
+    const b = H("#8a5a32"), bc = H("#a8744a"), m = H("#2e1c10"), k = H("#1e140c"), s = H("#b02a2a"), t = H("#2a4a9a"), y = H("#e8c050"), w = H("#f4ecd8");
+    const g = new G3Geo();
+    g.ell(0, 13, 0, 4.6, 4.6, 10.2, b, 14, 9); g.ell(0, 13.6, 6.4, 4.4, 4.9, 4.8, b, 12, 8); g.ell(0, 13.8, -6.6, 4.8, 4.8, 4.8, b, 12, 8);
+    g.tube([0, 15, 8.4], [0, 22, 12.6], 3.1, 2.2, b, 10); g.ell(0, 23.2, 14.0, 2.4, 2.6, 3.0, b, 10, 7); g.ell(0, 21.9, 17.2, 1.9, 1.9, 2.6, bc, 10, 7);
+    g.ell(0, 23.6, 16.4, 0.7, 1.2, 1.6, w, 6, 4);
+    for (const sx of [-1, 1]) { g.tube([sx * 1.1, 25.2, 13.4], [sx * 1.5, 27.6, 12.9], 0.65, 0.2, b, 6); g.ell(sx * 2.15, 23.9, 15.0, 0.45, 0.55, 0.45, k, 6, 4); g.tube([sx * 1.75, 21.6, 18.0], [sx * 3.4, 18.6, 5.6], 0.22, 0.22, y, 4, false); }
+    g.tube([0, 26.0, 12.6], [0, 17.6, 6.6], 1.25, 0.9, m, 6); g.tube([0, 24.6, 14.8], [0, 23.6, 16.6], 0.8, 0.4, m, 6);
+    g.tube([0, 15.2, -10.6], [0, 11, -13.6], 1.5, 1.0, m, 7); g.tube([0, 11, -13.6], [0, 6.5, -14.2], 1.0, 0.45, m, 7);
+    g.ell(0, 17.4, 0.4, 5.0, 1.15, 5.2, s, 12, 6); g.ell(0, 16.9, 0.4, 5.15, 0.8, 6.2, t, 12, 5); g.tube([-4.7, 16.6, 0.8], [-4.4, 9.8, 0.8], 0.25, 0.25, k, 4, false); g.tube([4.7, 16.6, 0.8], [4.4, 9.8, 0.8], 0.25, 0.25, k, 4, false);
+    M.cheval = g.build();
+    const L = new G3Geo(); L.tube([0, 0, 0], [0, -6, 0.2], 1.55, 1.2, b, 8); L.tube([0, -6, 0.2], [0, -10.6, 0.5], 1.15, 0.95, b, 8); L.ell(0, -11.2, 0.6, 1.25, 0.8, 1.4, k, 8, 5);
+    M.jambe = L.build();
+  }
+  { // crapaud Gamakichi (avant = +z)
+    const o = H("#e0782a"), oc = H("#f49a4a"), v = H("#f4d8a0"), j = H("#3a4a9a"), w = H("#ffffff"), n = H("#101010"), d = H("#a8501a"), m = H("#7a3010");
+    const g = new G3Geo();
+    g.ell(0, 10, -1, 10, 7.6, 10.4, o, 16, 10); g.ell(0, 7.6, 3.5, 8, 5.4, 8, v, 14, 8); g.ell(0, 12, 6.6, 8.6, 5.8, 6, o, 14, 9);
+    g.ell(0, 15.2, -3.2, 6.4, 2.6, 5.6, j, 12, 6); g.tube([-6.2, 14.6, -3], [6.2, 14.6, -3], 0.7, 0.7, H("#24306a"), 6, false);
+    for (const sx of [-1, 1]) {
+      g.ell(sx * 4.6, 17.2, 7.6, 2.7, 2.7, 2.7, oc, 10, 7); g.ell(sx * 4.75, 17.6, 9.4, 1.75, 1.85, 1.2, w, 8, 6); g.ell(sx * 4.8, 17.6, 10.45, 0.6, 1.35, 0.4, n, 6, 4);
+      g.ell(sx * 8.4, 5, -4.5, 3.6, 4.6, 6.2, o, 10, 7); g.ell(sx * 9.2, 0.7, 1.2, 2.9, 0.9, 3.6, d, 8, 5);
+      g.tube([sx * 6, 7, 7.4], [sx * 7.2, 0.9, 10.4], 1.7, 1.3, o, 8); g.ell(sx * 7.4, 0.6, 11.4, 2.1, 0.7, 2.5, d, 8, 5);
+      for (const [x, y, z] of [[3, 15.5, -5], [6.5, 12.8, -7], [2, 16, 1.5]]) g.ell(sx * x, y, z, 1.2, 0.6, 1.2, d, 6, 4);
+    }
+    g.tube([-6.4, 10.3, 11.9], [0, 9.9, 12.7], 0.42, 0.42, m, 5, false); g.tube([0, 9.9, 12.7], [6.4, 10.3, 11.9], 0.42, 0.42, m, 5, false);
+    M.crapaud = g.build();
+  }
+  return T538.mesh = M;
+}
+function t538Lift3D(D, now) {
+  if (D.id === "cheval") return 8.9 + Math.abs(Math.sin(T538.ph * 2)) * 0.9 * T538.mv;
+  if (D.id === "crapaud") return 9.4 + Math.max(0, Math.sin(T538.ph * 2)) * 8 * T538.mv;
+  return t538Alt(now) + T538.seat3;
+}
+function t538Alt(now) { return Math.max(0, 18 + Math.sin(now * 2.2) * 1.6 - Math.max(0, 0.6 - T538.t) * 30); }
+function t538Dessin3D(D, U, g, now) {
+  const Hh = E3.hero, x = Hh.x, z = Hh.z, yaw = Hh.yaw, ol = { ol: 0.42 };
+  if (D.type === "vol") {
+    const im = pk534ImagePk3D(T538.pk || "roucoups", T538.mir), v = e3Vox(im); if (!v) return;
+    const s = 1.15, y = g + t538Alt(now); T538.seat3 = Math.max(10, im.height * s * 0.72);
+    g3Mesh(U.ombre, M4.trs(x + 2, g + 0.5, z + 1, 0, 0, 0, 12, 1, 8), { a: 0.3, tint: [0, 0.02, 0.05, 1] });
+    g3Mesh(v, M4.trs(x, y, z, E3.camA || 0, 0, 0, s, s, s));
+    return;
+  }
+  const M = t538Meshes();
+  g3Mesh(U.ombre, M4.trs(x + 1.5, g + 0.55, z + 1, yaw, 0, 0, D.id === "cheval" ? 7.5 : 11, 1, D.id === "cheval" ? 15 : 12), { a: 0.38, tint: [0, 0.02, 0.05, 1] });
+  if (D.id === "cheval") {
+    const bob = Math.abs(Math.sin(T538.ph * 2)) * 0.9 * T538.mv, B = M4.trs(x, g + bob, z, yaw, 0, 0, 1, 1, 1);
+    v41Draw(M.cheval, B, ol);
+    const a = Math.sin(T538.ph * 2) * 0.55 * T538.mv;
+    for (const [lx, lz, ph] of [[-2.6, 6.4, 1], [2.6, 6.4, -1], [-2.6, -6.6, -1], [2.6, -6.6, 1]]) v41Draw(M.jambe, M4.mul(B, M4.trs(lx, 11, lz, 0, a * ph, 0)), ol);
+  } else {
+    const hop = Math.max(0, Math.sin(T538.ph * 2)) * 8 * T538.mv, sq = 1 + (hop > 0.5 ? 0.06 : -0.05 * T538.mv);
+    v41Draw(M.crapaud, M4.trs(x, g + hop, z, yaw, hop > 0.5 ? -0.12 : 0, 0, 1.08 / Math.sqrt(sq), 1.08 * sq, 1.08 / Math.sqrt(sq)), ol);
+  }
+}
+{
+  const eh = e3Hero;
+  e3Hero = function (dt, U, A, now) {
+    const D = T538.on && T538_DEF[T538.on];
+    if (!D || E3.sc || jeu.scene !== sceneMonde) return eh.apply(this, arguments);
+    const lift = t538Lift3D(D, now), es = e3Sol;
+    e3Sol = function (x, z) { return es(x, z) + lift; }; T538.pose = 1;
+    let r; try { r = eh.apply(this, arguments); } finally { e3Sol = es; T538.pose = 0; }
+    try { const g = es(E3.hero.x, E3.hero.z); E3.hGround = g; t538Dessin3D(D, U, g, now); } catch (e) { t538Err("3d", e); }
+    return r;
+  };
+  if (typeof p92Cut === "function") { const pc = p92Cut; p92Cut = function () { if (!T538.on || E3.hy == null) return pc.apply(this, arguments); const y = E3.hy; E3.hy = y + 16; try { return pc.apply(this, arguments); } finally { E3.hy = y; } }; }
+  const lo = v41Loco;
+  v41Loco = function (J, H) {
+    const R = lo.apply(this, arguments) || J;
+    if (T538.pose && H === E3.hero) Object.assign(R, { by: -2.6, bz: 0, lift: 0, ty: 0, tp: 0.06, tr: 0, yaw: 0, hp: 0, lR: [-1.3, 0.5, 1.15], lL: [-1.3, 0.5, 1.15], aR: [-0.8, 0.18, 0.25, -1.0], aL: [-0.8, 0.18, 0.25, -1.0], lsR: 1, lsL: 1 });
+    return R;
+  };
+}
 
 </script>
 </body>
