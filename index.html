@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "54.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "54.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -45244,7 +45244,7 @@ function g54InitGL(cv) {
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
   const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, G54_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, G54_FS)); gl.linkProgram(pr);
   if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-  const NX = 64, NY = 40, V = [], I = [];
+  const NX = 40, NY = 24, V = [], I = [];
   for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const lat = 90 - j * 180 / NY, lon = i * 360 / NX - 180; V.push(...g54Vec(lon, lat)); }
   for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + NX + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(V), gl.STATIC_DRAW);
@@ -45267,7 +45267,7 @@ function g54Geo() {   // centre et rayon du globe en px CSS
   return { W, H, pay, cx: pay ? W * 0.42 : W / 2, cy: top + (H - top - bot) / 2, R: avail / 2 * G54.zoom };
 }
 function g54RenderGL(g) {
-  const E = G54.gl, gl = E.gl, cv = G54.cv, dpr = Math.min(1.5, devicePixelRatio || 1);
+  const E = G54.gl, gl = E.gl, cv = G54.cv, dpr = Math.max(0.6, Math.min(devicePixelRatio || 1, g.pay ? 1.25 : 1, 300 / Math.max(1, 2 * g.R)));   // ≤ ~300 px de côté, comme en paysage
   const gx0 = g.cx - g.R, gy0 = g.cy - g.R, sz = 2 * g.R, rx0 = Math.max(0, Math.floor(gx0)), ry0 = Math.max(0, Math.floor(gy0)), rx1 = Math.min(g.W, Math.ceil(gx0 + sz)), ry1 = Math.min(g.H, Math.ceil(gy0 + sz));
   const w = Math.max(1, Math.round((rx1 - rx0) * dpr)), h = Math.max(1, Math.round((ry1 - ry0) * dpr)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   const cs = cv.style; cs.left = rx0 + "px"; cs.top = ry0 + "px"; cs.width = (rx1 - rx0) + "px"; cs.height = (ry1 - ry0) + "px";
@@ -45330,13 +45330,13 @@ body.g54ouv #p105n{display:none!important}
 #g54 .g54b.vi{background:radial-gradient(circle at 35% 30%,#a060e8,#5a2a9a)}
 #g54 .g54b.x{width:44px;height:44px;line-height:38px;font-size:20px;background:rgba(30,20,12,.85)}
 #g54 .g54b:active{transform:scale(.92)}
-#g54 .g54st{position:absolute;left:0;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #fff3c0;background:radial-gradient(circle at 35% 30%,#ffe680,#e0a010);color:#7a4a00;font-size:16px;line-height:26px;text-align:center;padding:0;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.45);touch-action:manipulation;cursor:pointer}
+#g54 .g54st{position:absolute;left:0;top:0;z-index:4;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #fff3c0;background:radial-gradient(circle at 35% 30%,#ffe680,#e0a010);color:#7a4a00;font-size:16px;line-height:26px;text-align:center;padding:0;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.45);touch-action:manipulation;cursor:pointer}
 #g54 .g54st.ici{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 2px 6px rgba(0,0,0,.45)}
 #g54 .g54st.sel{border-color:#fff;transform:scale(1.2)}
-#g54 .g54lk{position:absolute;left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe070,#d08a10);border:3px solid #fff0b0;font-size:24px;line-height:40px;text-align:center;box-shadow:0 0 16px rgba(255,200,60,.8);pointer-events:none}
-#g54 .g54lab{position:absolute;left:0;top:0;padding:3px 10px;border-radius:11px;background:rgba(12,14,30,.82);color:#fff;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,220,140,.55)}
+#g54 .g54lk{position:absolute;left:0;top:0;z-index:2;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe070,#d08a10);border:3px solid #fff0b0;font-size:24px;line-height:40px;text-align:center;box-shadow:0 0 16px rgba(255,200,60,.8);pointer-events:none}
+#g54 .g54lab{position:absolute;left:0;top:0;z-index:3;padding:3px 10px;border-radius:11px;background:rgba(12,14,30,.82);color:#fff;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,220,140,.55)}
 #g54 .g54lab.ici{border-color:#ffd048;color:#ffe9a0}
-#g54 .g54tr{position:absolute;left:0;top:0;font-size:24px;margin:-14px 0 0 -14px;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+#g54 .g54tr{position:absolute;left:0;top:0;z-index:1;will-change:transform;transition:opacity .2s;font-size:24px;margin:-14px 0 0 -14px;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
 #g54 .g54f{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(112px + env(safe-area-inset-bottom));min-width:220px;max-width:88vw;padding:10px 12px 10px 16px;border-radius:16px;background:rgba(16,14,30,.94);border:2px solid #e0b048;color:#fff;display:flex;align-items:center;gap:10px;pointer-events:auto}
 #g54 .g54f[hidden]{display:none}
 #g54 .g54f .t{flex:1;font-weight:800;font-size:14px}#g54 .g54f .t small{display:block;font-weight:600;font-size:11px;color:#d8d0c0}
@@ -45385,8 +45385,16 @@ body.g54ouv #p105n{display:none!important}
     G54.vy = -dx * k / dt * 16; G54.vp = -dy * k / dt * 16; P.x = e.clientX; P.y = e.clientY; P.t = performance.now();
   });
   // étoiles : réponse dès le lever du doigt (sans attendre le clic synthétique)
-  u.addEventListener("pointerdown", e => { const b = e.target.closest && e.target.closest(".g54st"); G54.stDown = b ? { b, x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
-  u.addEventListener("pointerup", e => { const D = G54.stDown; G54.stDown = null; if (!D || Math.hypot(e.clientX - D.x, e.clientY - D.y) > 14 || performance.now() - D.t > 900) return; const q = G54.stars && G54.stars[+D.b.dataset.i]; if (q && G54.sel !== q) { try { son.jouer("clic"); } catch (_) { } g54Fiche(q); } }, true);
+  // un tap court arrête l'inertie et vise l'étoile sous le doigt À L'INSTANT du toucher (zone généreuse)
+  u.addEventListener("pointerdown", e => {
+    const t = e.target; if (t.closest && t.closest(".g54b,.g54f")) { G54.stDown = null; return; }
+    G54.vy = G54.vp = 0; if (G54.anim && (G54.anim.k === "vise" || G54.anim.k === "tour")) G54.anim = null;
+    let best = null, bd = 34; const b = t.closest && t.closest(".g54st");
+    if (b) best = +b.dataset.i;
+    else for (const E of G54.els || []) { if (E.k !== "st" || E.el.style.display === "none" || E.z < 0.18) continue; const d = Math.hypot(E.x - e.clientX, E.y - e.clientY); if (d < bd) { bd = d; best = E.i; } }
+    G54.stDown = best != null ? { i: best, x: e.clientX, y: e.clientY, t: performance.now() } : null;
+  }, true);
+  u.addEventListener("pointerup", e => { const D = G54.stDown; G54.stDown = null; if (!D || Math.hypot(e.clientX - D.x, e.clientY - D.y) > 16 || performance.now() - D.t > 600) return; const q = G54.stars && G54.stars[D.i]; if (q && G54.sel !== q) { try { son.jouer("clic"); } catch (_) { } g54Fiche(q); } }, true);
   const fin = e => { G54.ptr.delete(e.pointerId); if (G54.ptr.size < 2) G54.pd = null; };
   cv.addEventListener("pointerup", fin); cv.addEventListener("pointercancel", fin);
   cv.addEventListener("wheel", e => { e.preventDefault(); G54.zoom = Math.max(0.85, Math.min(2, G54.zoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
@@ -45394,7 +45402,7 @@ body.g54ouv #p105n{display:none!important}
   return u;
 }
 function g54Placer() {
-  const u = G54.ui, g = g54Geo(); u.classList.toggle("pay", g.pay);
+  const u = G54.ui, g = g54Geo(); G54.btnR = null; u.classList.toggle("pay", g.pay);
   const B = (a, x, y) => { const b = u.querySelector(`[data-g54="${a}"]`); b.style.left = x + "px"; b.style.top = y + "px"; };
   const sb = 14 + (typeof SAFE !== "undefined" ? SAFE.b || 0 : 0), st = 10 + (typeof SAFE !== "undefined" ? SAFE.t || 0 : 0);
   if (g.pay) { const x = g.W - 88; B("ici", x + 5, g.H / 2 - 110); B("tour", x, g.H / 2 - 33); B("carte", x + 5, g.H / 2 + 54); B("fermer", g.W - 58, st); }
@@ -45452,16 +45460,16 @@ function g54Construire() {
 function g54Slerp(a, b, t) { const d = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])), om = Math.acos(d); if (om < 1e-4) return a.slice(); const s = Math.sin(om), k0 = Math.sin((1 - t) * om) / s, k1 = Math.sin(t * om) / s; return [a[0] * k0 + b[0] * k1, a[1] * k0 + b[1] * k1, a[2] * k0 + b[2] * k1]; }
 function g54Boucle(now) {
   if (!G54.open) return; G54.raf = requestAnimationFrame(g54Boucle);
-  const dt = Math.min(0.05, Math.max(0.001, (now - G54.last) / 1000)); G54.last = now; G54.t += dt;
+  const dt = Math.min(0.25, Math.max(0.001, (now - G54.last) / 1000)); G54.last = now; G54.t += dt; G54.dtA = dt;   // plafond relevé pour le globe seulement
   try {
     const A = G54.anim;
     if (A) { A.t += dt; const e = Math.min(1, A.t / A.d), s = e * e * (3 - 2 * e);
       if (A.k === "vise" || A.k === "tour") { G54.yaw = A.y0 + (A.y1 - A.y0) * s; G54.pitch = A.p0 + (A.p1 - A.p0) * s; G54.zoom = A.z0 + (A.z1 - A.z0) * s; }
       if (e >= 1) { G54.anim = null; if (A.fin) A.fin(); } }
-    else if (!G54.ptr.size) { G54.yaw += G54.vy; G54.pitch = Math.max(-1.1, Math.min(1.1, G54.pitch + G54.vp)); G54.vy *= 0.93; G54.vp *= 0.93; if (Math.abs(G54.vy) < 1e-4) G54.vy = 0; if (Math.abs(G54.vp) < 1e-4) G54.vp = 0; }
+    else if (!G54.ptr.size) { const f60 = dt * 60, am = Math.pow(0.93, f60); G54.yaw += G54.vy * f60; G54.pitch = Math.max(-1.1, Math.min(1.1, G54.pitch + G54.vp * f60)); G54.vy *= am; G54.vp *= am; if (Math.abs(G54.vy) < 1e-4) G54.vy = 0; if (Math.abs(G54.vp) < 1e-4) G54.vp = 0; }
     for (const f of G54.file) f.t += dt; G54.file = G54.file.filter(f => { if (f.f) f.f(f.t); return f.t < f.d; });
-    const g = g54Geo(), halo = G54.ui.querySelector(".g54halo"); halo.style.left = (g.cx - g.R) + "px"; halo.style.top = (g.cy - g.R) + "px"; halo.style.width = halo.style.height = (2 * g.R) + "px";
-    const cvR = G54.cvR; G54.cv.style.display = cvR === G54.cv ? "" : "none"; G54.rt.style.display = cvR === G54.rt ? "" : "none";
+    const g = g54Geo(), hk = [g.cx, g.cy, g.R | 0, G54.cvR === G54.cv].join(",");
+    if (hk !== G54.hk) { G54.hk = hk; const halo = G54.ui.querySelector(".g54halo"); halo.style.left = (g.cx - g.R) + "px"; halo.style.top = (g.cy - g.R) + "px"; halo.style.width = halo.style.height = (2 * g.R) + "px"; const cvR = G54.cvR; G54.cv.style.display = cvR === G54.cv ? "" : "none"; G54.rt.style.display = cvR === G54.rt ? "" : "none"; G54.btnR = null; }
     const key = [G54.yaw.toFixed(4), G54.pitch.toFixed(4), G54.zoom.toFixed(3), G54.fog.join(), g.W, g.H].join("|"), brume = G54.fog.some(f => f > 0.01);
     if (key !== G54.kR || (brume && !G54.d2 && now - (G54.tR || 0) > 110)) { G54.kR = key; G54.tR = now; if (G54.d2) g54Render2D(g); else g54RenderGL(g); g54Marqueurs(g); }
     else g54Transp(g);
@@ -45476,13 +45484,14 @@ function g54Marqueurs(g) {
     E.el.style.display = ""; pr.push(E);
   }
   // priorité : cadenas, étiquettes, étoiles ; pas de chevauchement
+  G54.labR = [];
   pr.sort((a, b) => (b.k === "lk") - (a.k === "lk") || (b.k === "lab") - (a.k === "lab") || b.p - a.p);
   for (const E of pr) {
     const w = E.k === "lab" ? (E.w0 || (E.w0 = E.el.offsetWidth || 120)) : E.k === "lk" ? 46 : 30, h = E.k === "lab" ? (E.h0 || (E.h0 = E.el.offsetHeight || 22)) : w;
     const r = E.k === "lab" ? { x0: E.x - w / 2 - 3, y0: E.y - h / 2 - 3, x1: E.x + w / 2 + 3, y1: E.y + h / 2 + 3 } : { x0: E.x - w / 2 - 2, y0: E.y - h / 2 - 2, x1: E.x + w / 2 + 2, y1: E.y + h / 2 + 2 };
     const coll = placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) || r.x0 < 2 || r.x1 > g.W - 2 || r.y0 < 2 || r.y1 > g.H - 2 || (E.k !== "lk" && g54SurBoutons(r));
     if (coll && E.k !== "lk") { E.el.style.display = "none"; continue; }
-    placed.push(r);
+    placed.push(r); if (E.k === "lab") G54.labR.push(r);
     const a = Math.min(1, (E.z - 0.18) / 0.2);
     E.el.style.opacity = a.toFixed(2);
     E.el.style.transform = E.k === "lab" ? `translate(${(E.x - w / 2).toFixed(1)}px,${(E.y - h / 2).toFixed(1)}px)` : `translate(${E.x.toFixed(1)}px,${E.y.toFixed(1)}px)` + (E.sel ? " scale(1.2)" : "");
@@ -45492,15 +45501,17 @@ function g54Marqueurs(g) {
 function g54Transp(g) {
   const M = g54Mat();
   for (const T of G54.tr || []) {
-    const n = T.path.length - 1; T.s = (T.s + T.v * 0.016) % 1; const f = T.s * n, i = Math.floor(f), t = f - i;
+    const n = T.path.length - 1; T.s = (T.s + T.v * (G54.dtA || 0.016)) % 1; const f = T.s * n, i = Math.floor(f), t = f - i;
     const v = g54Slerp(T.path[i], T.path[Math.min(n, i + 1)], t), p = g54Rot(M, v);
     if (p[2] < 0.1) { T.el.style.display = "none"; continue; }
-    T.el.style.display = ""; T.el.style.transform = `translate(${(g.cx + p[0] * g.R * T.h).toFixed(1)}px,${(g.cy - p[1] * g.R * T.h).toFixed(1)}px)`;
+    const X = g.cx + p[0] * g.R * T.h, Y = g.cy - p[1] * g.R * T.h, cache = (G54.labR || []).some(q => X + 15 > q.x0 && X - 15 < q.x1 && Y + 15 > q.y0 && Y - 15 < q.y1);
+    T.el.style.display = ""; T.el.style.opacity = cache ? "0" : "1"; T.el.style.transform = `translate(${X.toFixed(1)}px,${Y.toFixed(1)}px)`;
   }
 }
 function g54SurBoutons(r) {
-  for (const b of G54.ui.querySelectorAll(".g54b")) { if (b.closest(".g54f")) continue; const q = b.getBoundingClientRect(); if (q.width && r.x0 < q.right && r.x1 > q.left && r.y0 < q.bottom && r.y1 > q.top) return true; }
-  const t = G54.ui.querySelector(".g54tt").getBoundingClientRect(); return r.y0 < t.bottom && r.x1 > t.left && r.x0 < t.right;
+  if (!G54.btnR) { G54.btnR = [...G54.ui.querySelectorAll(".g54b")].filter(b => !b.closest(".g54f")).map(b => b.getBoundingClientRect()).filter(q => q.width); G54.ttR = G54.ui.querySelector(".g54tt").getBoundingClientRect(); }
+  for (const q of G54.btnR) if (r.x0 < q.right && r.x1 > q.left && r.y0 < q.bottom && r.y1 > q.top) return true;
+  const t = G54.ttR; return r.y0 < t.bottom && r.x1 > t.left && r.x0 < t.right;
 }
 function g54Fiche(q) {
   const f = G54.ui.querySelector(".g54f"); G54.sel = q; G54.kR = null;
@@ -45522,8 +45533,9 @@ function g54Aller() {
   }
   if (!(g54Tous() || g54Libre())) { g54Msg("🔒 Le voyage libre entre les mondes s'ouvre quand les 5 mondes sont débloqués (" + g54Nb() + " / 5). En attendant, passe par l'entrée du monde."); return; }
   if (AV.cine || jeu.transition) { g54Msg("Attends la fin de l'action en cours…"); return; }
-  g54Fermer(); G54.voyage = { w: q.w, x: q.gx != null ? q.gx : q.x, y: q.gy != null ? q.gy : q.y + 40, t: performance.now() };
-  try { p94Voyage(q.w); } catch (e) { g54Err("voyage", e); G54.voyage = null; }
+  g54Fermer(); G54.voyage = { w: q.w, x: q.gx != null ? q.gx : q.x, y: q.gy != null ? q.gy : q.y + 40, t: performance.now(), nom: q.nom };
+  try { p94Voyage(q.w); } catch (e) { g54Err("voyage", e); G54.voyage = null; return; }
+  g54Suite();
 }
 function g54Tour() {
   const ouverts = [1, 2, 3, 4, 5].filter(g54Ouvert); if (!ouverts.length) return;
@@ -45562,8 +45574,23 @@ function g54Tick() {
 function g54Suite() {   // après un voyage libre : on se pose sur le lieu choisi
   const V = G54.voyage; if (!V) return;
   if (typeof accAttendre !== "function") return;
-  accAttendre(() => (AV.monde || 1) === V.w && accLibre() && dansMonde(), () => { G54.voyage = null; try { teleporter(V.x, V.y); } catch (e) { g54Err("pose", e); } }, 20000);
-  setTimeout(() => { if (G54.voyage === V) G54.voyage = null; }, 21000);
+  accAttendre(() => (AV.monde || 1) === V.w && accLibre() && dansMonde() && !G54.open, () => { if (G54.voyage !== V) return; G54.voyage = null; g54Poser(V); }, 120000);
+  setTimeout(() => { if (G54.voyage === V) G54.voyage = null; }, 121000);
+}
+function g54SolLibre(x, y) { try { return solMonde(x, y) && perso.libre(x, y) && niveauMonde(x, y) > NIV.EAU; } catch (_) { return false; } }
+function g54Poser(V) {   // sol libre au plus près du lieu choisi
+  try {
+    const M = MPX(); let x = Math.max(60, Math.min(M - 60, V.x)), y = Math.max(60, Math.min(M - 60, V.y)), c = null;
+    if (g54SolLibre(x, y)) c = { x, y };
+    for (let r = 8; !c && r <= 1400; r += 8) for (let k = 0, n = Math.max(8, Math.round(r / 6)); k < n; k++) { const a = k / n * 6.2832, px = Math.round(x + Math.cos(a) * r), py = Math.round(y + Math.sin(a) * r); if (g54SolLibre(px, py)) { c = { x: px, y: py }; break; } }
+    if (!c) return false;
+    let ok = false; try { if (typeof T538 !== "undefined") T538.aut = 1; ok = teleporter(c.x, c.y) !== false; } catch (e) { g54Err("tele", e); } finally { try { T538.aut = 0; } catch (_) { } }
+    if (!ok || Math.hypot(perso.x - c.x, perso.y - c.y) > 40) { perso.x = c.x; perso.y = c.y; try { camera.x = perso.x; camera.y = perso.y - 10; camera.limiter(); } catch (_) { } }
+    G54.pose = { x: perso.x | 0, y: perso.y | 0, cible: [V.x | 0, V.y | 0], libre: g54SolLibre(perso.x, perso.y) };
+    try { messageInfo("📍 " + (V.nom || "Arrivée")); } catch (_) { }
+    try { sauvegarder(false); } catch (_) { }
+    return true;
+  } catch (e) { g54Err("poser", e); return false; }
 }
 setInterval(g54Tick, 800);
 // succès « Tour du monde »
