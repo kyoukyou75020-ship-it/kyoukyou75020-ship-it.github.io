@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.9", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "54.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -45118,6 +45118,475 @@ try {
     f.__539 = 1; C.prototype.bloque = f; } catch (e) { p539Err("wrap", e); } };
   for (const n of ["Monde", "MondePoke", "MondeBritannia", "MondeKonoha", "MondeKN", "MondeLuffy", "MondeGL"]) { try { wrap(eval("typeof " + n + " !== 'undefined' ? " + n + " : null")); } catch (_) { } }
 }
+
+
+/* =====================================================================
+   v54.0 — globe terrestre 3D (WebGL, repli 2D) : régions des 5 mondes,
+   brume + cadenas sur les mondes fermés, étoiles dorées vers les lieux
+   découverts, animation « NOUVEAU MONDE DÉBLOQUÉ ! », compteur N / 5,
+   tour du monde (bateau, nuage, vol) et succès « Tour du monde ».
+   ===================================================================== */
+const G54 = { err: {}, open: false, yaw: 0, pitch: 0.25, zoom: 1, vy: 0, vp: 0, fog: [1, 1, 1, 1, 1], gl: null, d2: false, anim: null, t: 0, last: 0, raf: 0, ptr: new Map(), sel: null, file: [], pause0: false, voyage: null };
+function g54Err(k, e) { if (!G54.err[k]) { G54.err[k] = 1; console.warn("g54 " + k, e); } }
+const G54_W = [
+  null,
+  { w: 1, nom: "Terre de Sangoku", lon: 18, lat: -20, r: 27, ic: "🐉" },
+  { w: 2, nom: "Luffy · Grand Line", lon: 78, lat: 4, r: 27, ic: "🏴‍☠️" },
+  { w: 3, nom: "Monde Pokémon", lon: 36, lat: 30, r: 23, ic: "⚡" },
+  { w: 4, nom: "Konoha", lon: -24, lat: 30, r: 23, ic: "🍥" },
+  { w: 5, nom: "Britannia", lon: -40, lat: -17, r: 24, ic: "🐷" },
+];
+const G54_RAD = Math.PI / 180;
+function g54Vec(lon, lat) { const a = lon * G54_RAD, b = lat * G54_RAD; return [Math.cos(b) * Math.sin(a), Math.sin(b), Math.cos(b) * Math.cos(a)]; }
+function g54Libre() { try { return typeof p94Libre === "function" && p94Libre(); } catch (_) { return false; } }
+function g54Ouvert(w) {
+  if (w === 1) return true; if (g54Libre()) return true;
+  try { const a = TBS.v.acces; if (a && a[w]) return true; } catch (_) { }
+  try { if (w === 4 && KN.intro) return true; } catch (_) { }
+  try { if (w === 3 && (PK.introVue || (PK.equipe && PK.equipe.length))) return true; } catch (_) { }
+  try { if (w === 5 && BR.visite) return true; } catch (_) { }
+  try { if (w === 2 && EX.vu && EX.vu.m2) return true; } catch (_) { }
+  try { const A = g54Acces(w); if (A && typeof mqFait === "function" && mqFait(A.id)) return true; } catch (_) { }
+  return false;
+}
+function g54Nb() { let n = 0; for (let w = 1; w <= 5; w++) if (g54Ouvert(w)) n++; return n; }
+function g54Tous() { return g54Nb() >= 5; }
+function g54Acces(w) { try { return P60_ACC.find(a => a.w === w) || null; } catch (_) { return null; } }
+function g54Transports() {
+  const o = { bateau: false, nuage: false, vol: false };
+  try { o.bateau = g54Ouvert(2) || !!(AV.equipe && AV.equipe.luffy); } catch (_) { }
+  try { o.nuage = !!(AV.nuage && AV.nuage.debloque); } catch (_) { }
+  try { o.vol = typeof t538PkVol === "function" && !!t538PkVol(); } catch (_) { }
+  return o;
+}
+
+/* ---------- lieux découverts (mémorisés par monde) ---------- */
+const G54_TY_OK = { ville: 1, metropole: 1, futur: 1, port: 1, tour: 1, grotte: 1, montagne: 1, ile: 1, taverne: 1, maville: 1, lieu: 1, zone: 1 };
+function g54PoisIci() {
+  const w = AV.monde || 1, M = MPX(), out = [];
+  let L = []; try { L = p98Pois(); } catch (e) { g54Err("pois", e); }
+  for (const q of L) {
+    if (!q || !G54_TY_OK[q.ty] || q.dec === false || q.libre) continue;
+    try { if (q.ty === "ile" && /^M/.test(q.id || "") && !ILE.vis[q.id.slice(1)]) continue; } catch (_) { }
+    if (q.id === "crat" || /^(q49|D|C|cible|j2)/.test(String(q.id || ""))) continue;
+    const T = (typeof P98_TY !== "undefined" && P98_TY[q.ty]) || { p: 1 };
+    out.push({ id: String(q.id || q.nom), nom: String(q.nom || "Lieu").slice(0, 40), u: Math.max(0, Math.min(1, q.x / M)), v: Math.max(0, Math.min(1, q.y / M)), x: Math.round(q.x), y: Math.round(q.y), gx: q.gx != null ? Math.round(q.gx) : null, gy: q.gy != null ? Math.round(q.gy) : null, ty: q.ty, p: q.p || T.p || 1 });
+  }
+  out.sort((a, b) => b.p - a.p);
+  return { w, l: out.slice(0, 8) };
+}
+function g54MajCache() { try { if (!jeu || !dansMonde()) return; const r = g54PoisIci(); G54.cache[r.w] = r.l; } catch (e) { g54Err("cache", e); } }
+function g54PoiPos(W, q) {
+  const span = W.r * 1.15, lat = W.lat - (q.v - 0.5) * span, lon = W.lon + (q.u - 0.5) * span / Math.max(0.4, Math.cos(lat * G54_RAD));
+  return g54Vec(lon, lat);
+}
+
+/* ---------- texture de la planète (équirectangulaire, dessinée une fois) ---------- */
+function g54Texture() {
+  if (G54.tex) return G54.tex;
+  const TW = 1024, TH = 512, c = document.createElement("canvas"); c.width = TW; c.height = TH; const x = c.getContext("2d");
+  let s = 54; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const P = (lon, lat) => [(lon + 180) / 360 * TW, (90 - lat) / 180 * TH];
+  // océan
+  const g = x.createLinearGradient(0, 0, 0, TH); g.addColorStop(0, "#1d5fa8"); g.addColorStop(0.5, "#2a86c8"); g.addColorStop(1, "#1d5fa8"); x.fillStyle = g; x.fillRect(0, 0, TW, TH);
+  for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(${R() < 0.5 ? "255,255,255" : "10,40,90"},${0.04 + R() * 0.05})`; const [a, b] = P(R() * 360 - 180, R() * 160 - 80); x.fillRect(a, b, 6 + R() * 20, 2); }
+  // banquise
+  x.fillStyle = "#e8f2fa"; x.fillRect(0, 0, TW, TH * 0.045); x.fillRect(0, TH * 0.955, TW, TH * 0.045);
+  const blob = (lon, lat, r, col, n, jit) => {
+    x.save(); const [a, b] = P(lon, lat); x.translate(a, b); x.scale(1 / Math.max(0.35, Math.cos(lat * G54_RAD)), 1); x.fillStyle = col;
+    const k = TH / 180; for (let i = 0; i < n; i++) { const an = R() * 6.283, d = R() * r * 0.62 * k, rr = (r * (0.28 + R() * jit)) * k; x.beginPath(); x.arc(Math.cos(an) * d, Math.sin(an) * d, rr, 0, 6.283); x.fill(); }
+    x.restore();
+  };
+  const at = (lon, lat, f) => { x.save(); const [a, b] = P(lon, lat); x.translate(a, b); x.scale(1 / Math.max(0.35, Math.cos(lat * G54_RAD)), 1); f(); x.restore(); };
+  // continents secondaires (face cachée)
+  for (const [lo, la, r] of [[150, 20, 22], [-120, -25, 20], [-150, 40, 14], [120, -35, 14], [-95, 15, 10], [175, -10, 9]]) { blob(lo, la, r, "#d8c890", 14, 0.4); blob(lo, la, r * 0.86, "#4e9a44", 16, 0.35); blob(lo, la, r * 0.5, "#3c7c36", 8, 0.3); }
+  // 1 · Sangoku : désert orangé, mesas, Capsule Corp
+  { const W = G54_W[1]; blob(W.lon, W.lat, W.r * 1.02, "#e8c890", 22, 0.35); blob(W.lon, W.lat, W.r * 0.92, "#d88a48", 24, 0.32); blob(W.lon + 4, W.lat - 3, W.r * 0.55, "#c8743a", 10, 0.3);
+    for (let i = 0; i < 9; i++) at(W.lon + (R() - 0.5) * 34, W.lat + (R() - 0.5) * 30, () => { x.fillStyle = "#9a4e24"; x.fillRect(-7, -5, 14, 10); x.fillStyle = "#c06a34"; x.fillRect(-7, -5, 14, 4); });
+    for (let i = 0; i < 8; i++) at(W.lon + (R() - 0.5) * 36, W.lat + (R() - 0.5) * 30, () => { x.fillStyle = "#3e8a3a"; x.fillRect(-1, -5, 2, 7); x.fillRect(-4, -3, 2, 3); });
+    at(W.lon + 5, W.lat + 1, () => { x.fillStyle = "#f4f4f8"; x.beginPath(); x.arc(0, 0, 9, Math.PI, 0); x.fill(); x.fillStyle = "#6a8ab8"; x.fillRect(-9, 0, 18, 3); x.fillStyle = "#3a5a98"; x.fillRect(-2, -4, 4, 4); }); }
+  // 2 · Luffy / Grand Line : océan turquoise et îles
+  { const W = G54_W[2]; blob(W.lon, W.lat, W.r * 1.05, "rgba(60,190,220,0.55)", 26, 0.35);
+    for (const [dl, da, r] of [[-10, 8, 4], [8, -6, 5], [14, 12, 3.5], [-6, -12, 3], [2, 2, 2.5], [-16, -2, 3]]) { blob(W.lon + dl, W.lat + da, r, "#f0dca0", 5, 0.4); blob(W.lon + dl, W.lat + da, r * 0.65, "#3e9a48", 5, 0.4); at(W.lon + dl, W.lat + da, () => { x.fillStyle = "#2a6a2a"; x.fillRect(-1, -6, 2, 6); x.fillStyle = "#4ab040"; x.fillRect(-4, -8, 8, 3); }); } }
+  // 3 · Pokémon : prairie vive, montagne et cascade
+  { const W = G54_W[3]; blob(W.lon, W.lat, W.r, "#e0d898", 18, 0.35); blob(W.lon, W.lat, W.r * 0.92, "#78c850", 22, 0.33); blob(W.lon - 4, W.lat - 4, W.r * 0.5, "#5ab040", 10, 0.3);
+    at(W.lon + 8, W.lat + 7, () => { x.fillStyle = "#7a8494"; x.beginPath(); x.moveTo(-18, 12); x.lineTo(0, -16); x.lineTo(18, 12); x.fill(); x.fillStyle = "#f4f6fa"; x.beginPath(); x.moveTo(-5, -8); x.lineTo(0, -16); x.lineTo(5, -8); x.fill(); x.fillStyle = "#6ac8f0"; x.fillRect(-2, -6, 4, 18); });
+    for (let i = 0; i < 10; i++) at(W.lon + (R() - 0.5) * 30, W.lat + (R() - 0.5) * 26, () => { x.fillStyle = ["#f878a8", "#f8d048", "#78b8f8", "#f8f8f8"][i % 4]; x.beginPath(); x.arc(0, 0, 2.2, 0, 6.283); x.fill(); }); }
+  // 4 · Konoha : forêt dense, toits rouges
+  { const W = G54_W[4]; blob(W.lon, W.lat, W.r, "#d8c890", 18, 0.35); blob(W.lon, W.lat, W.r * 0.94, "#2f7a34", 24, 0.33);
+    for (let i = 0; i < 60; i++) at(W.lon + (R() - 0.5) * 34, W.lat + (R() - 0.5) * 30, () => { x.fillStyle = R() < 0.5 ? "#3e9442" : "#1f5a26"; x.beginPath(); x.arc(0, 0, 2.5 + R() * 2, 0, 6.283); x.fill(); });
+    for (let i = 0; i < 7; i++) at(W.lon + (R() - 0.5) * 14, W.lat + (R() - 0.5) * 12, () => { x.fillStyle = "#e8d8b0"; x.fillRect(-5, -1, 10, 6); x.fillStyle = "#b8402c"; x.beginPath(); x.moveTo(-8, 0); x.lineTo(0, -6); x.lineTo(8, 0); x.fill(); });
+    at(W.lon, W.lat + 9, () => { x.fillStyle = "#8a7a64"; x.fillRect(-12, -4, 24, 8); x.fillStyle = "#b89a6a"; x.fillRect(-8, -2, 4, 3); x.fillRect(4, -2, 4, 3); }); }
+  // 5 · Britannia : collines, château aux toits violets, cochon du Boar Hat
+  { const W = G54_W[5]; blob(W.lon, W.lat, W.r, "#d8c890", 18, 0.35); blob(W.lon, W.lat, W.r * 0.93, "#5aa84a", 24, 0.33); blob(W.lon + 3, W.lat + 3, W.r * 0.5, "#4a9440", 10, 0.3);
+    at(W.lon - 4, W.lat + 5, () => { x.fillStyle = "#9aa0ac"; x.fillRect(-12, -6, 24, 14); x.fillRect(-14, -12, 6, 20); x.fillRect(8, -12, 6, 20); x.fillRect(-3, -15, 6, 23); x.fillStyle = "#7a3ab8"; for (const [a, b] of [[-11, -12], [11, -12], [0, -15]]) { x.beginPath(); x.moveTo(a - 4, b); x.lineTo(a, b - 8); x.lineTo(a + 4, b); x.fill(); } x.fillStyle = "#4a3a2a"; x.fillRect(-2, 2, 4, 6); });
+    at(W.lon + 8, W.lat - 7, () => { x.fillStyle = "#f0a0b0"; x.beginPath(); x.ellipse(0, 0, 9, 6, 0, 0, 6.283); x.fill(); x.fillStyle = "#8a5a3a"; x.fillRect(-5, -11, 10, 6); x.fillStyle = "#c87888"; x.fillRect(7, -1, 4, 3); }); }
+  G54.tex = c; return c;
+}
+
+/* ---------- WebGL ---------- */
+const G54_VS = `attribute vec3 p; uniform mat3 R; uniform vec2 S; varying vec3 o; varying vec3 n;
+void main(){ o = p; n = R * p; gl_Position = vec4(n.x * S.x, n.y * S.y, -n.z * 0.5, 1.0); }`;
+const G54_FS = `precision mediump float; varying vec3 o; varying vec3 n; uniform sampler2D T; uniform vec4 C[5]; uniform float F[5]; uniform float tm;
+float h(vec3 q){ return fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float vn(vec3 q){ vec3 i = floor(q), f = fract(q); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(h(i), h(i+vec3(1,0,0)), f.x), mix(h(i+vec3(0,1,0)), h(i+vec3(1,1,0)), f.x), f.y), mix(mix(h(i+vec3(0,0,1)), h(i+vec3(1,0,1)), f.x), mix(h(i+vec3(0,1,1)), h(i+vec3(1,1,1)), f.x), f.y), f.z); }
+void main(){ vec3 u = normalize(o); float lon = atan(u.x, u.z), lat = asin(clamp(u.y, -1.0, 1.0));
+  vec3 c = texture2D(T, vec2(lon / 6.2831853 + 0.5, 0.5 - lat / 3.1415927)).rgb;
+  float fg = 0.0; for (int i = 0; i < 5; i++) { float d = acos(clamp(dot(u, C[i].xyz), -1.0, 1.0)); fg = max(fg, F[i] * (1.0 - smoothstep(C[i].w * 0.72, C[i].w * 1.18, d))); }
+  if (fg > 0.001) { float k = vn(u * 7.0 + vec3(tm * 0.05, 0.0, tm * 0.03)) * 0.6 + vn(u * 15.0 - vec3(0.0, tm * 0.04, 0.0)) * 0.4; c = mix(c, vec3(0.58, 0.55, 0.70) * (0.78 + 0.42 * k), clamp(fg * (0.75 + 0.5 * k), 0.0, 1.0)); }
+  vec3 N = normalize(n); float l = 0.5 + 0.62 * max(dot(N, normalize(vec3(-0.4, 0.55, 0.75))), 0.0);
+  float rim = pow(1.0 - max(N.z, 0.0), 2.6);
+  gl_FragColor = vec4(c * l + vec3(0.25, 0.55, 1.0) * rim * 0.7, 1.0); }`;
+function g54InitGL(cv) {
+  const gl = cv.getContext("webgl", { antialias: true, alpha: true, premultipliedAlpha: true }) || cv.getContext("experimental-webgl");
+  if (!gl) return null;
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, G54_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, G54_FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  const NX = 64, NY = 40, V = [], I = [];
+  for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const lat = 90 - j * 180 / NY, lon = i * 360 / NX - 180; V.push(...g54Vec(lon, lat)); }
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + NX + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(V), gl.STATIC_DRAW);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+  const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, g54Texture());
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const U = n => gl.getUniformLocation(pr, n);
+  return { gl, pr, vb, ib, n: I.length, tx, aP: gl.getAttribLocation(pr, "p"), uR: U("R"), uS: U("S"), uC: U("C"), uF: U("F"), uT: U("T"), uTm: U("tm") };
+}
+function g54Mat() {   // R = Rx(pitch) · Ry(yaw)
+  const cy = Math.cos(G54.yaw), sy = Math.sin(G54.yaw), cp = Math.cos(G54.pitch), sp = Math.sin(G54.pitch);
+  return [cy, 0, -sy, sy * sp, cp, cy * sp, sy * cp, -sp, cy * cp];   // lignes
+}
+function g54Rot(M, v) { return [M[0] * v[0] + M[1] * v[1] + M[2] * v[2], M[3] * v[0] + M[4] * v[1] + M[5] * v[2], M[6] * v[0] + M[7] * v[1] + M[8] * v[2]]; }
+function g54Geo() {   // centre et rayon du globe en px CSS
+  const W = innerWidth, H = innerHeight, pay = W > H;
+  const top = pay ? 104 : 150, bot = pay ? 12 : 150, avail = Math.min(pay ? W * 0.62 : W - 24, H - top - bot);
+  return { W, H, pay, cx: pay ? W * 0.42 : W / 2, cy: top + (H - top - bot) / 2, R: avail / 2 * G54.zoom };
+}
+function g54RenderGL(g) {
+  const E = G54.gl, gl = E.gl, cv = G54.cv, dpr = Math.min(1.5, devicePixelRatio || 1);
+  const gx0 = g.cx - g.R, gy0 = g.cy - g.R, sz = 2 * g.R, rx0 = Math.max(0, Math.floor(gx0)), ry0 = Math.max(0, Math.floor(gy0)), rx1 = Math.min(g.W, Math.ceil(gx0 + sz)), ry1 = Math.min(g.H, Math.ceil(gy0 + sz));
+  const w = Math.max(1, Math.round((rx1 - rx0) * dpr)), h = Math.max(1, Math.round((ry1 - ry0) * dpr)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const cs = cv.style; cs.left = rx0 + "px"; cs.top = ry0 + "px"; cs.width = (rx1 - rx0) + "px"; cs.height = (ry1 - ry0) + "px";
+  gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.CULL_FACE);
+  gl.useProgram(E.pr); gl.bindBuffer(gl.ARRAY_BUFFER, E.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, E.ib); gl.enableVertexAttribArray(E.aP); gl.vertexAttribPointer(E.aP, 3, gl.FLOAT, false, 0, 0);
+  const M = g54Mat(); gl.uniformMatrix3fv(E.uR, false, [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]);
+  // décalage du centre : on déplace le globe par une translation dans S (clip) → via viewport
+  const vx = Math.round((gx0 - rx0) * dpr), vy = Math.round((ry1 - (gy0 + sz)) * dpr), vs = Math.round(sz * dpr);
+  gl.viewport(vx, vy, vs, vs); gl.uniform2f(E.uS, 1, 1);
+  const C = [], F = []; for (let w2 = 1; w2 <= 5; w2++) { const W = G54_W[w2], v = g54Vec(W.lon, W.lat); C.push(v[0], v[1], v[2], W.r * 1.05 * G54_RAD); F.push(G54.fog[w2 - 1]); }
+  gl.uniform4fv(E.uC, C); gl.uniform1fv(E.uF, F); gl.uniform1f(E.uTm, G54.t);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, E.tx); gl.uniform1i(E.uT, 0);
+  gl.drawElements(gl.TRIANGLES, E.n, gl.UNSIGNED_SHORT, 0);
+}
+/* ---------- repli 2D : rendu logiciel du globe, basse résolution ---------- */
+function g54Render2D(g) {
+  const cv = G54.rt, x = G54.c2 || (G54.c2 = cv.getContext("2d")); if (!x) return;
+  if (cv.width !== g.W || cv.height !== g.H) { cv.width = g.W; cv.height = g.H; }
+  if (!G54.td) { const T = g54Texture(), tc = T.getContext("2d"); G54.td = tc.getImageData(0, 0, T.width, T.height); }
+  const N = Math.max(60, Math.min(220, Math.round(g.R))), key = [G54.yaw.toFixed(3), G54.pitch.toFixed(3), N, G54.fog.map(f => f.toFixed(2)).join(",")].join("|");
+  if (G54.k2 !== key || !G54.b2) {
+    G54.k2 = key; const b = G54.b2 && G54.b2.width === N * 2 ? G54.b2 : (G54.b2 = document.createElement("canvas")); b.width = b.height = N * 2;
+    const bx = b.getContext("2d"), im = bx.createImageData(N * 2, N * 2), D = im.data, T = G54.td, TW = T.width, TH = T.height, M = g54Mat();
+    const C = []; for (let w = 1; w <= 5; w++) { const W = G54_W[w]; C.push([g54Vec(W.lon, W.lat), W.r * 1.05 * G54_RAD, G54.fog[w - 1]]); }
+    const L = [-0.4, 0.55, 0.75], ll = Math.hypot(...L);
+    for (let j = 0; j < N * 2; j++) for (let i = 0; i < N * 2; i++) {
+      const sx = (i + 0.5) / N - 1, sy = 1 - (j + 0.5) / N, r2 = sx * sx + sy * sy; if (r2 > 1) continue;
+      const sz = Math.sqrt(1 - r2);
+      const ox = M[0] * sx + M[3] * sy + M[6] * sz, oy = M[1] * sx + M[4] * sy + M[7] * sz, oz = M[2] * sx + M[5] * sy + M[8] * sz;   // Rᵀ·p
+      const lon = Math.atan2(ox, oz), lat = Math.asin(Math.max(-1, Math.min(1, oy)));
+      const tx = Math.min(TW - 1, ((lon / 6.2831853 + 0.5) * TW) | 0), ty = Math.min(TH - 1, ((0.5 - lat / 3.1415927) * TH) | 0), k = (ty * TW + tx) * 4;
+      let r = T.data[k], gg = T.data[k + 1], bb = T.data[k + 2];
+      let fg = 0; for (const [c, rad, f] of C) { if (f <= 0.001) continue; const d = Math.acos(Math.max(-1, Math.min(1, c[0] * ox + c[1] * oy + c[2] * oz))), e = Math.max(0, Math.min(1, (d - rad * 0.72) / (rad * 0.46))); fg = Math.max(fg, f * (1 - e * e * (3 - 2 * e))); }
+      if (fg > 0.001) { const n = 0.75 + 0.25 * Math.sin(ox * 13 + oy * 9) * Math.cos(oz * 11 - oy * 7), a = Math.min(1, fg * 1.05); r += (148 * n - r) * a; gg += (140 * n - gg) * a; bb += (178 * n - bb) * a; }
+      const l = 0.5 + 0.62 * Math.max(0, (sx * L[0] + sy * L[1] + sz * L[2]) / ll), rim = Math.pow(1 - sz, 2.6) * 0.7, o = (j * N * 2 + i) * 4;
+      D[o] = Math.min(255, r * l + 64 * rim); D[o + 1] = Math.min(255, gg * l + 140 * rim); D[o + 2] = Math.min(255, bb * l + 255 * rim); D[o + 3] = 255;
+    }
+    bx.putImageData(im, 0, 0);
+  }
+  x.clearRect(0, 0, cv.width, cv.height); x.imageSmoothingEnabled = true; x.drawImage(G54.b2, g.cx - g.R, g.cy - g.R, g.R * 2, g.R * 2);
+}
+
+/* ---------- interface ---------- */
+function g54UI() {
+  if (G54.ui && G54.ui.isConnected) return G54.ui;
+  if (!document.getElementById("g54css")) { const st = document.createElement("style"); st.id = "g54css"; st.textContent = `
+#g54{position:fixed;inset:0;z-index:2147483100;background:radial-gradient(ellipse at 50% 45%,#16285a 0%,#0a1230 55%,#050816 100%);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#g54 .g54ciel{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(1.5px 1.5px at 12% 18%,#fff8,transparent),radial-gradient(1px 1px at 72% 12%,#fff9,transparent),radial-gradient(2px 2px at 88% 66%,#ffe9a8,transparent),radial-gradient(1px 1px at 30% 80%,#fff8,transparent),radial-gradient(1.5px 1.5px at 55% 92%,#fff7,transparent),radial-gradient(1px 1px at 6% 52%,#fff9,transparent),radial-gradient(2px 2px at 40% 6%,#ffe9a8,transparent),radial-gradient(1px 1px at 94% 30%,#fff8,transparent)}
+#g54 .g54halo{position:absolute;border-radius:50%;pointer-events:none;box-shadow:0 0 28px 8px rgba(90,170,255,.45),inset 0 0 18px rgba(120,190,255,.35)}
+#g54 canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+#g54 canvas.g54gl{width:auto;height:auto}
+body.g54ouv #p105n{display:none!important}
+#g54 .g54lay{position:absolute;inset:0;pointer-events:none}
+#g54 .g54tt{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);text-align:center;pointer-events:none;white-space:nowrap}
+#g54 .g54tt b{display:inline-block;font-size:24px;font-weight:900;letter-spacing:1px;color:#ffe9a0;padding:6px 18px;border-radius:16px;background:linear-gradient(#8a4e1c,#5a2e0c);border:3px solid #f0b848;text-shadow:0 2px 0 #3a1a04;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+#g54 .g54tt i{display:block;margin:6px auto 0;font-style:normal;font-weight:800;font-size:15px;color:#fff;padding:3px 14px;border-radius:12px;background:rgba(10,14,34,.85);border:2px solid #d8a840;width:max-content}
+#g54.pay .g54tt{left:42%}
+#g54 .g54b{position:absolute;width:56px;height:56px;border-radius:50%;border:3px solid #f0c060;background:radial-gradient(circle at 35% 30%,#3a6ad8,#183a8a);color:#fff;font-size:24px;line-height:50px;text-align:center;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:auto;touch-action:manipulation;cursor:pointer}
+#g54 .g54b.or{background:radial-gradient(circle at 35% 30%,#ffd860,#d88a10);width:66px;height:66px;line-height:60px;font-size:30px}
+#g54 .g54b.vi{background:radial-gradient(circle at 35% 30%,#a060e8,#5a2a9a)}
+#g54 .g54b.x{width:44px;height:44px;line-height:38px;font-size:20px;background:rgba(30,20,12,.85)}
+#g54 .g54b:active{transform:scale(.92)}
+#g54 .g54st{position:absolute;left:0;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #fff3c0;background:radial-gradient(circle at 35% 30%,#ffe680,#e0a010);color:#7a4a00;font-size:16px;line-height:26px;text-align:center;padding:0;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.45);touch-action:manipulation;cursor:pointer}
+#g54 .g54st.ici{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 2px 6px rgba(0,0,0,.45)}
+#g54 .g54st.sel{border-color:#fff;transform:scale(1.2)}
+#g54 .g54lk{position:absolute;left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe070,#d08a10);border:3px solid #fff0b0;font-size:24px;line-height:40px;text-align:center;box-shadow:0 0 16px rgba(255,200,60,.8);pointer-events:none}
+#g54 .g54lab{position:absolute;left:0;top:0;padding:3px 10px;border-radius:11px;background:rgba(12,14,30,.82);color:#fff;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,220,140,.55)}
+#g54 .g54lab.ici{border-color:#ffd048;color:#ffe9a0}
+#g54 .g54tr{position:absolute;left:0;top:0;font-size:24px;margin:-14px 0 0 -14px;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+#g54 .g54f{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(112px + env(safe-area-inset-bottom));min-width:220px;max-width:88vw;padding:10px 12px 10px 16px;border-radius:16px;background:rgba(16,14,30,.94);border:2px solid #e0b048;color:#fff;display:flex;align-items:center;gap:10px;pointer-events:auto}
+#g54 .g54f[hidden]{display:none}
+#g54 .g54f .t{flex:1;font-weight:800;font-size:14px}#g54 .g54f .t small{display:block;font-weight:600;font-size:11px;color:#d8d0c0}
+#g54 .g54f .g54b{position:static;flex:none;width:46px;height:46px;line-height:40px;font-size:20px}
+#g54 .g54msg{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);max-width:84vw;padding:10px 16px;border-radius:14px;background:rgba(10,10,24,.92);border:2px solid #e0b048;color:#fff;font-weight:700;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s}
+#g54 .g54msg.on{opacity:1}
+#g54 .g54ban{position:absolute;left:50%;top:50%;width:250px;height:250px;margin:-125px 0 0 -125px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;background:radial-gradient(circle,#3a2208 0%,#2a1604 62%,transparent 64%);border:0;animation:g54ban 4.2s ease forwards}
+#g54 .g54ban:before{content:"";position:absolute;inset:-70px;border-radius:50%;background:repeating-conic-gradient(rgba(255,214,90,.55) 0 7deg,transparent 7deg 22deg);-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%);animation:g54rot 6s linear infinite;z-index:-1}
+#g54 .g54ban b{font-size:30px;font-weight:900;line-height:1.05;color:#ffe9a0;text-shadow:0 3px 0 #6a3a08,0 0 14px rgba(255,200,80,.8)}
+#g54 .g54ban span{margin-top:8px;font-weight:800;color:#fff;font-size:14px}
+#g54 .g54ban em{margin-top:4px;font-style:normal;font-weight:700;color:#ffd070;font-size:13px}
+@keyframes g54ban{0%{transform:scale(.3);opacity:0}12%{transform:scale(1.08);opacity:1}20%{transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+@keyframes g54rot{to{transform:rotate(360deg)}}
+#g54 .g54ec{position:absolute;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;background:#ffd040;border:2px solid #fff0a0;border-radius:3px;pointer-events:none;animation:g54ec 0.9s ease-out forwards}
+@keyframes g54ec{to{transform:translate(var(--dx),var(--dy)) rotate(260deg);opacity:0}}
+#g54 .g54lk.boum{animation:g54boum .5s ease-in forwards}
+@keyframes g54boum{40%{transform:scale(1.35)}100%{transform:scale(1.8);opacity:0}}
+`; document.head.appendChild(st); }
+  const u = G54.ui = document.createElement("div"); u.id = "g54"; u.hidden = true;
+  u.innerHTML = `<div class="g54ciel"></div><div class="g54halo"></div><canvas class="g54gl"></canvas><canvas class="g54rt"></canvas><div class="g54lay"></div>
+<div class="g54tt"><b>MONDES OUVERTS</b><i>1 / 5 mondes débloqués</i></div>
+<button class="g54b x" data-g54="fermer" aria-label="Fermer">✖</button>
+<button class="g54b" data-g54="ici" aria-label="Mon monde">🧭</button><button class="g54b or" data-g54="tour" aria-label="Tour du monde">⭐</button><button class="g54b vi" data-g54="carte" aria-label="Carte">🗺</button>
+<div class="g54f" hidden></div><div class="g54msg"></div>`;
+  document.body.appendChild(u);
+  G54.cv = u.querySelector("canvas"); G54.rt = u.querySelector(".g54rt"); G54.lay = u.querySelector(".g54lay");
+  u.addEventListener("click", e => {
+    const b = e.target.closest("[data-g54]"); if (!b) return; e.stopPropagation(); try { son.jouer("clic"); } catch (_) { }
+    const a = b.dataset.g54;
+    if (a === "fermer") g54Fermer();
+    else if (a === "ici") { g54Viser(AV.monde || 1, 0.9, 1); g54Fiche(null); }
+    else if (a === "tour") g54Tour();
+    else if (a === "carte") { g54Fermer(); setTimeout(() => { try { grandeCarte.ouvrir(); } catch (_) { } }, 60); }
+    else if (a === "st") { const q = G54.stars && G54.stars[+b.dataset.i]; if (q && G54.sel !== q) g54Fiche(q); }
+    else if (a === "go") g54Aller();
+    else if (a === "xf") g54Fiche(null);
+  });
+  // gestes : glisser = tourner, pincer / molette = zoomer
+  const cv = u;
+  cv.addEventListener("pointerdown", e => { if (e.target.closest("button,.g54f")) return; G54.ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() }); G54.vy = G54.vp = 0; G54.anim = G54.anim && G54.anim.k === "tour" ? null : G54.anim; if (G54.ptr.size === 1) G54.tap = { x: e.clientX, y: e.clientY, t: performance.now() }; if (G54.ptr.size === 2) { const [a, b] = [...G54.ptr.values()]; G54.pd = { d: Math.hypot(a.x - b.x, a.y - b.y), z: G54.zoom }; } });
+  cv.addEventListener("pointermove", e => {
+    const P = G54.ptr.get(e.pointerId); if (!P) return;
+    if (G54.ptr.size >= 2 && G54.pd) { P.x = e.clientX; P.y = e.clientY; const [a, b] = [...G54.ptr.values()]; G54.zoom = Math.max(0.85, Math.min(2, G54.pd.z * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(20, G54.pd.d))); return; }
+    const g = g54Geo(), dx = e.clientX - P.x, dy = e.clientY - P.y, dt = Math.max(8, performance.now() - P.t);
+    const k = 1 / Math.max(60, g.R); G54.yaw -= dx * k; G54.pitch = Math.max(-1.1, Math.min(1.1, G54.pitch - dy * k));
+    G54.vy = -dx * k / dt * 16; G54.vp = -dy * k / dt * 16; P.x = e.clientX; P.y = e.clientY; P.t = performance.now();
+  });
+  // étoiles : réponse dès le lever du doigt (sans attendre le clic synthétique)
+  u.addEventListener("pointerdown", e => { const b = e.target.closest && e.target.closest(".g54st"); G54.stDown = b ? { b, x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
+  u.addEventListener("pointerup", e => { const D = G54.stDown; G54.stDown = null; if (!D || Math.hypot(e.clientX - D.x, e.clientY - D.y) > 14 || performance.now() - D.t > 900) return; const q = G54.stars && G54.stars[+D.b.dataset.i]; if (q && G54.sel !== q) { try { son.jouer("clic"); } catch (_) { } g54Fiche(q); } }, true);
+  const fin = e => { G54.ptr.delete(e.pointerId); if (G54.ptr.size < 2) G54.pd = null; };
+  cv.addEventListener("pointerup", fin); cv.addEventListener("pointercancel", fin);
+  cv.addEventListener("wheel", e => { e.preventDefault(); G54.zoom = Math.max(0.85, Math.min(2, G54.zoom * (e.deltaY > 0 ? 0.9 : 1.1))); }, { passive: false });
+  addEventListener("resize", () => { if (G54.open) g54Placer(); });
+  return u;
+}
+function g54Placer() {
+  const u = G54.ui, g = g54Geo(); u.classList.toggle("pay", g.pay);
+  const B = (a, x, y) => { const b = u.querySelector(`[data-g54="${a}"]`); b.style.left = x + "px"; b.style.top = y + "px"; };
+  const sb = 14 + (typeof SAFE !== "undefined" ? SAFE.b || 0 : 0), st = 10 + (typeof SAFE !== "undefined" ? SAFE.t || 0 : 0);
+  if (g.pay) { const x = g.W - 88; B("ici", x + 5, g.H / 2 - 110); B("tour", x, g.H / 2 - 33); B("carte", x + 5, g.H / 2 + 54); B("fermer", g.W - 58, st); }
+  else { const y = g.H - 80 - sb; B("ici", g.W / 2 - 112, y + 5); B("tour", g.W / 2 - 33, y); B("carte", g.W / 2 + 56, y + 5); B("fermer", g.W - 56, st); }
+  const f = u.querySelector(".g54f"); f.style.left = g.pay ? "42%" : "50%"; f.style.bottom = g.pay ? "14px" : "";
+}
+function g54Msg(t) { const m = G54.ui && G54.ui.querySelector(".g54msg"); if (!m) return; m.textContent = t; m.classList.add("on"); clearTimeout(G54.mt); G54.mt = setTimeout(() => m.classList.remove("on"), 2600); }
+function g54Ouvrir(w) {
+  if (!jeu || G54.open) return; const u = g54UI();
+  G54.d2 = false;
+  try { if (typeof PARAMS !== "undefined" && PARAMS.d3 === false) G54.d2 = true; } catch (_) { }
+  if (window.__g54d2) G54.d2 = true;
+  if (!G54.d2 && !G54.gl && !G54.glKo) { try { G54.gl = g54InitGL(G54.cv); if (!G54.gl) G54.glKo = 1; } catch (e) { G54.glKo = 1; G54.gl = null; g54Err("gl", e); } }
+  if (!G54.gl) G54.d2 = true;
+  if (G54.d2 && G54.gl) { /* canvas WebGL déjà pris : on utilise le second canvas */ }
+  G54.cvR = G54.d2 ? G54.rt : G54.cv;
+  try { if (G54.gcReel ? G54.gcReel() : grandeCarte.ouvert) grandeCarte.fermer(); } catch (_) { }
+  g54MajCache();
+  G54.pause0 = !!jeu.pause; jeu.pause = true; try { touches.clear(); manette.relacher(); perso.attaqueTenue = false; } catch (_) { }
+  for (let i = 1; i <= 5; i++) G54.fog[i - 1] = g54Ouvert(i) ? 0 : 1;
+  u.hidden = false; G54.open = true; document.body.classList.add("g54ouv"); g54Placer(); g54Fiche(null);
+  const W = G54_W[w || AV.monde || 1]; G54.yaw = W.lon * G54_RAD; G54.pitch = -W.lat * G54_RAD * 0.8; G54.zoom = 1;
+  g54Construire(); G54.last = performance.now(); cancelAnimationFrame(G54.raf); G54.raf = requestAnimationFrame(g54Boucle);
+}
+function g54Fermer() {
+  if (!G54.open) return; G54.open = false; cancelAnimationFrame(G54.raf); G54.anim = null; G54.ui.hidden = true; document.body.classList.remove("g54ouv");
+  try { jeu.pause = false; } catch (_) { }
+  g54Suite();
+}
+function g54Viser(w, d = 0.9, zz) { const W = G54_W[w]; let y1 = W.lon * G54_RAD; while (y1 - G54.yaw > Math.PI) y1 -= 2 * Math.PI; while (y1 - G54.yaw < -Math.PI) y1 += 2 * Math.PI; G54.anim = { k: "vise", t: 0, d, y0: G54.yaw, p0: G54.pitch, y1, p1: -W.lat * G54_RAD * 0.8, z0: G54.zoom, z1: zz != null ? zz : Math.max(1, G54.zoom) }; }
+// éléments : étiquettes, cadenas, étoiles, transports
+function g54Construire() {
+  const L = G54.lay; L.innerHTML = ""; G54.els = []; G54.stars = []; G54.kR = null;
+  const cur = AV.monde || 1, tous = g54Tous(), n = g54Nb();
+  const tt = G54.ui.querySelector(".g54tt"); tt.querySelector("b").textContent = tous ? "TOUR DU MONDE" : "MONDES OUVERTS"; tt.querySelector("i").textContent = tous ? "5 / 5 mondes · voyage libre" : n + " / 5 mondes débloqués";
+  for (let w = 1; w <= 5; w++) {
+    const W = G54_W[w], ok = g54Ouvert(w), c = g54Vec(W.lon, W.lat);
+    const lab = document.createElement("div"); lab.className = "g54lab" + (w === cur ? " ici" : ""); const A = g54Acces(w);
+    lab.textContent = ok ? (w === cur ? "📍 " : "") + W.nom : "🔒 " + W.nom + (A ? " · niv. " + A.niv : "");
+    L.appendChild(lab); G54.els.push({ el: lab, v: ok ? g54Vec(W.lon, W.lat + W.r * 0.78) : c, dy: ok ? 0 : 46, k: "lab", p: w === cur ? 10 : ok ? 5 : 3, w });
+    if (!ok || (G54.fog[w - 1] > 0.05)) { const lk = document.createElement("div"); lk.className = "g54lk"; lk.textContent = "🔒"; L.appendChild(lk); G54.els.push({ el: lk, v: c, k: "lk", p: 8, w }); }
+    if (ok) {
+      const pl = (w === cur ? (g54PoisIci().l) : (G54.cache[w] || []));
+      pl.forEach(q => { const i = G54.stars.length; G54.stars.push({ ...q, w }); const b = document.createElement("button"); b.className = "g54st" + (w === cur ? " ici" : ""); b.dataset.g54 = "st"; b.dataset.i = i; b.textContent = q.ty === "maville" ? "🏰" : "★"; b.setAttribute("aria-label", q.nom); L.appendChild(b); G54.els.push({ el: b, v: g54PoiPos(W, q), k: "st", p: q.p, w, i }); });
+    }
+  }
+  // transports
+  const T = g54Transports(); G54.tr = [];
+  const add = (ic, path, h, v) => { const e = document.createElement("div"); e.className = "g54tr"; e.textContent = ic; L.appendChild(e); G54.tr.push({ el: e, path: path.map(([lo, la]) => g54Vec(lo, la)), h, v, s: Math.random() }); };
+  if (T.bateau) add("⛵", [[48, -2], [60, 18], [100, 18], [112, -6], [96, -22], [60, -24], [42, -36], [-8, -40], [-14, -4], [4, 8], [48, -2]], 1.0, 0.018);
+  const ouverts = [1, 2, 3, 4, 5].filter(g54Ouvert);
+  if (T.nuage && ouverts.length) add("☁️", (ouverts.length > 1 ? [...ouverts, ouverts[0]] : [1, 1]).map(w => [G54_W[w].lon, G54_W[w].lat]), 1.14, 0.03);
+  if (T.vol && ouverts.length > 1) add("🦅", [...ouverts].reverse().concat([ouverts[ouverts.length - 1]]).map(w => [G54_W[w].lon + 6, G54_W[w].lat + 6]), 1.1, 0.026);
+}
+function g54Slerp(a, b, t) { const d = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])), om = Math.acos(d); if (om < 1e-4) return a.slice(); const s = Math.sin(om), k0 = Math.sin((1 - t) * om) / s, k1 = Math.sin(t * om) / s; return [a[0] * k0 + b[0] * k1, a[1] * k0 + b[1] * k1, a[2] * k0 + b[2] * k1]; }
+function g54Boucle(now) {
+  if (!G54.open) return; G54.raf = requestAnimationFrame(g54Boucle);
+  const dt = Math.min(0.05, Math.max(0.001, (now - G54.last) / 1000)); G54.last = now; G54.t += dt;
+  try {
+    const A = G54.anim;
+    if (A) { A.t += dt; const e = Math.min(1, A.t / A.d), s = e * e * (3 - 2 * e);
+      if (A.k === "vise" || A.k === "tour") { G54.yaw = A.y0 + (A.y1 - A.y0) * s; G54.pitch = A.p0 + (A.p1 - A.p0) * s; G54.zoom = A.z0 + (A.z1 - A.z0) * s; }
+      if (e >= 1) { G54.anim = null; if (A.fin) A.fin(); } }
+    else if (!G54.ptr.size) { G54.yaw += G54.vy; G54.pitch = Math.max(-1.1, Math.min(1.1, G54.pitch + G54.vp)); G54.vy *= 0.93; G54.vp *= 0.93; if (Math.abs(G54.vy) < 1e-4) G54.vy = 0; if (Math.abs(G54.vp) < 1e-4) G54.vp = 0; }
+    for (const f of G54.file) f.t += dt; G54.file = G54.file.filter(f => { if (f.f) f.f(f.t); return f.t < f.d; });
+    const g = g54Geo(), halo = G54.ui.querySelector(".g54halo"); halo.style.left = (g.cx - g.R) + "px"; halo.style.top = (g.cy - g.R) + "px"; halo.style.width = halo.style.height = (2 * g.R) + "px";
+    const cvR = G54.cvR; G54.cv.style.display = cvR === G54.cv ? "" : "none"; G54.rt.style.display = cvR === G54.rt ? "" : "none";
+    const key = [G54.yaw.toFixed(4), G54.pitch.toFixed(4), G54.zoom.toFixed(3), G54.fog.join(), g.W, g.H].join("|"), brume = G54.fog.some(f => f > 0.01);
+    if (key !== G54.kR || (brume && !G54.d2 && now - (G54.tR || 0) > 110)) { G54.kR = key; G54.tR = now; if (G54.d2) g54Render2D(g); else g54RenderGL(g); g54Marqueurs(g); }
+    else g54Transp(g);
+  } catch (e) { g54Err("boucle", e); }
+}
+function g54Marqueurs(g) {
+  const M = g54Mat(), pr = [], placed = [];
+  const proj = v => { const p = g54Rot(M, v); return { x: g.cx + p[0] * g.R, y: g.cy - p[1] * g.R, z: p[2] }; };
+  for (const E of G54.els || []) {
+    const p = proj(E.v); E.z = p.z; E.x = p.x; E.y = p.y + (E.dy || 0);
+    if (p.z < 0.18) { E.el.style.display = "none"; continue; }
+    E.el.style.display = ""; pr.push(E);
+  }
+  // priorité : cadenas, étiquettes, étoiles ; pas de chevauchement
+  pr.sort((a, b) => (b.k === "lk") - (a.k === "lk") || (b.k === "lab") - (a.k === "lab") || b.p - a.p);
+  for (const E of pr) {
+    const w = E.k === "lab" ? (E.w0 || (E.w0 = E.el.offsetWidth || 120)) : E.k === "lk" ? 46 : 30, h = E.k === "lab" ? (E.h0 || (E.h0 = E.el.offsetHeight || 22)) : w;
+    const r = E.k === "lab" ? { x0: E.x - w / 2 - 3, y0: E.y - h / 2 - 3, x1: E.x + w / 2 + 3, y1: E.y + h / 2 + 3 } : { x0: E.x - w / 2 - 2, y0: E.y - h / 2 - 2, x1: E.x + w / 2 + 2, y1: E.y + h / 2 + 2 };
+    const coll = placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) || r.x0 < 2 || r.x1 > g.W - 2 || r.y0 < 2 || r.y1 > g.H - 2 || (E.k !== "lk" && g54SurBoutons(r));
+    if (coll && E.k !== "lk") { E.el.style.display = "none"; continue; }
+    placed.push(r);
+    const a = Math.min(1, (E.z - 0.18) / 0.2);
+    E.el.style.opacity = a.toFixed(2);
+    E.el.style.transform = E.k === "lab" ? `translate(${(E.x - w / 2).toFixed(1)}px,${(E.y - h / 2).toFixed(1)}px)` : `translate(${E.x.toFixed(1)}px,${E.y.toFixed(1)}px)` + (E.sel ? " scale(1.2)" : "");
+  }
+  g54Transp(g);
+}
+function g54Transp(g) {
+  const M = g54Mat();
+  for (const T of G54.tr || []) {
+    const n = T.path.length - 1; T.s = (T.s + T.v * 0.016) % 1; const f = T.s * n, i = Math.floor(f), t = f - i;
+    const v = g54Slerp(T.path[i], T.path[Math.min(n, i + 1)], t), p = g54Rot(M, v);
+    if (p[2] < 0.1) { T.el.style.display = "none"; continue; }
+    T.el.style.display = ""; T.el.style.transform = `translate(${(g.cx + p[0] * g.R * T.h).toFixed(1)}px,${(g.cy - p[1] * g.R * T.h).toFixed(1)}px)`;
+  }
+}
+function g54SurBoutons(r) {
+  for (const b of G54.ui.querySelectorAll(".g54b")) { if (b.closest(".g54f")) continue; const q = b.getBoundingClientRect(); if (q.width && r.x0 < q.right && r.x1 > q.left && r.y0 < q.bottom && r.y1 > q.top) return true; }
+  const t = G54.ui.querySelector(".g54tt").getBoundingClientRect(); return r.y0 < t.bottom && r.x1 > t.left && r.x0 < t.right;
+}
+function g54Fiche(q) {
+  const f = G54.ui.querySelector(".g54f"); G54.sel = q; G54.kR = null;
+  for (const E of G54.els || []) if (E.k === "st") { E.sel = q && E.i === G54.stars.indexOf(q); E.el.classList.toggle("sel", !!E.sel); }
+  if (!q) { f.hidden = true; return; }
+  const cur = AV.monde || 1, W = G54_W[q.w], libre = g54Tous() || g54Libre();
+  const sous = q.w === cur ? "Voyage rapide dans ce monde" : libre ? "Voyage libre vers " + W.nom : "Voyage libre entre mondes : débloque les 5 mondes";
+  f.innerHTML = `<div class="t">${W.ic} ${echapHTML(q.nom)}<small>${sous}</small></div><button class="g54b or" data-g54="go" aria-label="Y aller">⚡</button><button class="g54b x" data-g54="xf" aria-label="Fermer">✖</button>`;
+  f.hidden = false;
+}
+function g54Aller() {
+  const q = G54.sel; if (!q) return; const cur = AV.monde || 1;
+  if (q.w === cur) {
+    if (!dansMonde()) { g54Msg("Sors d'abord du bâtiment ou de la ville."); return; }
+    try { const E = t538Voyage(); if (!E.ok) { g54Msg(String(E.why).replace(/^🔒\s*/, "🔒 ")); return; } } catch (_) { }
+    g54Fermer(); const fq = { id: q.id, ty: q.ty, nom: q.nom, x: q.x, y: q.y, gx: q.gx, gy: q.gy };
+    setTimeout(() => { try { P98.fiche = fq; p98Action("aller"); } catch (e) { g54Err("aller", e); try { teleporter(fq.gx != null ? fq.gx : fq.x, fq.gy != null ? fq.gy : fq.y + 40); } catch (_) { } } }, 30);
+    return;
+  }
+  if (!(g54Tous() || g54Libre())) { g54Msg("🔒 Le voyage libre entre les mondes s'ouvre quand les 5 mondes sont débloqués (" + g54Nb() + " / 5). En attendant, passe par l'entrée du monde."); return; }
+  if (AV.cine || jeu.transition) { g54Msg("Attends la fin de l'action en cours…"); return; }
+  g54Fermer(); G54.voyage = { w: q.w, x: q.gx != null ? q.gx : q.x, y: q.gy != null ? q.gy : q.y + 40, t: performance.now() };
+  try { p94Voyage(q.w); } catch (e) { g54Err("voyage", e); G54.voyage = null; }
+}
+function g54Tour() {
+  const ouverts = [1, 2, 3, 4, 5].filter(g54Ouvert); if (!ouverts.length) return;
+  const T = g54Transports();
+  g54Msg(g54Tous() ? "🌍 Tour du monde ! Touche une étoile pour voyager librement." : (T.bateau || T.nuage ? "Tour des mondes ouverts" : "Tour des mondes ouverts — obtiens le bateau ou le nuage pour voyager autour du globe !"));
+  let k = 0; const suiv = () => { if (!G54.open || k >= ouverts.length) return; const w = ouverts[k++]; g54Viser(w, 1.1); G54.anim.k = "tour"; G54.anim.fin = () => setTimeout(suiv, 350); };
+  suiv();
+}
+
+/* ---------- animation « NOUVEAU MONDE DÉBLOQUÉ ! » ---------- */
+function g54Celebrer(w) {
+  g54Ouvrir(w); const W = G54_W[w]; G54.fog[w - 1] = 1; g54Construire();
+  const A = g54Acces(w);
+  G54.file.push({ t: 0, d: 3.4, f: t => { G54.fog[w - 1] = t < 0.9 ? 1 : Math.max(0, 1 - (t - 0.9) / 2.2); } });
+  setTimeout(() => {
+    if (!G54.open) return;
+    const E = (G54.els || []).find(e => e.k === "lk" && e.w === w);
+    if (E) { E.el.classList.add("boum"); for (let i = 0; i < 10; i++) { const s = document.createElement("div"); s.className = "g54ec"; const a = i / 10 * 6.283, d = 60 + Math.random() * 50; s.style.setProperty("--dx", Math.cos(a) * d + "px"); s.style.setProperty("--dy", Math.sin(a) * d + "px"); s.style.left = E.x + "px"; s.style.top = E.y + "px"; G54.ui.appendChild(s); setTimeout(() => s.remove(), 1000); } }
+    try { son.jouer("fanfare"); } catch (_) { } try { vibrer([40, 30, 80]); } catch (_) { }
+    const b = document.createElement("div"); b.className = "g54ban"; b.innerHTML = `<b>NOUVEAU<br>MONDE<br>DÉBLOQUÉ !</b><span>${W.ic} ${echapHTML(W.nom)}</span><em>${A ? "Quête terminée : " + echapHTML(A.nom) : "Quête finale terminée"}</em>`;
+    const g = g54Geo(); b.style.left = (g.pay ? g.W * 0.42 : g.W / 2) + "px"; G54.ui.appendChild(b); setTimeout(() => b.remove(), 4300);
+  }, 900);
+  setTimeout(() => { if (G54.open) { g54Construire(); if (g54Tous()) g54Msg("🌍 5 / 5 mondes : voyage libre et succès « Tour du monde » !"); } }, 3500);
+}
+// suivi des déblocages (jamais de reverrouillage : on ne fait qu'ajouter)
+function g54Tick() {
+  try {
+    if (!jeu || !jeu.scene || jeu.scene !== sceneMonde) return;
+    if (!G54.vus) { G54.vus = {}; for (let w = 1; w <= 5; w++) if (g54Ouvert(w)) G54.vus[w] = 1; return; }
+    if (g54Libre()) { for (let w = 1; w <= 5; w++) G54.vus[w] = 1; }
+    g54MajCache();
+    if (G54.open || AV.cine || jeu.transition || jeu.pause) return;
+    for (let w = 2; w <= 5; w++) if (g54Ouvert(w) && !G54.vus[w]) { G54.vus[w] = 1; if (g54Tous()) G54.tour = 1; try { sauvegarder(false); } catch (_) { } g54Celebrer(w); break; }
+  } catch (e) { g54Err("tick", e); }
+}
+function g54Suite() {   // après un voyage libre : on se pose sur le lieu choisi
+  const V = G54.voyage; if (!V) return;
+  if (typeof accAttendre !== "function") return;
+  accAttendre(() => (AV.monde || 1) === V.w && accLibre() && dansMonde(), () => { G54.voyage = null; try { teleporter(V.x, V.y); } catch (e) { g54Err("pose", e); } }, 20000);
+  setTimeout(() => { if (G54.voyage === V) G54.voyage = null; }, 21000);
+}
+setInterval(g54Tick, 800);
+// succès « Tour du monde »
+try { if (!SUCCES.some(s => s[0] === "tourmonde")) SUCCES.push(["tourmonde", "Tour du monde", "Débloque les 5 mondes du globe", () => g54Tous()]); } catch (e) { g54Err("succes", e); }
+
+/* ---------- sauvegarde : dans TBS.v (déjà sauvegardé, remis à zéro avec une nouvelle partie).
+   Absent (ancienne sauvegarde) → les mondes déjà ouverts sont considérés comme vus : rien ne se reverrouille, pas d'animation. */
+Object.defineProperty(G54, "vus", { configurable: true, get() { try { return TBS.v.g54vus || null; } catch (_) { return null; } }, set(v) { try { if (v) TBS.v.g54vus = v; else delete TBS.v.g54vus; } catch (_) { } } });
+Object.defineProperty(G54, "cache", { configurable: true, get() { try { return TBS.v.g54c || (TBS.v.g54c = {}); } catch (_) { return {}; } }, set(v) { try { TBS.v.g54c = v || {}; } catch (_) { } } });
+Object.defineProperty(G54, "tour", { configurable: true, get() { try { return TBS.v.g54t ? 1 : 0; } catch (_) { return 0; } }, set(v) { try { if (v) TBS.v.g54t = 1; } catch (_) { } } });
+
+/* ---------- accès : le bouton 🌍 de la carte ouvre le globe ---------- */
+{
+  const GC = grandeCarte, ouv = GC.ouvrir;
+  GC.ouvrir = function () { const r = ouv.apply(this, arguments); try { const b = P98.ui && P98.ui.querySelector('[data-p98="mondes"]'); if (b) { b.hidden = false; b.setAttribute("aria-label", "Globe des mondes"); } } catch (_) { } return r; };
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('#p98ui [data-p98="mondes"]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault(); try { son.jouer("clic"); } catch (_) { } g54Ouvrir();
+  }, true);
+}
+
+/* pendant le globe, la boucle du jeu se met en veille comme pour la grande carte (fluidité) */
+try { const GC = grandeCarte; let o = !!GC.ouvert; Object.defineProperty(GC, "ouvert", { configurable: true, get() { return o || G54.open; }, set(v) { o = !!v; } }); G54.gcReel = () => o; } catch (e) { g54Err("gc", e); }
 
 </script>
 </body>
