@@ -11229,7 +11229,7 @@ function lancerCineDresseur() {
 function pkChoixStarter() {
   if (PK.equipe.length) return;
   const S = [["bulbizarre", "Plante · calme et solide"], ["salameche", "Feu · fougueux"], ["carapuce", "Eau · malin et résistant"]];
-  ouvrirPanneauAv(`<div class="titre">CHOISIS TON POKÉMON !</div><div class="ligne">« Lequel veux-tu, ${PK.suivant === "luffy" ? "Luffy" : "Sangoku"} ? » demande Théo.</div>
+  ouvrirPanneauAv(`<div class="titre">CHOISIS TON POKÉMON !</div><div class="ligne">« Lequel veux-tu, Théo ? » demande le Professeur Sorbier.</div>
     <div class="pkst">${S.map(([id, d]) => `<button data-action="pkStarter" data-id="${id}"><img src="${urlPk(id, 3)}">${echapHTML(pkNom(id))}<div class="petit">${d}</div></button>`).join("")}</div>
     <div class="ligne petit">Feu bat Plante · Plante bat Eau · Eau bat Feu</div>`);
   PK.ui = "starter";
@@ -34165,7 +34165,7 @@ const FS42 = G3_FS_MESH.replace("varying vec3 vC;", "uniform vec4 uCut; uniform 
 void main(){
  if (uCut.w > 0.0) { vec3 d = uCut.xyz - uCutC; float t = dot(vW - uCutC, d)/dot(d, d);
   if (t > 0.03 && t < 0.95 && vW.y > uCut.y - 3.0) { float r = length(vW - (uCutC + d*t)), R = uCut.w*(0.45 + 0.55*t);
-   if (r < R) { float k = (1.0 - smoothstep(R*0.5, R, r))*0.82; float th = p92B2(gl_FragCoord.xy*0.5)*0.25 + p92B2(gl_FragCoord.xy); if (k > th) discard; } } }
+   if (r < R) { if (!gl_FrontFacing) discard; float k = (1.0 - smoothstep(R*0.5, R, r))*0.82; float th = p92B2(gl_FragCoord.xy*0.5)*0.25 + p92B2(gl_FragCoord.xy); if (k > th) discard; } } }
  vec3 c = vC;`);
 try {
   const v41p = v41Prog;
@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.8", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.9", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -45056,6 +45056,67 @@ function t538Dessin3D(D, U, g, now) {
     if (T538.pose && H === E3.hero) Object.assign(R, { by: -2.6, bz: 0, lift: 0, ty: 0, tp: 0.06, tr: 0, yaw: 0, hp: 0, lR: [-1.3, 0.5, 1.15], lL: [-1.3, 0.5, 1.15], aR: [-0.8, 0.18, 0.25, -1.0], aL: [-0.8, 0.18, 0.25, -1.0], lsR: 1, lsL: 1 });
     return R;
   };
+}
+
+
+/* ===== v53.9 : audit final — corrections ===== */
+const P539 = { err: [] };
+function p539Err(k, e) { try { if (P539.err.length < 20) P539.err.push(k + ": " + (e && e.message || e)); } catch (_) { } }
+// 1) Britannia : une seule écriture courte de la monnaie (« Or »), comme dans les quêtes ; les phrases gardent « pièces d'or »
+try { if (MONNAIES.or) { MONNAIES.or.sym = "Or"; MONNAIES.or.court = "Or"; } } catch (e) { p539Err("or", e); }
+// 3) notifications (portrait) : toujours au-dessus des boutons du bas, jamais dessus
+{
+  const SEL = "#attaque,#btnSaut,#actionAv,#special,#padCombat button,#p77Cyc,#t538B,#knJutsus button,#btnPkSac,#sac,.btnBasAv,#gbInfo,#p93Pot,#p98sauve,#j2pad,#j2act button";
+  const vis = e => { if (!e || e.hidden) return false; const s = getComputedStyle(e); if (s.display === "none" || s.visibility === "hidden" || +s.opacity < 0.05) return false; const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4; };
+  function p539Notif() {
+    const N = document.getElementById("p105n"); if (!N) return;
+    const W = innerWidth, H = innerHeight;
+    if (W > H || document.body.classList.contains("p105gc")) { if (N.style.bottom) N.style.removeProperty("bottom"); return; }
+    const w = Math.min(W * 0.76, 340), x0 = (W - w) / 2, x1 = W - x0; let top = H - 190;
+    for (const e of document.querySelectorAll(SEL)) { if (!vis(e)) continue; const r = e.getBoundingClientRect(); if (r.top < H * 0.45 || r.right < x0 || r.left > x1) continue; top = Math.min(top, r.top); }
+    const b = Math.round(Math.min(H * 0.55, Math.max(190, H - top + 10))) + "px";
+    if (N.style.bottom !== b) N.style.bottom = b;
+  }
+  setInterval(() => { try { p539Notif(); } catch (e) { p539Err("notif", e); } }, 250);
+}
+// 4) bouton ⟳ (changer de technique) du pavé de combat au tour par tour : il ne se cache plus derrière un autre bouton
+try {
+  const p93 = p93Placer;
+  p93Placer = function () {
+    const r = p93.apply(this, arguments);
+    try {
+      const C = L77.cycEl; if (!C || !C.classList.contains("on") || !document.body.classList.contains("actc")) return r;
+      const rc = C.getBoundingClientRect(); if (!rc.width) return r;
+      const L = []; for (const e of document.querySelectorAll("#attaque,#btnSaut,#actionAv,#padCombat button,#p93Pot,#t538B,#btnMenuRapide")) { if (e === C) continue; const q = e.getBoundingClientRect(); if (q.width > 4 && getComputedStyle(e).visibility !== "hidden" && getComputedStyle(e).display !== "none") L.push(q); }
+      const hit = (x, y, s) => L.some(q => Math.hypot(x - (q.left + q.right) / 2, y - (q.top + q.bottom) / 2) < s / 2 + q.width / 2 + 2);   // boutons ronds : test de cercles
+      const s = rc.width, cx = rc.left + s / 2, cy = rc.top + s / 2;
+      if (!hit(cx, cy, s)) return r;
+      const A = document.getElementById("attaque").getBoundingClientRect(), ax = A.left + A.width / 2, ay = A.top + A.height / 2, D = l77D(), sg = D.left ? -1 : 1;
+      for (const R of [A.width / 2 + s / 2 + 8, A.width / 2 + s * 1.6 + 10, A.width / 2 + s * 2.7 + 12]) for (const a of [90, 100, 80, 110, 70, 180, 190, 200, 120, 60]) {
+        const t = a * Math.PI / 180, x = ax + sg * R * Math.cos(t), y = ay - R * Math.sin(t);
+        if (x < s / 2 + 4 || x > innerWidth - s / 2 - 4 || y < s / 2 + 4 || y > innerHeight - s / 2 - 4 || hit(x, y, s)) continue;
+        C.__p93 = null; C.style.setProperty("--x", Math.round(x) + "px"); C.style.setProperty("--y", Math.round(y) + "px"); return r;
+      }
+    } catch (e) { p539Err("cyc", e); }
+    return r;
+  };
+} catch (e) { p539Err("cyc0", e); }
+// 5) décor : on ne traverse plus le tronc des arbres et des sapins (petite boîte au pied, la même que BOITE_DECOR) ;
+//    les feuillages, buissons et herbes restent traversables ; jamais bloqué si on est déjà dans la boîte (vieilles saves)
+{
+  const TR = []; try { for (const k of ["ARBRE", "ARBRE2", "SAPIN"]) { const d = DECOR[k], b = BOITE_DECOR[d]; if (b) TR[d] = b; } } catch (e) { p539Err("tronc0", e); }
+  function p539Tronc(m, px, py) {
+    const S = CONFIG.TUILE, tx = Math.floor(px / S), ty = Math.floor(py / S), d = m.decorPose(tx, ty), b = d && TR[d]; if (!b) return false;
+    let [x0, y0, x1, y1] = b; if (miroirDecor(m, tx, ty, d)) [x0, x1] = [15 - x1, 15 - x0];
+    const u = px - tx * S, v = py - ty * S; if (!(u >= x0 && u <= x1 && v >= y0 && v <= y1)) return false;
+    const hx = Math.round(perso.x) - tx * S, hy = Math.round(perso.y) - ty * S; if (hx >= x0 - 3 && hx <= x1 + 3 && hy >= y0 && hy <= y1 + 3) return false;   // même empreinte que perso.libre (x±3, y-3..y)   // sortir d'un tronc reste possible
+    return true;
+  }
+  P539.tronc = 0;
+  const wrap = C => { try { if (!C || !C.prototype || !Object.prototype.hasOwnProperty.call(C.prototype, "bloque") || C.prototype.bloque.__539) return; const bq = C.prototype.bloque;
+    const f = function (px, py) { if (bq.call(this, px, py)) return true; try { if (this.decorPose && p539Tronc(this, px, py)) { P539.tronc++; return true; } } catch (e) { p539Err("tronc", e); } return false; };
+    f.__539 = 1; C.prototype.bloque = f; } catch (e) { p539Err("wrap", e); } };
+  for (const n of ["Monde", "MondePoke", "MondeBritannia", "MondeKonoha", "MondeKN", "MondeLuffy", "MondeGL"]) { try { wrap(eval("typeof " + n + " !== 'undefined' ? " + n + " : null")); } catch (_) { } }
 }
 
 </script>
