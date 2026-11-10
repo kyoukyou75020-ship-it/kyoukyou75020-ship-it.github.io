@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.5", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.6", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -43771,6 +43771,389 @@ function p535OnePiece() {
   return null;
 }
 { const t0 = p104Theme; p104Theme = function (C) { const r = t0.apply(this, arguments); if (r === "pont" || r === "budokai") { const o = p535OnePiece(); if (o && !(C && (C.fond === "pont" || (C.o && C.o.fond === "pont")))) return o; } return r; }; }
+
+
+/* ===== v53.6 — Britannia : quêtes débloquées dans l'ordre, « ! » en 3D partout, combats de boss dans l'arène (thème Britannia) ===== */
+const P536 = { err: [], cap: false, cd: 0, vide: null, gl: null, geo: null, m: new Map(), deco: null, decoM: null };
+function p536Err(w, e) { if (P536.err.length < 10) P536.err.push(w + ": " + (e && e.message || e)); try { console.warn("v53.6", w, e); } catch (_) { } }
+const P536_SINS = ["diane", "ban", "king", "gowther", "merlin", "escanor"];
+function p536Sept() { return P536_SINS.every(id => brFini(id)); }
+// bloquant : rien ne donnait le rang 2 (« Héros du royaume ») → la quête du roi (Chevaliers Sacrés), puis les Commandements et le Seigneur des Démons étaient inaccessibles
+function brApresQuete(id) {
+  try {
+    if (P536_SINS.includes(id) && p536Sept() && BR.rang < 2) {
+      BR.rang = 2; perso.pvMax = brPvMax();
+      setTimeout(() => { try { jeu.banniere = { texte: "LES SEPT PÉCHÉS SONT RÉUNIS !", t: 0 }; messageInfo("Rang : HÉROS DU ROYAUME ! Le roi Bartra t'attend au château de Liones (Nv 12)."); } catch (_) { } }, 1800);
+    }
+  } catch (e) { p536Err("apres", e); }
+}
+// anciennes parties déjà bloquées : rang corrigé au chargement
+{ const ie = brInitEtat; brInitEtat = function () { const r = ie.apply(this, arguments); try { if (BR.rang < 2 && p536Sept()) BR.rang = 2; } catch (e) { p536Err("init", e); } return r; }; }
+// quêtes secondaires « tuer » : la flèche montre où trouver les ennemis
+{ const c0 = brCible; brCible = function () { const r = c0.apply(this, arguments); if (r) return r;
+  try { const id = BR.suivi, E = id && BR.q[id]; if (!E || E.st !== "actif") return null; const S = BR_Q[id].steps[E.n];
+    if (S && S.t === "tuer") { const z = { s_brigands: "dalmary", s_tournoi: "camelot" }[id]; if (z && BRG.zones[z]) return { x: T2P(BRG.zones[z].tx), y: T2P(BRG.zones[z].ty) }; } } catch (e) { p536Err("cible", e); }
+  return null; }; }
+
+/* ---------- « ! » / « ? » en 3D : Britannia + PNJ de quêtes de tous les mondes (même style que les autres « ! » 3D) ---------- */
+function p536Marques3D() {
+  if (!(typeof E3 !== "undefined" && E3.actif && E3.VP) || jeu.scene !== sceneMonde) return;
+  const now = performance.now(), w = AV.monde || 1, px = perso.x, py = perso.y, pres = (x, y) => Math.abs(x - px) < 720 && Math.abs(y - py) < 720;
+  if (w === 5 && typeof brIci === "function" && brIci()) for (const q of BR.pnj) { if (q.cache || !pres(q.x, q.y)) continue; const m = p536MarqueBR(q.id); if (m) V52X.push({ x: q.x, z: q.y, t: now, q: m === "?" }); }
+  if (w !== 2 && typeof Q49_PNJ !== "undefined") for (const k in Q49_PNJ) {
+    const N = Q49_PNJ[k]; if (N.w !== w) continue; const p = q49PosPNJ(k); if (!p || !pres(p.x, p.y)) continue;
+    const m = q49Marque(k); if (m) V52X.push({ x: p.x, z: p.y, t: now, q: m === "?" });
+  }
+}
+// « ! » quête à prendre ; « ? » étape en cours à faire auprès de ce PNJ (parler / apporter)
+function p536MarqueBR(id) {
+  if (brQueteDispo(id)) return "!";
+  for (const k of BR_ORDRE) { const S = brEtape(k); if (S && (S.t === "parler" || S.t === "apporter") && S.npc === id) return "?"; }
+  return null;
+}
+function p536Interro(x, y, o, e, t) {
+  const k = Math.max(1, e), sx = Math.round((x - o.x) * e), sy = Math.round((y - o.y) * e - (Math.abs(Math.sin(t * 4)) * 3) * k);
+  ctx.fillStyle = "#0a1428"; ctx.fillRect(sx - 4 * k, sy - 13 * k, 8 * k, 9 * k); ctx.fillRect(sx - 2 * k, sy - 4 * k, 4 * k, 5 * k);
+  ctx.fillStyle = "#7ad0ff"; ctx.fillRect(sx - 3 * k, sy - 12 * k, 6 * k, 2 * k); ctx.fillRect(sx + 1 * k, sy - 10 * k, 2 * k, 3 * k); ctx.fillRect(sx - 1 * k, sy - 8 * k, 2 * k, 2 * k); ctx.fillRect(sx - 1 * k, sy - 3 * k, 2 * k, 2 * k);
+}
+// 2D : les donneurs qui se promènent (soldat, garde de Bernia…) n'avaient pas de « ! » ; « ? » sur le PNJ de l'étape en cours
+{ const ea = elementsAventure; elementsAventure = function (items, o, e, visible) {
+  ea.apply(this, arguments);
+  try { if (!brIci() || jeu.scene !== sceneMonde) return;
+    for (const q of BR.pnj) { if (q.cache || q.bulle || !visible(q.x, q.y - 12, 30)) continue; const m = p536MarqueBR(q.id); if (!m || (m === "!" && q.fixe)) continue;
+      items.push({ y: 1e8, dessiner: () => { if (m === "!") marqueExclam(q.x, q.y - 30, o, e, AV.temps); else p536Interro(q.x, q.y - 30, o, e, AV.temps); } }); }
+  } catch (er) { if (!P536.e2m) { P536.e2m = 1; p536Err("mk2d", er); } } }; }
+{ const h = e3Haut2D; e3Haut2D = function () { try { p536Marques3D(); } catch (e) { if (!P536.mk) { P536.mk = 1; p536Err("mk3d", e); } } return h.apply(this, arguments); }; }
+// les « ! » des PNJ de quêtes n'étaient visibles en 3D que sous forme d'un gros bloc voxel : on ne les capture plus, ils passent par le marqueur 3D commun
+{ const ec = e3Capter; e3Capter = function () { P536.cap = true; try { return ec.apply(this, arguments); } finally { P536.cap = false; } }; }
+{ const qs = q49Spr; q49Spr = function (k) { if (P536.cap && (k === "ex" || k === "qu")) { if (!P536.vide) P536.vide = nouveauCanvas(1, 1); return P536.vide; } return qs.apply(this, arguments); }; }
+// « ? » (étape à faire ici) en bleu, « ! » en jaune
+v52Exclam = function () {
+  if (!V52X.length || !E3.VP) return;
+  const now = performance.now(), k = Math.max(2, Math.round(DPR() * 1.8)), vus = new Set();
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  for (let i = V52X.length - 1; i >= 0; i--) {
+    const m = V52X[i]; if (now - m.t > 150) { V52X.splice(i, 1); continue; }
+    const key = Math.round(m.x / 4) + "," + Math.round(m.z / 4); if (vus.has(key)) continue; vus.add(key);
+    const q = e3Ecran(m.x, e3Sol(m.x, m.z) + 37, m.z); if (!q) continue;
+    const sx = Math.round(q[0]), sy = Math.round(q[1] - Math.abs(Math.sin(now / 250)) * 3 * k);
+    if (m.q) {
+      ctx.fillStyle = "#0a1428"; ctx.fillRect(sx - 4 * k, sy - 13 * k, 8 * k, 9 * k); ctx.fillRect(sx - 2 * k, sy - 4 * k, 4 * k, 5 * k);
+      ctx.fillStyle = "#7ad0ff"; ctx.fillRect(sx - 3 * k, sy - 12 * k, 6 * k, 2 * k); ctx.fillRect(sx + 1 * k, sy - 10 * k, 2 * k, 3 * k); ctx.fillRect(sx - 1 * k, sy - 8 * k, 2 * k, 2 * k); ctx.fillRect(sx - 1 * k, sy - 3 * k, 2 * k, 2 * k);
+    } else {
+      ctx.fillStyle = "#1a1008"; ctx.fillRect(sx - 3 * k, sy - 12 * k, 6 * k, 12 * k);
+      ctx.fillStyle = "#ffe040"; ctx.fillRect(sx - 2 * k, sy - 11 * k, 4 * k, 6 * k); ctx.fillRect(sx - 2 * k, sy - 4 * k, 4 * k, 3 * k);
+    }
+  }
+  ctx.restore();
+  if (V52X.length > 200) V52X.splice(0, V52X.length - 200);
+};
+
+/* ---------- arène v53 : duels de quêtes au thème du monde, boss de Britannia dans l'arène ---------- */
+{ const d = q49Duel; q49Duel = function () { P536.duelQ = 1; try { return d.apply(this, arguments); } finally { P536.duelQ = 0; } };
+  const pl = p99Lancer; p99Lancer = function (o) { try { if (o && !o.theme && P536.duelQ) o.theme = p104Theme(null); } catch (_) { } return pl.apply(this, arguments); }; }
+const P536_TECH = {
+  hendrickson: [{ nom: "Acide démoniaque", mult: 1.6 }, { nom: "Flamme de Purgatoire", mult: 1.4 }],
+  gilthunder: [{ nom: "Éclair de Thor", mult: 1.7 }, { nom: "Lance de foudre", mult: 1.3 }],
+  derieri: [{ nom: "Combo Star", mult: 1.8 }, { nom: "Poing de Pureté", mult: 1.3 }],
+  monspeet: [{ nom: "Flamme infernale", mult: 1.7 }, { nom: "Faucon de feu", mult: 1.3 }],
+  estarossa: [{ nom: "Full Counter noir", mult: 1.9 }, { nom: "Lames de ténèbres", mult: 1.4 }],
+  roidemon: [{ nom: "Ténèbres absolues", mult: 2 }, { nom: "Main du Roi", mult: 1.5 }],
+  demonrouge: [{ nom: "Poing écarlate", mult: 1.7 }]
+};
+function p536ArenaOK() { try { if (PARAMS.styleCombat === "classique") return false; if (typeof RES !== "undefined" && RES.ok) return false; if (typeof coopOn === "function" && coopOn()) return false; } catch (_) { } return true; }
+function p536BossArene(n, essai = 0) {
+  if (!n || n.pv <= 0 || !BR.en.includes(n)) return;
+  const pan = document.getElementById("panneau"), loin = Math.hypot(perso.x - n.x, perso.y - n.y) > 380;
+  if (AV.cine || jeu.scene !== sceneMonde || !brIci() || jeu.pause || (pan && !pan.hidden) || loin) { if (essai < 2000) setTimeout(() => p536BossArene(n, essai + 1), 700); return; }
+  const T = n.T, H = brHero(), lv = Math.max(0.35, Math.min(0.88, 0.55 + (T.niv - BR.niv) * 0.04)), N = prog.niveau || 1, pvJ = Math.round(130 + N * 11), atkJ = 7 + N * 0.9;
+  const L = T.L, M = n.m;
+  const fin = issue => {
+    try {
+      if (issue === "victoire") {
+        const F = P536.dern; try { if (F && F.A) perso.pv = Math.max(1, Math.round(perso.pvMax * F.A.pv / F.A.pvMax)); } catch (_) { }
+        if (BR.en.includes(n)) { n.pv = 0; n.invis = 0; brEnnemiVaincu(n); }
+      } else {
+        BR.en = BR.en.filter(e => e !== n); P536.cd = performance.now() + 12000;
+        if (issue === "defaite") { perso.pv = Math.max(1, Math.round(perso.pvMax * 0.35)); setTimeout(() => { try { messageInfo(T.nom + " est trop fort… Soigne-toi et reviens !"); } catch (_) { } }, 80); }
+        // un pas en arrière pour ne pas relancer le combat aussitôt
+        try { const S = brEtape(M); if (S && S.x) { const bx = S.x(), by = S.y(), a = Math.atan2(perso.y - by, perso.x - bx), q = brSol(bx + Math.cos(a) * (S.r + 60), by + Math.sin(a) * (S.r + 60), 160); if (q) { perso.x = q.x; perso.y = q.y; } } } catch (_) { }
+      }
+    } catch (e) { p536Err("finBoss", e); }
+  };
+  const ok = p99Lancer({ j1: H.id, theme: "britannia", lvl: lv, titre: "👑 COMBAT DE BOSS", pvJk: perso.pvMax ? perso.pv / perso.pvMax : 1,
+    adv: { id: "", nom: T.nom, col: L.c || "#c03030", boss: true, sprite: f => imageKPNJ(L, 2, f & 3, true, false), techs: P536_TECH[n.type] || [], pv: Math.round(pvJ * (1.05 + lv * 0.7)), atk: atkJ * (0.55 + lv * 0.5) },
+    victoire() { fin("victoire"); }, defaite() { fin("defaite"); }, abandon() { fin("fuite"); } });
+  if (ok) { P536.dern = AV.cine; P536.nBoss = (P536.nBoss || 0) + 1; }
+}
+{ const ce = brCreerEnnemi; brCreerEnnemi = function (type, x, y, m) {
+  const n = ce.apply(this, arguments);
+  try { if (n && m && n.T && n.T.boss && p536ArenaOK()) { n.cd = 9; setTimeout(() => p536BossArene(n), 900); } } catch (e) { p536Err("boss", e); }
+  return n; }; }
+// anciennes saves : la sauvegarde est restaurée au démarrage, avant ce bloc → on corrige aussi le rang ici et à chaque mise à jour des quêtes
+function p536Rang() { try { if (BR.rang < 2 && p536Sept()) BR.rang = 2; } catch (e) { p536Err("rang", e); } }
+p536Rang();
+{ const sq = brSpawnQuetes; brSpawnQuetes = function () { p536Rang(); if (performance.now() < P536.cd) return; return sq.apply(this, arguments); }; }
+
+/* ===== v53.6 — Britannia plus vivante : étals, tonneaux, puits, charrettes, fermes et moulin, bannières, ruines, cristaux, roseaux (2D + 3D + collisions),
+   fées et lucioles, papillons, poules/chèvres/renards, habitants variés, pavés en 3D ===== */
+const P536_FOOT = { etal: [34, 12, 1], tonneaux: [22, 8, 1], caisses: [16, 8, 1], charrette: [40, 10, 1], puits: [24, 10, 1], foin: [18, 8, 1], cloture: [48, 4, 1], banniere: [6, 4, 1], moulin: [36, 16, 1], fleurs: [16, 5, 0], cristal: [12, 6, 1], roseaux: [14, 4, 0], mur: [36, 10, 1], os: [10, 4, 0] };
+function p536Candidats() {
+  const L = [], A = (type, x, y, o) => L.push(Object.assign({ type, x: Math.round(x), y: Math.round(y) }, o || {}));
+  // Liones
+  for (const x of [7860, 7990, 8400, 8520]) A("etal", x, 7650, { c: (x >> 4) & 3 });
+  A("tonneaux", 7842, 7534); A("tonneaux", 7922, 7724); A("caisses", 7964, 7534); A("caisses", 8650, 7724);
+  for (const y of [7420, 7500]) { A("banniere", 8150, y); A("banniere", 8234, y); }
+  A("banniere", 8150, 7880); A("banniere", 8234, 7880);
+  A("charrette", 8100, 7930); A("charrette", 8290, 7925);
+  for (const x of [8812, 8860, 8908]) { A("cloture", x, 7600); A("cloture", x, 7712); }
+  A("foin", 8840, 7650); A("foin", 8884, 7676); A("foin", 8920, 7644); A("charrette", 8990, 7662);
+  // Vaizel + moulin et champs à l'ouest
+  A("etal", 5800, 9132, { c: 1 }); A("etal", 6100, 9132, { c: 2 }); A("puits", 6050, 9126);
+  A("tonneaux", 5858, 9184); A("caisses", 6050, 9034); A("caisses", 5690, 9184);
+  A("moulin", 5600, 9010);
+  for (const x of [5520, 5568, 5616]) { A("cloture", x, 9110); A("cloture", x, 9222); }
+  A("foin", 5548, 9168); A("foin", 5596, 9158); A("charrette", 5662, 9160);
+  A("banniere", 5900, 9280); A("banniere", 6004, 9280);
+  // Bernia + ferme à l'est
+  A("etal", 10300, 7130, { c: 3 }); A("etal", 10500, 7130, { c: 0 }); A("puits", 10220, 7126);
+  A("tonneaux", 10616, 7184); A("caisses", 10290, 7034); A("tonneaux", 10120, 7184);
+  for (const x of [10740, 10788, 10836]) { A("cloture", x, 7046); A("cloture", x, 7156); }
+  A("foin", 10768, 7100); A("foin", 10818, 7090); A("charrette", 10886, 7112);
+  A("banniere", 10350, 7262); A("banniere", 10450, 7262);
+  // fleurs sous les fenêtres des maisons
+  for (const B of BR_BAT) if (B.type === "maison") { A("fleurs", B.x - B.w / 4, B.y + 6, { c: (B.x >> 3) & 3 }); A("fleurs", B.x + B.w / 4, B.y + 6, { c: (B.x >> 4) & 3 }); }
+  // zones
+  const Zp = (z, dx, dy) => { const Z = BRG.zones[z]; return Z ? [T2P(Z.tx) + dx, T2P(Z.ty) + dy] : null; };
+  for (const [dx, dy] of [[-210, -20], [-170, 100], [180, 70], [210, -100], [10, 160], [-60, -160], [120, -170]]) { const p = Zp("camelot", dx, dy); if (p) A("mur", p[0], p[1], { c: (dx + dy) & 1 }); }
+  for (const [dx, dy] of [[-190, 120], [-160, 250], [170, 140], [200, 250], [-60, 300], [80, 310], [-230, 200], [240, 190]]) { const p = Zp("donjon", dx, dy); if (p) A("cristal", p[0], p[1], { c: (dx & 2) ? 1 : 0 }); }
+  for (const [dx, dy] of [[-90, 240], [60, 262], [140, 206], [-140, 178], [20, 330]]) { const p = Zp("donjon", dx, dy); if (p) A("os", p[0], p[1]); }
+  const M = Zp("marais", 0, 0); if (M) for (let i = 0; i < 48; i++) { const a = i / 48 * 6.283, r = 110 + (i % 4) * 80; A("roseaux", M[0] + Math.cos(a) * r, M[1] + Math.sin(a) * r, { eau: 1 }); }
+  return L;
+}
+// validation sur la vraie carte (appelée à la création du monde, avant les collisions des nouveaux objets)
+function p536Valider(m) {
+  const T = CONFIG.TAILLE_MONDE, out = [], NIVO = typeof NIV !== "undefined" ? NIV : { EAU: 1, SABLE: 2, ROCHE: 4 };
+  const pts = []; try {
+    for (const D of BR_PNJ_DEF) { if (D.zone) { const Z = BRG.zones[D.zone[0]]; pts.push([T2P(Z.tx) + D.zone[1], T2P(Z.ty) + D.zone[2]]); } else if (D.ou) pts.push([D.ou[0], D.ou[1]]); }
+    for (const B of BR_BAT) pts.push([B.x, B.y + 12]);
+    pts.push([BRG.porte.x, BRG.porte.y]);
+    for (const id in BR_Q) for (const S of BR_Q[id].steps) if (S.x) try { pts.push([S.x(), S.y()]); } catch (_) { }
+    for (const D of BR_DECO) pts.push([D.x, D.y, 16]); for (const p of BR_PROPS) pts.push([p.x, p.y, 22]);
+  } catch (e) { p536Err("pts", e); }
+  const solA = (x, y) => { if (x < 0 || y < 0) return 9; return m.sol[(y >> 4) * T + (x >> 4)]; };
+  const eau = (x, y) => { try { return m.niveauPx(Math.floor(x), Math.floor(y)) <= NIVO.EAU; } catch (_) { return true; } };
+  for (const c of p536Candidats()) {
+    const F = P536_FOOT[c.type]; if (!F) continue; const [w, d, col] = F, mg = col ? 6 : 1, x0 = c.x - w / 2 - mg, x1 = c.x + w / 2 + mg, y0 = c.y - d - mg, y1 = c.y + mg;
+    let ok = true;
+    for (let y = y0; y <= y1 && ok; y += 3) for (let x = x0; x <= x1 && ok; x += 3) { if (m.bloque(Math.round(x), Math.round(y))) ok = false; else if (c.type !== "fleurs" && solA(Math.round(x), Math.round(y))) ok = false; }
+    if (!ok) continue;
+    if (c.eau) { let pres = false; for (let a = 0; a < 8 && !pres; a++) if (eau(c.x + Math.cos(a * 0.785) * 22, c.y + Math.sin(a * 0.785) * 14)) pres = true; if (!pres) continue; }
+    if (col) { let loin = true; for (const p of pts) if (Math.hypot(p[0] - c.x, p[1] - c.y) < (p[2] || 40)) { loin = false; break; } if (!loin) continue; }
+    if (out.some(o => Math.abs(o.x - c.x) < (w + P536_FOOT[o.type][0]) / 2 + 4 && Math.abs(o.y - c.y) < 14)) continue;
+    out.push(c);
+  }
+  return out;
+}
+{ const bo = brObstacles; brObstacles = function (m) {
+  bo.apply(this, arguments);
+  try { const L = p536Valider(m); P536.deco = L; P536.decoM = m; P536.m.clear();
+    for (const c of L) { const [w, d, col] = P536_FOOT[c.type]; if (col) obstacle(m, Math.round(c.x - w / 2), Math.round(c.y - d), Math.round(c.x + w / 2), Math.round(c.y)); }
+  } catch (e) { p536Err("obst", e); }
+}; }
+
+/* ---------- 2D ---------- */
+const P536_IMG = {};
+const P536_AUV = [["#c83a3a", "#f4ecd8"], ["#3a6ac8", "#f4ecd8"], ["#3a9a4a", "#f0e0a0"], ["#c8902a", "#7a2a2a"]];
+function p536Img(type, c = 0) {
+  const key = type + c; if (P536_IMG[key]) return P536_IMG[key];
+  let cv;
+  const mk = (w, h, f) => { cv = nouveauCanvas(w, h); const g = cv.getContext("2d"); f(pinceau(g), g); knOutline(cv); return cv; };
+  const bois = "#8a5a30", boisF = "#5a3a1e", boisC = "#b07a44", pierre = "#a8a4b0", pierreF = "#78747f";
+  if (type === "etal") mk(40, 36, P => { const [a, b] = P536_AUV[c & 3];
+    P.r(5, 14, 2, 20, boisF); P.r(33, 14, 2, 20, boisF); P.r(3, 22, 34, 10, bois); P.r(3, 22, 34, 2, boisC); P.r(3, 31, 34, 1, boisF);
+    for (let i = 0; i < 6; i++) { P.ell(7 + i * 5, 21, 2, 1.6, ["#e04030", "#f0c030", "#70b040", "#e08030", "#a040a0", "#f0e0c0"][(i + c) % 6]); }
+    for (let i = 0; i < 9; i++) P.r(1 + i * 4, 6, 4, 8, i & 1 ? b : a); P.r(1, 4, 38, 2, a); for (let i = 0; i < 9; i++) P.r(2 + i * 4, 14, 2, 2, i & 1 ? b : a); });
+  else if (type === "tonneaux") mk(26, 22, P => { const tn = (x, y) => { P.r(x, y, 10, 13, bois); P.r(x + 1, y, 2, 13, boisC); P.r(x, y + 2, 10, 1, "#4a4a52"); P.r(x, y + 10, 10, 1, "#4a4a52"); P.r(x + 2, y - 1, 6, 1, boisF); };
+    tn(2, 8); tn(14, 8); tn(8, 1); });
+  else if (type === "caisses") mk(20, 18, P => { const cs = (x, y, s) => { P.r(x, y, s, s, boisC); P.r(x, y, s, 1, "#d09a5a"); P.r(x, y + s - 1, s, 1, boisF); P.r(x, y, 1, s, boisF); P.r(x + s - 1, y, 1, s, boisF); for (let i = 1; i < s - 1; i++) P.p(x + i, y + i, boisF); };
+    cs(1, 6, 10); cs(10, 8, 9); cs(5, 0, 8); });
+  else if (type === "charrette") mk(46, 30, P => { P.r(4, 12, 34, 8, bois); P.r(4, 12, 34, 1, boisC); P.r(38, 15, 8, 2, boisF);
+    P.ell(14, 8, 9, 6, "#e8c860"); P.ell(26, 9, 9, 5, "#d8b048"); P.ell(20, 6, 7, 4, "#f0d878"); for (let i = 0; i < 6; i++) P.p(10 + i * 4, 4 + (i & 1), "#b89030");
+    for (const x of [10, 30]) { P.ell(x, 23, 6, 6, boisF); P.ell(x, 23, 4, 4, bois); P.r(x - 1, 18, 2, 10, boisF); P.r(x - 5, 22, 10, 2, boisF); P.ell(x, 23, 1.5, 1.5, "#4a4a52"); } });
+  else if (type === "puits") mk(30, 36, P => { P.r(3, 22, 24, 12, pierre); for (let i = 0; i < 4; i++) P.r(3 + i * 6 + (i & 1), 22, 1, 12, pierreF); P.r(3, 27, 24, 1, pierreF); P.ell(15, 22, 11, 3, "#2a4a7a"); P.ell(15, 22, 8, 2, "#4a7ac0");
+    P.r(4, 6, 2, 17, boisF); P.r(24, 6, 2, 17, boisF); P.r(4, 9, 22, 2, bois); P.r(14, 11, 2, 7, "#6a6a72"); P.r(12, 17, 6, 4, bois);
+    for (let r = 0; r < 6; r++) P.r(1 + r, 6 - r, 28 - r * 2, 1, r & 1 ? "#a03a2a" : "#c84a32"); });
+  else if (type === "foin") mk(22, 16, P => { P.ell(11, 9, 10, 7, "#d8b048"); P.ell(10, 7, 8, 5, "#ecc860"); for (let i = 0; i < 7; i++) P.r(3 + i * 2.5, 3 + (i % 3) * 3, 2, 1, "#b08a2a"); P.r(1, 9, 20, 1, "#9a7a2a"); });
+  else if (type === "cloture") mk(50, 14, P => { for (const x of [1, 17, 33, 47]) P.r(x, 1, 3, 13, boisF); P.r(0, 4, 50, 2, bois); P.r(0, 9, 50, 2, bois); P.r(0, 4, 50, 1, boisC); });
+  else if (type === "banniere") mk(8, 44, P => { P.r(3, 2, 2, 42, "#4a3a2a"); P.ell(4, 2, 2, 2, "#e8c040"); });
+  else if (type === "moulin") mk(44, 70, P => { for (let y = 22; y < 70; y++) { const w = 13 + (y - 22) * 0.18; P.r(22 - w, y, w * 2, 1, y % 6 === 0 ? "#b8ac94" : "#d8ccb0"); }
+    for (let r = 0; r < 14; r++) P.r(22 - (14 - r) * 1.15, 8 + r, (14 - r) * 2.3, 1, r & 2 ? "#8a3a2a" : "#a84a32");
+    P.r(18, 58, 8, 12, "#5a3a1e"); P.r(19, 59, 6, 1, "#8a5a30"); P.r(15, 36, 4, 5, "#3a3040"); P.r(25, 44, 4, 5, "#3a3040"); P.ell(22, 24, 3, 3, "#5a3a1e"); });
+  else if (type === "fleurs") mk(18, 8, P => { P.r(1, 4, 16, 4, bois); P.r(1, 4, 16, 1, boisC); const f = [["#e04a6a", "#f4e060"], ["#8a5ae0", "#ffffff"], ["#f08030", "#f4e060"], ["#e8e8f0", "#e04a6a"]][c & 3]; for (let i = 0; i < 5; i++) { P.r(2 + i * 3, 2, 2, 2, i & 1 ? f[1] : f[0]); P.p(3 + i * 3, 3, "#3a8a3a"); } });
+  else if (type === "cristal") mk(16, 26, P => { const a = c ? "#c060ff" : "#ff4a8a", b = c ? "#e8c0ff" : "#ffc0d8", f = c ? "#6a20a0" : "#a01a4a";
+    const sp = (x, h, w) => { for (let y = 0; y < h; y++) { const ww = Math.max(1, Math.round(w * Math.min(1, (y + 1) / 4))); P.r(x - (ww >> 1), 25 - h + y, ww, 1, y < 2 ? b : (y & 3) ? a : f); } };
+    sp(8, 22, 5); sp(3, 12, 4); sp(13, 15, 4); P.r(1, 24, 14, 2, "#3a2a40"); });
+  else if (type === "roseaux") mk(16, 20, P => { for (let i = 0; i < 6; i++) { const x = 2 + i * 2.4, h = 10 + ((i * 5) % 8); P.r(x, 20 - h, 1, h, i & 1 ? "#4a7a3a" : "#6a9a4a"); if (i % 2 === 0) P.r(x - 0.5, 20 - h - 3, 2, 4, "#6a4a2a"); } });
+  else if (type === "mur") mk(40, 30, P => { brPierre(P, 1, c ? 10 : 6, 16, c ? 20 : 24, "#a8a4b0"); brPierre(P, 17, c ? 16 : 14, 12, c ? 14 : 16, "#9a96a2"); brPierre(P, 29, 22, 10, 8, "#a8a4b0"); P.r(4, c ? 9 : 5, 6, 2, "#5a8a3a"); P.r(31, 21, 4, 1, "#5a8a3a"); });
+  else if (type === "os") mk(14, 8, P => { P.r(1, 5, 9, 2, "#e8e4d0"); P.ell(1, 5, 1.4, 1.4, "#e8e4d0"); P.ell(10, 6, 1.4, 1.4, "#e8e4d0"); P.ell(11, 3, 2.6, 2.4, "#f0ecdc"); P.p(10, 3, "#2a2420"); P.p(12, 3, "#2a2420"); });
+  return P536_IMG[key] = cv;
+}
+function p536En3D() { return typeof g3Actif === "function" && g3Actif() && typeof E3 !== "undefined" && E3.actif; }
+function p536Fees(t) { // fées qui voltigent (Royaume des fées) + lucioles la nuit (marais, forêt)
+  const L = [], nuit = typeof cycleNuit === "function" ? cycleNuit() : 0;
+  const F = BRG.zones.fees; if (F) { const cx = T2P(F.tx), cy = T2P(F.ty); for (let i = 0; i < 14; i++) { const a = t * (0.25 + (i % 5) * 0.06) + i * 2.1, r = 60 + (i * 37) % 170; L.push({ x: cx + Math.cos(a) * r + Math.sin(t * 1.7 + i) * 12, y: cy + Math.sin(a * 1.2) * r * 0.7, h: 14 + Math.sin(t * 2.3 + i) * 6, c: ["#ffe8a0", "#a0f0ff", "#ffb0f0", "#c0ffb0"][i & 3], fee: 1 }); } }
+  if (nuit > 0.3) for (const z of ["marais", "dalmary"]) { const Z = BRG.zones[z]; if (!Z) continue; const cx = T2P(Z.tx), cy = T2P(Z.ty); for (let i = 0; i < 12; i++) { const a = t * 0.18 + i * 1.7, r = 40 + (i * 53) % 260; L.push({ x: cx + Math.cos(a + i) * r, y: cy + Math.sin(a * 0.8 + i) * r * 0.8, h: 6 + Math.sin(t * 1.3 + i * 2) * 4, c: "#d8ff70", a: 0.5 + 0.5 * Math.sin(t * 3 + i * 1.3) }); } }
+  return L;
+}
+function p536Papillons(t) { // le jour, autour des fleurs des villages
+  const L = [], nuit = typeof cycleNuit === "function" ? cycleNuit() : 0; if (nuit > 0.3 || !P536.deco) return L;
+  let n = 0; for (const c of P536.deco) { if (c.type !== "fleurs" || Math.abs(c.x - perso.x) > 420 || Math.abs(c.y - perso.y) > 520) continue; if (((c.x >> 3) & 1) || n > 8) continue; n++;
+    L.push({ x: c.x + Math.sin(t * 0.9 + c.x) * 16, y: c.y - 2 + Math.cos(t * 1.1 + c.y) * 6, h: 10 + Math.sin(t * 2.6 + c.x) * 4, c: ["#f4f0ff", "#f0c030", "#6aa0f0", "#f07090"][(c.x >> 4) & 3], b: Math.sin(t * 22 + c.x) > 0 }); }
+  return L;
+}
+{ const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try {
+      if (!brIci() || jeu.scene !== sceneMonde || !P536.deco || P536.decoM !== jeu.monde) return;
+      if (p536En3D()) return;                          // en 3D : géométrie propre (pas de capture voxel)
+      const t = AV.temps || performance.now() / 1000, k = Math.max(1, e);
+      for (const c of P536.deco) {
+        if (!visible(c.x, c.y - 20, c.type === "moulin" ? 120 : 60)) continue;
+        const im = p536Img(c.type, c.c || 0);
+        items.push({ y: c.y, dessiner: () => {
+          poserImg(im, c.x, c.y, im.width / 2, im.height - 1, o, e);
+          if (c.type === "banniere") { const sx = (c.x + 1 - o.x) * e, sy = (c.y - 40 - o.y) * e; for (let i = 0; i < 12; i++) { const w = Math.sin(t * 4 + i * 0.5 + c.x) * 1.2 * i / 11; ctx.fillStyle = i < 2 ? "#e8c040" : "#2a4aa0"; ctx.fillRect(Math.round(sx + i * k), Math.round(sy + w * k), k, Math.round(20 * k)); if (i > 3 && i < 9) { ctx.fillStyle = "#e8c040"; ctx.fillRect(Math.round(sx + i * k), Math.round(sy + (8 + w) * k), k, Math.round((i === 6 ? 5 : 3) * k)); } } ctx.fillStyle = "#e8c040"; ctx.fillRect(Math.round(sx), Math.round(sy + 19 * k), Math.round(12 * k), k); }
+          if (c.type === "moulin") { const cx = (c.x - o.x) * e, cy = (c.y - 46 - o.y) * e, a0 = t * 0.9; for (let b = 0; b < 4; b++) { const a = a0 + b * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a); ctx.fillStyle = "#4a3020"; for (let r = 3; r < 30; r += 1.5) ctx.fillRect(Math.round(cx + ca * r * e - k / 2), Math.round(cy + sa * r * e - k / 2), k, k);
+              ctx.fillStyle = "rgba(236,228,206,0.95)"; for (let r = 10; r < 29; r += 1.5) for (let s = 1; s < 5; s++) ctx.fillRect(Math.round(cx + (ca * r - sa * s) * e - k / 2), Math.round(cy + (sa * r + ca * s) * e - k / 2), k, k); }
+            ctx.fillStyle = "#3a2418"; ctx.fillRect(Math.round(cx - 2 * k), Math.round(cy - 2 * k), 4 * k, 4 * k); }
+        } });
+      }
+      const vols = p536Fees(t).concat(p536Papillons(t));
+      if (vols.length) items.push({ y: 1e7 - 5, dessiner: () => { for (const f of vols) { if (!visible(f.x, f.y, 20)) continue; const sx = Math.round((f.x - o.x) * e), sy = Math.round((f.y - f.h - o.y) * e);
+        if (f.fee || f.a != null) { ctx.globalAlpha = 0.35 * (f.a == null ? 1 : f.a); ctx.fillStyle = f.c; ctx.fillRect(sx - 2 * k, sy - 2 * k, 5 * k, 5 * k); ctx.globalAlpha = f.a == null ? 1 : f.a; ctx.fillRect(sx - k / 2, sy - k / 2, 2 * k, 2 * k);
+          if (f.fee) { ctx.globalAlpha = 0.7; ctx.fillStyle = "#ffffff"; const fl = Math.sin(t * 30 + f.x) > 0 ? 2 : 1; ctx.fillRect(sx - (1 + fl) * k, sy - 2 * k, fl * k, 2 * k); ctx.fillRect(sx + 2 * k, sy - 2 * k, fl * k, 2 * k); } ctx.globalAlpha = 1; }
+        else { ctx.fillStyle = f.c; const w = f.b ? 2 : 1; ctx.fillRect(sx - w * k, sy - k, w * k, 2 * k); ctx.fillRect(sx + k, sy - k, w * k, 2 * k); ctx.fillStyle = "#2a2020"; ctx.fillRect(sx, sy - k, k, 2 * k); } } } });
+    } catch (er) { if (!P536.e2) { P536.e2 = 1; p536Err("2d", er); } }
+  };
+}
+
+/* ---------- 3D ---------- */
+function p536Cell(key) {
+  const [ci, cj] = key.split(",").map(Number), g = new G3Geo(), l = new G3Geo(), H = g3RGB;
+  const bois = H("#7a4a26"), boisF = H("#4a2e16"), boisC = H("#a87442"), pierre = H("#a8a4b0"), pierreF = H("#7a7682"), fer = H("#4a4a52"), paille = H("#e0bc58"), pailleF = H("#b8902e"), toit = H("#a8402e");
+  let sx = 0, sz = 0, n = 0;
+  for (const c of P536.deco) {
+    if (Math.floor(c.x / 384) !== ci || Math.floor(c.y / 384) !== cj) continue;
+    const x = c.x, z = c.y - 4, h = e3Sol(c.x, c.y); sx += x; sz += z; n++;
+    if (c.type === "etal") { const [a, b] = P536_AUV[c.c & 3].map(H);
+      g.box(x, h, z, 34, 9, 11, bois); g.box(x, h + 9, z, 35, 1.2, 12, boisC);
+      for (let i = 0; i < 6; i++) g.sph(x - 13 + i * 5.2, h + 11, z + 1, 2.2, 1.8, 2.2, 6, H(["#e04030", "#f0c030", "#70b040", "#e08030", "#a040a0", "#f0e0c0"][(i + c.c) % 6]));
+      for (const s of [-1, 1]) for (const q of [-1, 1]) g.box(x + s * 16, h, z + q * 5, 1.6, 24, 1.6, boisF);
+      for (let i = 0; i < 9; i++) g.box(x - 16 + i * 4, h + 24, z, 4, 1.4, 15, i & 1 ? b : a);
+      for (let i = 0; i < 9; i++) g.box(x - 16 + i * 4, h + 21, z + 7.4, 4, 3, 0.6, i & 1 ? b : a); }
+    else if (c.type === "tonneaux") { for (const [dx, dz, dy] of [[-6, 1, 0], [6, 1, 0], [0, -3, 0]]) { g.cyl(x + dx, h + dy, z + dz, 4.6, 4.6, 11, 10, bois); g.cyl(x + dx, h + dy + 1.5, z + dz, 4.9, 4.9, 1, 10, fer); g.cyl(x + dx, h + dy + 8.5, z + dz, 4.9, 4.9, 1, 10, fer); g.cyl(x + dx, h + dy + 11, z + dz, 4, 4, 0.4, 10, boisF); } }
+    else if (c.type === "caisses") { g.box(x - 3, h, z + 1, 9, 9, 9, boisC); g.box(x + 5, h, z - 1, 8, 8, 8, bois); g.box(x - 1, h + 9, z, 7, 7, 7, boisC); }
+    else if (c.type === "charrette") { g.box(x - 3, h + 7, z, 32, 3, 14, bois); g.box(x - 3, h + 10, z - 7, 32, 4, 1, boisF); g.box(x - 3, h + 10, z + 7, 32, 4, 1, boisF); g.box(x + 18, h + 8, z, 10, 1.4, 2, boisF);
+      g.sph(x - 8, h + 14, z, 9, 5, 6, 8, paille); g.sph(x + 2, h + 15, z + 1, 8, 5, 6, 8, pailleF); g.sph(x - 3, h + 18, z, 6, 4, 5, 8, paille);
+      for (const s of [-1, 1]) for (const wx of [-11, 7]) g.sph(x + wx, h + 6, z + s * 8, 6, 6, 1.2, 10, boisF); }
+    else if (c.type === "puits") { g.cyl(x, h, z, 10, 10, 9, 12, pierre); g.cyl(x, h + 9, z, 10.6, 10.6, 1.2, 12, pierreF); l.cyl(x, h + 7, z, 8, 8, 0.6, 12, H("#3a6ab0"));
+      for (const s of [-1, 1]) g.box(x + s * 9, h + 9, z, 1.8, 16, 1.8, boisF); g.box(x, h + 22, z, 20, 1.6, 1.6, bois); g.box(x, h + 15, z, 4, 4, 4, bois);
+      for (let r = 0; r < 4; r++) g.box(x, h + 25 + r * 2, z, 24 - r * 5, 2, 16 - r * 3.5, r & 1 ? H("#a03a2a") : toit); }
+    else if (c.type === "foin") { g.cyl(x, h, z, 8, 8, 10, 10, paille); g.cyl(x, h + 10, z, 8, 6, 2, 10, pailleF); }
+    else if (c.type === "cloture") { for (const dx of [-23, -8, 8, 23]) g.box(x + dx, h, z, 2.4, 11, 2.4, boisF); g.box(x, h + 4, z, 48, 1.8, 1.2, bois); g.box(x, h + 8.5, z, 48, 1.8, 1.2, boisC); }
+    else if (c.type === "banniere") { g.cyl(x, h, z, 1.1, 1.1, 40, 6, H("#4a3a2a")); g.sph(x, h + 41, z, 1.8, 1.8, 1.8, 6, H("#e8c040")); g.box(x + 6, h + 18, z, 11, 20, 0.6, H("#2a4aa0")); g.box(x + 6, h + 23, z + 0.4, 5, 8, 0.4, H("#e8c040")); g.box(x + 6, h + 38, z, 12, 1.2, 1.2, H("#e8c040")); }
+    else if (c.type === "moulin") { g.cyl(x, h, z, 16, 11, 46, 12, H("#d8ccb0")); g.cyl(x, h + 46, z, 13, 0, 16, 12, toit); g.box(x, h, z + 13, 8, 12, 3, boisF); g.box(x - 7, h + 24, z + 12, 3, 4, 1, H("#3a3040")); }
+    else if (c.type === "fleurs") { const f = [["#e04a6a", "#f4e060"], ["#8a5ae0", "#ffffff"], ["#f08030", "#f4e060"], ["#e8e8f0", "#e04a6a"]][c.c & 3].map(H); g.box(x, h, z + 2, 16, 3.4, 4, bois); for (let i = 0; i < 5; i++) g.sph(x - 6 + i * 3, h + 4.5, z + 2, 1.6, 1.6, 1.6, 5, i & 1 ? f[1] : f[0]); }
+    else if (c.type === "cristal") { const a = H(c.c ? "#b050f0" : "#f04a8a"), b = H(c.c ? "#e0b0ff" : "#ffb0d0"); g.box(x, h, z, 13, 2, 7, H("#3a2a40")); l.box(x, h + 1, z, 4, 20, 4, a, 0.4); l.box(x - 4, h + 1, z + 1, 3, 11, 3, b, -0.3); l.box(x + 4, h + 1, z - 1, 3, 14, 3, a, 0.8); }
+    else if (c.type === "roseaux") { for (let i = 0; i < 6; i++) { const hh = 9 + ((i * 5) % 8); g.box(x - 6 + i * 2.4, h, z + ((i * 3) % 4) - 2, 0.8, hh, 0.8, i & 1 ? H("#4a7a3a") : H("#6a9a4a")); if (i % 2 === 0) g.box(x - 6 + i * 2.4, h + hh, z + ((i * 3) % 4) - 2, 1.6, 3.4, 1.6, H("#6a4a2a")); } }
+    else if (c.type === "mur") { g.box(x - 10, h, z, 15, c.c ? 18 : 24, 8, pierre); g.box(x + 4, h, z + 1, 12, c.c ? 12 : 15, 7, pierreF); g.box(x + 14, h, z, 9, 7, 7, pierre); g.box(x - 13, h + (c.c ? 18 : 24), z, 6, 2, 6, H("#5a8a3a")); }
+    else if (c.type === "os") { g.box(x - 1, h, z, 8, 1.4, 1.6, H("#e8e4d0")); g.sph(x + 5, h + 2, z, 2.6, 2.4, 2.6, 6, H("#f0ecdc")); }
+  }
+  if (!n) return null;
+  return { g: g.build(), l: l.build(), x: sx / n, z: sz / n - 20, r: 300 };
+}
+function p536Pales() {
+  if (P536.geo && P536.gl === G3.gl) return P536.geo; P536.gl = G3.gl; P536.m.clear();
+  const g = new G3Geo(), H = g3RGB; g.box(0, -2, 0, 4, 4, 4, H("#3a2418"));
+  for (let b = 0; b < 4; b++) { const a = b * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a); for (let r = 3; r < 30; r += 3) { g.box(ca * r, sa * r - 0.7, 0, 3.2, 1.4, 1, H("#4a3020")); if (r > 9) g.box(ca * r - sa * 3.2, sa * r + ca * 3.2 - 1.6, 0.4, 3.2, 3.2, 0.4, H("#ece4ce")); } }
+  return P536.geo = { pales: g.build() };
+}
+{ const x5 = E3X[5];
+  E3X[5] = function (U, A, Pl, I, TR, gy, now, dt) {
+    const r = x5.apply(this, arguments);
+    try {
+      if (!P536.deco || P536.decoM !== jeu.monde || !brIci()) return r;
+      const G = p536Pales(), cx = E3.cx, cz = E3.cz;
+      const c0 = Math.floor((cx - TR.R - 200) / 384), c1 = Math.floor((cx + TR.R + 200) / 384), r0 = Math.floor((cz - TR.R - 200) / 384), r1 = Math.floor((cz + TR.R + 200) / 384);
+      let built = 0;
+      for (let i = c0; i <= c1; i++) for (let j = r0; j <= r1; j++) {
+        const k = i + "," + j; let o = P536.m.get(k);
+        if (o === undefined) { if (built++ > 0) continue; o = p536Cell(k); P536.m.set(k, o); }
+        if (!o || !e3Vu(Pl, o.x, 20, o.z, o.r)) continue;
+        if (typeof SH3 !== "undefined" && SH3.on && Math.hypot(o.x - cx, o.z - cz) < SH3.R + o.r) SH3.rec.push(o.g, I);
+        g3Mesh(o.g, I); g3Mesh(o.l, I, { e: Math.min(1, 0.55 + (A.nu || 0) * 0.6) });
+      }
+      const t = AV.temps || now;
+      for (const c of P536.deco) if (c.type === "moulin" && Math.abs(c.x - cx) < 700 && Math.abs(c.y - cz) < 700) g3Mesh(G.pales, M4.trs(c.x, e3Sol(c.x, c.y) + 40, c.y - 4 + 17, 0, 0, -t * 0.9, 1));
+      const glow = (x, y, z, rr, col, a) => g3Mesh(U.sph, M4.trs(x, y, z, 0, 0, 0, rr, rr, rr), { tint: [col[0], col[1], col[2], 1], e: 1, a, add: true });
+      for (const f of p536Fees(t).concat(p536Papillons(t))) {
+        if (Math.abs(f.x - cx) > 520 || Math.abs(f.y - cz) > 520) continue; const y = e3Sol(f.x, f.y) + f.h, c = g3RGB(f.c);
+        if (f.fee || f.a != null) { const a = f.a == null ? 1 : f.a; glow(f.x, y, f.y, 3.2, c, 0.35 * a); glow(f.x, y, f.y, 1.2, [1, 1, 1], 0.9 * a); }
+        else { const fl = f.b ? 0.9 : 0.25; g3Mesh(U.cube, M4.trs(f.x - 1.3, y, f.y, 0, 0, fl, 2.2, 0.3, 1.8), { tint: [c[0], c[1], c[2], 1], e: 0.4 }); g3Mesh(U.cube, M4.trs(f.x + 1.3, y, f.y, 0, 0, -fl, 2.2, 0.3, 1.8), { tint: [c[0], c[1], c[2], 1], e: 0.4 }); }
+      }
+    } catch (e) { if (!P536.e3) { P536.e3 = 1; p536Err("3d", e); } }
+    return r;
+  };
+}
+// 3D : rues pavées et place de Liones en pierre (comme en 2D), au lieu d'un sol sableux
+{ const cs = e3CoulSol; e3CoulSol = function (m, tx, ty, l, T) {
+  const v = cs.apply(this, arguments);
+  try { if (m && m.brit && m.sol) { const s = m.sol[ty * T + tx]; if (s === 2 || s === 4) { const h = hash(tx, ty, 536), k = (0.88 + h * 0.14) * (((tx ^ ty) & 1) ? 0.94 : 1); return s === 4 ? [0.8 * k, 0.77 * k, 0.71 * k] : [0.74 * k, 0.7 * k, 0.62 * k]; } } } catch (_) { }
+  return v; }; }
+
+/* ---------- habitants : visages et tenues variés (même modèle, même taille), plus nombreux ---------- */
+function p536Look(seed) {
+  const r = mulberry32(seed), ch = a => a[Math.floor(r() * a.length)];
+  const femme = r() < 0.48, enfant = r() < 0.16, vieux = !enfant && r() < 0.22;
+  const L = { id: "p536v" + seed, s: ch(["#f4d4b8", "#ecc8a4", "#e0b088", "#c89068", "#a06a44", "#7a4a2a"]), h: vieux ? ch(["#c8c8c8", "#e8e4dc", "#9a9a9a"]) : ch(["#3a2418", "#5a3420", "#8a5a2a", "#c89040", "#e8d080", "#a03a1a", "#1a1418"]),
+    c: ch(["#7a2a2a", "#3a5a8a", "#4a6a3a", "#8a6a3a", "#5a3a6a", "#a88a5a", "#6a6a72", "#c8b898", "#2a5a5a"]), p: ch(["#3a2a1a", "#4a3a2a", "#2a2a3a", "#5a4a3a", "#3a3a2a"]) };
+  if (femme) { L.cheveux = "long"; if (r() < 0.6) L.gilet = ch(["#e8dcc0", "#c85a7a", "#6a8ac0", "#e0b040", "#8ab070"]); }
+  else { if (!enfant && r() < 0.3) L.barbe = true; if (r() < 0.35) L.gilet = ch(["#8a5a3a", "#5a4a3a", "#e8dcc0", "#6a7a4a"]); if (r() < 0.2) L.cheveux = "pique"; }
+  if (!enfant && r() < 0.28) L.chapeau = ch(["#c8a860", "#5a4a3a", "#3a3a5a", "#7a2a2a"]);
+  if (enfant) L.enfant = true;
+  return L;
+}
+{ const cp = brCreerPNJ; brCreerPNJ = function () {
+  cp.apply(this, arguments);
+  try {
+    let s = 1;
+    for (const q of BR.pnj) if (/^v_/.test(q.id)) { q.L = p536Look(5360 + s++); q.enfant = !!q.L.enfant; }
+    const r = mulberry32(5361);
+    for (const k in BR_VILLES) { const V = BR_VILLES[k], rues = BR_VILL_RUES[k]; for (let i = 5; i < 8; i++) {
+      const L = p536Look(5400 + s++), y = rues[i & 1], P = brSol(V.X0 + 60 + r() * (V.X1 - V.X0 - 120), y, 40);
+      BR.pnj.push({ id: "v_" + k + i, nom: "", x: P.x, y: P.y, L, phr: BR_VILL_PHR, fixe: false, vue: 0, miroir: false, anim: 0, bouge: false, t: i, bulle: null, enfant: !!L.enfant, vit: 20 + (i & 3) * 3, tt: 0.5 + i * 0.6, etat: "pause", pts: [], vue0: 0, ville: k, rue: y }); } }
+  } catch (e) { p536Err("pnj", e); }
+}; }
+// hommages plus fidèles : King a les cheveux châtain-roux, Merlin sans chapeau de sorcière (même modèle, même taille)
+try { Object.assign(BR_LOOKS.king, { id: "l_king2", h: "#a8703a" }); Object.assign(BR_LOOKS.merlin, { id: "l_mer2", chapeau: undefined }); delete BR_LOOKS.merlin.chapeau; } catch (e) { p536Err("looks", e); }
+
+/* ---------- animaux : poules autour des villages, chèvres à Camelot, renards et hiboux la nuit en forêt ---------- */
+{ const ep = especePour; especePour = function (x, y) {
+  const r = ep.apply(this, arguments);
+  try {
+    if (!brIci()) return r;
+    const nb = t => { let c = 0; for (const a of animaux) if (a.type === t) c++; return c; };
+    if (brDansVille(x, y, 170) && !brDansVille(x, y, 0) && nb("poule") < 6 && Math.random() < 0.55) return "poule";
+    if (r) return r;
+    const z = brZoneA(x, y), nuit = typeof cycleNuit === "function" ? cycleNuit() : 0;
+    if (z === "camelot" && nb("chevre") < 3 && Math.random() < 0.3) return "chevre";
+    if ((z === "dalmary" || z === "fees") && nuit > 0.5 && Math.random() < 0.35) return Math.random() < 0.5 ? "renard" : (nb("hibou") < 2 ? "hibou" : "renard");
+    if (z === "fees" && Math.random() < 0.3) return Math.random() < 0.6 ? "lapin" : "biche";
+  } catch (e) { p536Err("faune", e); }
+  return r;
+}; }
 
 
 </script>
