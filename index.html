@@ -9719,7 +9719,7 @@ const PKG = {
   zones: {
     boisElec: { nom: "BOIS ÉLECTRIQUE", tx: 330, ty: 560, r: 30, gx: 360, gy: 560 },
     prairie: { nom: "PRAIRIE CACHÉE", tx: 662, ty: 680, r: 26, gx: 661, gy: 654 },
-    lac: { nom: "LAC BRUMEUX", tx: 646, ty: 340, r: 34, gx: 623, gy: 370, lac: 17 },
+    lac: { nom: "LAC BRUMEUX", tx: 646, ty: 340, r: 34, gx: 624, gy: 368, lac: 17 },
     ruines: { nom: "RUINES ANCIENNES", tx: 330, ty: 330, r: 26, gx: 356, gy: 330 }
   },
   etangs: [[560, 680, 6], [432, 470, 7], [704, 600, 6], [548, 520, 8], [600, 380, 5]]
@@ -10465,7 +10465,7 @@ function pkMajSuiveur(dt) {
       items.push({ y: P.y, dessiner: () => {
         const k = Math.max(1, e), sx = Math.round((P.x - o.x) * e), sy = Math.round((P.y - o.y) * e), f = P.bouge ? Math.floor(t * 8) & 3 : 0;
         ctx.drawImage(ombreAnimal(12), sx - 6 * k, sy - 2 * k, 12 * k, 4 * k);
-        const im = P.id === "leo" ? imageDresseur(["bas", "haut", "droite", "gauche"][P.vue], f, false) : imagePNJ(P.look, P.vue === 3 ? 2 : P.vue, f, P.vue === 3);
+        const im = pk534ImPNJ(P, P.vue === 3 ? 2 : P.vue, f, P.vue === 3);
         ctx.drawImage(im, sx - 8 * k, sy - (P.id === "leo" ? 24 : 23) * k, im.width * k, im.height * k);
         if (pkMarque(P)) marqueExclam(P.x, P.y - 28, o, e, t);
       } });
@@ -15860,7 +15860,7 @@ function raMaj(dt) {
     const T = CONFIG.TAILLE_MONDE, tx = perso.x >> 4, ty = perso.y >> 4, id = ty * T + tx;
     if (id === RA.tuile) return; RA.tuile = id;
     if (jeu.monde.DEC[id] !== DECOR.HERBE_HAUTE) return;
-    if (Math.random() < 0.085 * Math.min(1.3, TB_TAUX())) { const [e, n] = pkEspeceSauvage(perso.x, perso.y); PK.inv = 1.2; raAlerte(() => { if (!AV.cine && !jeu.transition) pkLancerCombat({ sauvage: { e, n } }); }, "Un Pokémon sauvage !"); }
+    if (Math.random() < 0.07 * Math.min(1.3, TB_TAUX())) { const [e, n] = pkEspeceSauvage(perso.x, perso.y); PK.inv = 1.2; raAlerte(() => { if (!AV.cine && !jeu.transition) pkLancerCombat({ sauvage: { e, n } }); }, "Un Pokémon sauvage !"); }
     return;
   }
   if (zone === "bord" || RA.cd > 0 || PARAMS.difficulte === "paisible" && Math.random() < 0.5) return;
@@ -15870,7 +15870,7 @@ function raMaj(dt) {
 // monde Pokémon : seuls les Pokémon rares restent visibles (ils fuient)
 (() => {
   const ms = pkMajSauvages;
-  pkMajSauvages = function (dt) { const r = ms.apply(this, arguments); for (let i = PK.sauvages.length - 1; i >= 0; i--) if (!PK.sauvages[i].rare) PK.sauvages.splice(i, 1); return r; };
+  pkMajSauvages = function (dt) { const r = ms.apply(this, arguments); for (let i = PK.sauvages.length - 1; i >= 0; i--) if (!PK.sauvages[i].rare && !pk534Garder(PK.sauvages[i])) PK.sauvages.splice(i, 1); return r; };
 })();
 (() => {
   const ma = majAventure;
@@ -39017,7 +39017,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -42820,6 +42820,405 @@ function p533Restaurer(x) {
     try { const C = P533.chant, el = document.getElementById("p96p"), now = performance.now(); if (C && el && !el.hidden && el.innerHTML && P96.tab === "bat" && now - P533.tPan > 1000) { P533.tPan = now; p533Rafraichir(); } } catch (_) { }
   }, 100);
 }
+
+/* ===== v53.4 — lot 5 : monde Pokémon (Bourg-Feuille, villages, zones) =====
+   - 3D : petits décors immobiles regroupés en lots (1 maillage + 1 ombre par carré de 256 px) → moins d'appels de dessin.
+   - Habitants : silhouettes propres à chacun (hommages : professeure, chasseur d'insectes, pêcheur, randonneuse, rival…), même taille.
+   - Pokémon sauvages visibles qui se cachent dans les hautes herbes (tête qui dépasse, herbes qui bougent), compagnons des habitants.
+   - Décor : guirlandes tenues par des mâts (2D et 3D), fontaine et quai à Village-Azur, rochers et wagonnet à Cité-Granit.
+   - Quête « Le Pokémon mirage » : la barrière du Lac Brumeux ne s'ouvrait pas (porte hors de l'anneau) → corrigé à la source. */
+const P534 = { err: [], st: { lots: 0, reb: 0, msReb: 0, filtres: 0 } };
+function p534Err(k, e) { if (P534.err.length < 20) P534.err.push(k + ": " + (e && e.message || e)); }
+const p534Hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+
+/* ---------- 1. lots 3D des petits décors immobiles ---------- */
+const B534 = { on: true, ent: new Map(), ch: new Map(), bl: new Set(), fr: 0, camA: 0, camT: 0, camF: 0, vV: new WeakMap(), monde: null, nid: 0 };
+function b534Actif() { return B534.on && !window.__noBatch && (AV.monde || 1) === 3 && !E3.sc && jeu.scene === sceneMonde && !!(G3 && G3.gl); }
+function b534VoxV(im) {
+  let r = B534.vV.get(im); if (r) return r;
+  const sv = E3.vox, sc = E3.vc, ob = G3Geo.prototype.build, nv = E3.nVox; let V = null, m = null;
+  E3.vox = new Map(); E3.vc = new Map();
+  G3Geo.prototype.build = function () { V = new Float32Array(this.v); this.v = null; return { b: null, n: V.length / 9 }; };
+  try { m = e3Vox(im); } catch (e) { p534Err("vox", e); } finally { G3Geo.prototype.build = ob; E3.vox = sv; E3.vc = sc; E3.nVox = nv; }
+  if (!m || !V) return null;
+  let F = V; try { F = b534Fusion(V); } catch (e) { p534Err("fusion", e); }
+  r = { V: F, bw: m.bw }; B534.vV.set(im, r); return r;
+}
+// fusion des faces voisines identiques (murs latéraux en bandes verticales, dessus en bandes) ; dessous retirés
+function b534Fusion(V, garderDessous) {
+  if (V.length % 54) return V;
+  const G = new Map(), AX = [[1, 2], [0, 2], [0, 1]];
+  for (let i = 0; i < V.length; i += 54) {
+    const nx = V[i + 3], ny = V[i + 4], nz = V[i + 5], ax = Math.abs(nx) > 0.5 ? 0 : Math.abs(ny) > 0.5 ? 1 : 2, sg = (ax === 0 ? nx : ax === 1 ? ny : nz) > 0 ? 1 : -1;
+    if (ax === 1 && sg < 0 && !garderDessous) continue;
+    const [ui, vi] = AX[ax]; let p = V[i + ax], u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+    for (let j = i; j < i + 54; j += 9) { const u = V[j + ui], v = V[j + vi]; if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v; if (Math.abs(V[j + ax] - p) > 1e-4) return V; }
+    const c = [V[i + 6], V[i + 7], V[i + 8]], k = ax + "|" + sg + "|" + p + "|" + c.join(",");
+    let L = G.get(k); if (!L) G.set(k, L = []); L.push({ u0, u1, v0, v1 });
+  }
+  const out = [];
+  const emit = (k, q) => { const [a, sgS, pS, cS] = k.split("|"), ax = +a, sg = +sgS, p = +pS, c = cS.split(",").map(Number), [ui, vi] = AX[ax], n = [0, 0, 0]; n[ax] = sg;
+    const P = (u, v) => { const r = [0, 0, 0]; r[ax] = p; r[ui] = u; r[vi] = v; return r; }, A = P(q.u0, q.v0), B = P(q.u1, q.v0), C = P(q.u1, q.v1), D = P(q.u0, q.v1);
+    for (const w of [A, B, C, A, C, D]) out.push(w[0], w[1], w[2], n[0], n[1], n[2], c[0], c[1], c[2]); };
+  const fus = (L, a0, a1, b0, b1) => { L.sort((x, y) => x[b0] - y[b0] || x[b1] - y[b1] || x[a0] - y[a0]); const R = []; for (const q of L) { const l = R[R.length - 1]; if (l && Math.abs(l[b0] - q[b0]) < 1e-4 && Math.abs(l[b1] - q[b1]) < 1e-4 && Math.abs(l[a1] - q[a0]) < 1e-4) l[a1] = q[a1]; else R.push({ ...q }); } return R; };
+  for (const [k, L0] of G) { let L = fus(L0, "u0", "u1", "v0", "v1"); L = fus(L, "v0", "v1", "u0", "u1"); for (const q of L) emit(k, q); }
+  return new Float32Array(out);
+}
+function b534Lib(C) { const gl = G3.gl; for (const k of ["m", "s"]) if (C[k]) { try { gl.deleteBuffer(C[k].b); } catch (_) { } C[k] = null; } C.ok = false; }
+function b534Vider() { for (const C of B534.ch.values()) b534Lib(C); B534.ch.clear(); B534.ent.clear(); }
+function b534Up(A) { const gl = G3.gl, b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, A, gl.STATIC_DRAW); return { b, n: A.length / 9 }; }
+function b534Build(C) {
+  const t0 = performance.now(); b534Lib(C);
+  const parts = []; let n = 0;
+  for (const E of C.L) { const v = b534VoxV(E.b.im); E.inMesh = false; if (!v) continue; parts.push([E, v]); n += v.V.length; }
+  if (!n) { C.dirty = false; return; }
+  const A = new Float32Array(n), S = new Float32Array(parts.length * 12 * 3 * 9), yA = B534.camA; let o = 0, so = 0;
+  // faces jamais visibles depuis la caméra (dessous, dos tournés vers le nord) : retirées du lot
+  let vd = [0, 0.8, 0.6]; try { const ey = E3.eye; if (ey) { const tx = E3.cx, tz = E3.cz, ty = e3Sol(tx, tz); const d = [ey[0] - tx, ey[1] - ty, ey[2] - tz], l = Math.hypot(d[0], d[1], d[2]) || 1; vd = d.map(v => v / l); } } catch (_) { }
+  for (const [E, v] of parts) {
+    const b = E.b, g0 = e3Sol(b.x, b.y - 2), M = M4.trs(b.x, g0 + b.lift, b.y, yA, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s), V = v.V;
+    for (let i = 0; i < V.length; i += 27) {
+      { const nx = V[i + 3], ny = V[i + 4], nz = V[i + 5], X = M[0] * nx + M[4] * ny + M[8] * nz, Y = M[1] * nx + M[5] * ny + M[9] * nz, Z = M[2] * nx + M[6] * ny + M[10] * nz, l = Math.hypot(X, Y, Z) || 1;
+        if ((X * vd[0] + Y * vd[1] + Z * vd[2]) / l < -0.3) continue; }
+      for (let j = i; j < i + 27; j += 9) {
+      const x = V[j], y = V[j + 1], z = V[j + 2], nx = V[j + 3], ny = V[j + 4], nz = V[j + 5];
+      A[o] = M[0] * x + M[4] * y + M[8] * z + M[12]; A[o + 1] = M[1] * x + M[5] * y + M[9] * z + M[13]; A[o + 2] = M[2] * x + M[6] * y + M[10] * z + M[14];
+      const X = M[0] * nx + M[4] * ny + M[8] * nz, Y = M[1] * nx + M[5] * ny + M[9] * nz, Z = M[2] * nx + M[6] * ny + M[10] * nz, l = Math.hypot(X, Y, Z) || 1;
+      A[o + 3] = X / l; A[o + 4] = Y / l; A[o + 5] = Z / l; A[o + 6] = V[j + 6]; A[o + 7] = V[j + 7]; A[o + 8] = V[j + 8]; o += 9;
+      }
+    }
+    E.inMesh = true;
+    if (b.lift < 30) { const cx = b.x + 2, cy = g0 + 0.5, cz = b.y + 1, rx = Math.min(26, v.bw * 0.5 + 2), rz = Math.min(20, v.bw * 0.34 + 2);
+      for (let i = 0; i < 12; i++) { const a0 = i / 12 * 6.2832, a1 = (i + 1) / 12 * 6.2832;
+        for (const [px, pz] of [[0, 0], [Math.cos(a1), Math.sin(a1)], [Math.cos(a0), Math.sin(a0)]]) { S[so] = cx + px * rx; S[so + 1] = cy; S[so + 2] = cz + pz * rz; S[so + 3] = 0; S[so + 4] = 1; S[so + 5] = 0; S[so + 6] = 0; S[so + 7] = 0; S[so + 8] = 0; so += 9; } } }
+  }
+  C.nv = o / 9; C.nv0 = n / 9; C.m = b534Up(A.subarray(0, o)); C.s = so ? b534Up(S.subarray(0, so)) : null; C.ok = true; C.dirty = false; C.yA = yA;
+  P534.st.reb++; P534.st.msReb = Math.round((P534.st.msReb * 0.8 + (performance.now() - t0) * 0.2) * 10) / 10;
+}
+function b534Filtrer(fx, fy, R) {
+  B534.minces = [];
+  if ((AV.monde || 1) === 3 && !E3.sc && E3.ent && !window.__pk534off) { const keep = []; for (const b of E3.ent) { if (b.im && b.im.__mince && !b.proj) B534.minces.push(b); else keep.push(b); } E3.ent = keep; }
+  if (!b534Actif()) { if (B534.ch.size || B534.ent.size) b534Vider(); return; }
+  if (B534.monde !== jeu.monde) { b534Vider(); B534.monde = jeu.monde; }
+  const fr = ++B534.fr, L = E3.ent || [], camA = E3.camA || 0;
+  if (Math.abs(camA - B534.camT) > 0.002) { B534.camT = camA; B534.camF = fr; }
+  if (Math.abs(camA - B534.camA) > 0.002 && fr - B534.camF > 20) { b534Vider(); B534.camA = camA; }
+  const camOk = Math.abs(camA - B534.camA) <= 0.002;
+  const elig = [];
+  for (const b of L) {
+    const im = b.im;
+    if (!im || im.e3h || b.proj || (b.a != null && b.a < 1) || im.width >= 40 || im.width < 3 || im.height < 3 || !(b.lift < 30) || !(b.s > 0)) { elig.push(null); continue; }
+    const id = im.__b534 || (im.__b534 = ++B534.nid), k = id + "|" + b.x + "|" + b.y + "|" + b.s + "|" + b.sy + "|" + b.lift + "|" + (b.mir ? 1 : 0);
+    let E = B534.ent.get(k);
+    if (!E) { E = { k, b, n: 0, seen: 0, ch: null, inMesh: false, pos: Math.round(b.x / 4) + "," + Math.round(b.y / 4) }; B534.ent.set(k, E); }
+    if (E.seen !== fr) E.n = E.seen === fr - 1 ? E.n + 1 : 1;
+    E.seen = fr; E.b = b; elig.push(E);
+    if (!E.ch && E.n >= 45 && camOk && !B534.bl.has(E.pos) && Math.hypot(b.x - fx, b.y - fy) < R * 0.9) {
+      const ix = Math.floor(b.x / 256), iy = Math.floor(b.y / 256), ck = ix + ":" + iy; let C = B534.ch.get(ck);
+      if (!C) { C = { ck, L: new Set(), ok: false, dirty: true, cx: (ix + 0.5) * 256, cy: (iy + 0.5) * 256, m: null, s: null }; B534.ch.set(ck, C); }
+      C.L.add(E); E.ch = C; C.dirty = true;
+    }
+  }
+  // disparition d'un objet d'un lot (il a changé d'image ou bougé) → retiré tout de suite, position mise de côté
+  for (const C of B534.ch.values()) for (const E of C.L) if (E.seen !== fr) {
+    const b = E.b; if (Math.abs(b.x - fx) < R - 40 && Math.abs(b.y - fy) < R - 40) { C.L.delete(E); E.ch = null; B534.ent.delete(E.k); B534.bl.add(E.pos); if (E.inMesh) { C.ok = false; C.rm = true; } C.dirty = true; }
+  }
+  let budget = 1;
+  for (const C of B534.ch.values()) if (C.dirty && (C.rm || budget-- > 0)) { C.rm = false; try { b534Build(C); } catch (e) { p534Err("lot", e); b534Lib(C); } }
+  if (fr % 120 === 0) {
+    for (const [k, E] of B534.ent) if (!E.ch && fr - E.seen > 90) B534.ent.delete(k);
+    for (const [ck, C] of B534.ch) if (Math.hypot(C.cx - fx, C.cy - fy) > 1300) { b534Lib(C); for (const E of C.L) B534.ent.delete(E.k); B534.ch.delete(ck); }
+  }
+  const out = []; let nf = 0;
+  for (let i = 0; i < L.length; i++) { const E = elig[i]; if (E && E.ch && E.ch.ok && E.inMesh && camOk) { nf++; continue; } out.push(L[i]); }
+  E3.ent = out; P534.st.filtres = nf; P534.st.lots = B534.ch.size;
+  if (fr % 30 === 0) { let a = 0, b = 0; for (const C of B534.ch.values()) { a += C.nv || 0; b += C.nv0 || 0; } P534.st.vtx = a; P534.st.vtx0 = b; }
+}
+function b534Dessiner(U, Pl, I, TR, gy) {
+  const ombre = TR.ombre && !(SH3.valid && SH3.ok !== false), tint = [0, 0.02, 0.05, 1];
+  // Pokémon (sauvages, compagnons, équipier) : volume aminci (relief de sprite plutôt que bloc vu d'en haut)
+  if (B534.minces && B534.minces.length) { const px = E3.cx, pz = E3.cz, yA = E3.camA || 0;
+    for (const b of B534.minces) { if (Math.hypot(b.x - px, b.y - pz) > TR.R * 0.95) continue; const v = e3Vox(b.im); if (!v) continue; const g0 = e3Sol(b.x, b.y - 2);
+      if (ombre && b.lift < 30) g3Mesh(U.ombre, M4.trs(b.x + 2, g0 + 0.5, b.y + 1, 0, 0, 0, Math.min(26, v.bw * 0.5 + 2) * b.s, 1, Math.min(20, v.bw * 0.34 + 2) * b.s), { a: 0.34, tint });
+      g3Mesh(v, M4.trs(b.x, g0 + b.lift, b.y, yA, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s * 0.42), { a: b.a < 1 ? b.a : null }); } }
+  if (!b534Actif() || !B534.ch.size || Math.abs((E3.camA || 0) - B534.camA) > 0.002) return;
+  for (const C of B534.ch.values()) {
+    if (!C.ok || !C.m) continue;
+    if (Math.hypot(C.cx - E3.cx, C.cy - E3.cz) > TR.R + 240) continue;
+    if (Pl && !e3Vu(Pl, C.cx, gy + 20, C.cy, 230)) continue;
+    if (ombre && C.s) g3Mesh(C.s, I, { a: 0.34, tint });
+    if (SH3.on && Math.hypot(C.cx - E3.cx, C.cy - E3.cz) < SH3.R + 200) SH3.rec.push(C.m, I);
+    g3Mesh(C.m, I);
+  }
+}
+
+/* ---------- 2. habitants : silhouettes propres (même gabarit 16×24) ---------- */
+const PK534_LOOK = {
+  brindille: { L: { h: "#c8c8d4", c: "#8a5ab8", p: "#5a4a6a", s: "#f4c8a0", robe: true }, y: "#7a5a3a", add(p, v) {      // professeure : blouse blanche, chignon, lunettes
+    p.ell(7.5, 1.8, 2.2, 1.7, "h");
+    if (v === 0) { p.rect(4, 12, 5, 20, "w"); p.rect(10, 12, 11, 20, "w"); p.rect(3, 13, 3, 17, "w"); p.rect(12, 13, 12, 17, "w"); p.px(4, 8, "x"); p.px(6, 8, "x"); p.px(9, 8, "x"); p.px(11, 8, "x"); p.px(7, 8, "x"); p.px(8, 8, "x"); }
+    else if (v === 1) { p.rect(3, 12, 12, 20, "w"); p.rect(7, 16, 8, 20, "g"); }
+    else { p.rect(4, 12, 10, 20, "w"); p.px(9, 8, "x"); p.px(11, 8, "x"); p.px(10, 7, "x"); } } },
+  max: { L: { h: "#3a2010", c: "#f0f0e4", p: "#3a8a4a", s: "#f4c8a0", chapeau: "#e8c860" }, y: "#3a8a4a", add(p, v, f) {      // chasseur d'insectes : chapeau de paille, filet
+    p.rect(5, 20, 7, 21, "s"); p.rect(8, 20, 10, 21, "s"); p.rect(4, 15, 11, 15, "y");
+    if (v !== 1) { p.ligne(13, 18, 14, 6, "x"); p.ell(14, 4, 1.8, 2.2, "n"); } else { p.ligne(2, 18, 1, 6, "x"); p.ell(1.5, 4, 1.6, 2.2, "n"); } } },
+  jo: { L: { h: "#e8e8e8", c: "#8a6a4a", p: "#4a4a58", s: "#f0c098" }, y: "#e8c050", add(p, v) {      // grand-père : crâne dégarni, moustache, canne
+    if (v === 0) { p.ell(7.5, 4.2, 3.2, 1.6, "s"); p.rect(6, 10, 9, 10, "w"); p.px(5, 11, "w"); p.px(10, 11, "w"); p.rect(7, 12, 8, 17, "y"); }
+    else if (v === 1) p.ell(7.5, 3.8, 3.2, 1.6, "s");
+    else { p.ell(8.5, 4.2, 3, 1.5, "s"); p.rect(10, 10, 12, 10, "w"); }
+    p.ligne(v === 1 ? 2 : 13, 15, v === 1 ? 2 : 13, 22, "x"); p.px(v === 1 ? 3 : 12, 15, "x"); } },
+  lin: { L: { h: "#f4f4f4", c: "#c8a0d8", p: "#c8a0d8", s: "#ffd8b8", robe: true }, y: "#e8607a", add(p, v) {      // mamie : chignon blanc, châle, lunettes
+    p.ell(7.5, 1.9, 2.3, 1.8, "h"); p.rect(4, 12, 11, 13, "y"); p.px(3, 13, "y"); p.px(12, 13, "y");
+    if (v === 0) { p.tri(5.5, 13, 9.5, 13, 7.5, 16, "y"); p.px(5, 8, "x"); p.px(10, 8, "x"); p.rect(6, 8, 9, 8, "x"); p.px(5, 8, "e"); p.px(10, 8, "e"); }
+    else if (v === 1) p.tri(4, 13, 11, 13, 7.5, 17, "y");
+    else { p.px(10, 8, "x"); p.px(11, 8, "x"); } } },
+  lina: { L: { h: "#f08838", c: "#f0d040", p: "#3a6ad0", s: "#ffe0c8" }, y: "#e03a3a", add(p, v) {      // nageuse : couette latérale, bretelles rouges, short
+    p.rect(5, 20, 7, 21, "s"); p.rect(8, 20, 10, 21, "s"); p.rect(4, 16, 11, 17, "p");
+    if (v === 0) { p.ell(13, 4.5, 1.6, 2.4, "h"); p.rect(5, 12, 5, 15, "y"); p.rect(10, 12, 10, 15, "y"); }
+    else if (v === 1) { p.ell(2.5, 4.5, 1.6, 2.4, "h"); p.rect(5, 12, 5, 15, "y"); p.rect(10, 12, 10, 15, "y"); }
+    else { p.ell(3, 4, 1.6, 2.4, "h"); p.rect(7, 12, 7, 15, "y"); } } },
+  marin: { L: { h: "#e8e8e0", c: "#2a4a8a", p: "#4a5a6a", s: "#d8a070", chapeau: "#f0c020" }, y: "#e87a2a", add(p, v) {      // pêcheur : ciré jaune, barbe blanche, canne à pêche
+    p.rect(4, 12, 11, 14, "y");
+    if (v === 0) { p.ell(7.5, 10.6, 3.2, 1.6, "w"); p.ligne(13, 18, 15, 2, "x"); p.rect(15, 3, 15, 9, "g"); }
+    else if (v === 1) p.ligne(2, 18, 0, 2, "x");
+    else { p.rect(9, 10, 12, 11, "w"); p.ligne(13, 18, 15, 3, "x"); } } },
+  roc: { L: { h: "#a0a0a0", c: "#a85a2a", p: "#4a3a2a", s: "#c88a5a" }, y: "#4a8a3a", add(p, v) {      // ancien montagnard : bandeau, grande barbe, bâton
+    p.rect(3, 5, 12, 5, "y");
+    if (v === 0) { p.ell(7.5, 11.5, 3.8, 2.6, "w"); p.rect(4, 8, 6, 8, "e"); p.rect(9, 8, 11, 8, "e"); }
+    else if (v === 2) { p.ell(10, 11, 2.6, 2.2, "w"); p.rect(9, 8, 11, 8, "e"); }
+    p.ligne(v === 1 ? 2 : 13, 6, v === 1 ? 2 : 13, 22, "x"); p.ell(v === 1 ? 2 : 13, 6, 1.2, 1.2, "g"); } },
+  clara: { L: { h: "#7a4a2a", c: "#3aa060", p: "#c8a070", s: "#f4c8a0", chapeau: "#e04040" }, y: "#a86a3a", add(p, v) {      // randonneuse : sac à dos, short, queue de cheval
+    p.rect(5, 20, 7, 21, "s"); p.rect(8, 20, 10, 21, "s");
+    if (v === 0) { p.rect(4, 12, 4, 16, "y"); p.rect(11, 12, 11, 16, "y"); }
+    else if (v === 1) { p.rect(5, 11, 10, 17, "y"); p.rect(6, 10, 9, 10, "y"); p.ell(7.5, 10, 1.4, 2, "h"); }
+    else { p.rect(2, 11, 4, 17, "y"); p.ell(3.5, 8.5, 1.3, 2, "h"); } } },
+  tom: { L: { h: "#3a2010", c: "#e84848", p: "#3a5aa8", s: "#f4c8a0" }, y: "#2a6ad8", add(p, v) {      // gamin : casquette à l'envers, marinière
+    p.ell(7.5, 4.2, 4.7, 2.4, "y"); p.rect(4, 14, 11, 14, "w"); p.rect(4, 16, 11, 16, "w"); p.rect(5, 20, 7, 21, "s"); p.rect(8, 20, 10, 21, "s");
+    if (v === 1) p.rect(5, 6, 10, 7, "y"); else if (v === 2) p.rect(1, 5, 3, 5, "y"); } },
+  leo: { L: { h: "#9a5a2a", c: "#7a4ab8", p: "#2a2a3a", s: "#f4c8a0" }, y: "#e8c050", add(p, v) {      // rival : cheveux en pics, pendentif
+    if (v === 2) { p.tri(1, 4, 5, 2, 4, 7, "h"); p.tri(4, 1, 8, 1, 6, 4, "h"); p.tri(8, 1.5, 11, 2.5, 9, 4, "h"); p.px(10, 13, "y"); }
+    else { p.tri(2, 6, 4, 0.5, 7, 4, "h"); p.tri(6, 4, 8, -0.5, 10, 4, "h"); p.tri(9, 4, 12.5, 1, 13, 6.5, "h"); if (v === 0) { p.px(7, 13, "y"); p.px(8, 13, "y"); p.px(7, 12, "g"); p.px(8, 12, "g"); } } } }
+};
+const PK534_3D = { brindille: { hair: "#c8c8d4", torso: "#f4f4f0" }, max: { hair: "#e8c860", hat: 1 }, jo: { hair: "#e8e8e8" }, lin: { hair: "#f4f4f4", torso: "#e8607a" }, lina: { hair: "#f08838", torso: "#f0d040" },
+  marin: { hair: "#f0c020", hat: 1, torso: "#e87a2a" }, roc: { hair: "#a0a0a0" }, clara: { hair: "#e04040", hat: 1, torso: "#3aa060" }, tom: { hair: "#2a6ad8", hat: 1 }, leo: { hair: "#9a5a2a", torso: "#7a4ab8" } };
+const PK534_CACHE = new Map();
+function pk534ImPNJ(P, vue, f, mir) {
+  const D = PK534_LOOK[P.id];
+  if (!D || window.__pk534off) return P.id === "leo" ? imageDresseur(["bas", "haut", "droite", "gauche"][P.vue], f, false) : imagePNJ(P.look, vue, f, mir);
+  const k = P.id + ":" + vue + ":" + (f & 3) + ":" + (mir ? 1 : 0); let c = PK534_CACHE.get(k);
+  if (!c) {
+    try {
+      const p = spritePNJ(D.L, vue, f); D.add(p, vue, f);
+      const L = D.L;
+      c = rendrePix(p, { o: "#1a1014", s: ton(L.s, 1), h: ton(L.h, 1), c: ton(L.c, 1), a: ton(melange(L.c, "#000000", 0.12), 1), p: ton(L.p, 1), b: "#3a2414", t: ton(L.chapeau || "#000000", 1), e: "#1a1014", m: "#b05040",
+        w: ton("#f4f4f0", 0.6), g: "#9aa0a8", x: "#6a4424", n: "#e8f4f4", y: ton(D.y || "#888888", 1), dessous: ["c", "h", "t"] }, mir);
+      c.e3h = 1;
+      const Q = PK534_3D[P.id];
+      if (Q && typeof e3Palette === "function" && E3 && E3.pal) { const pal = e3Palette(c); if (pal) { if (Q.hair) pal.hair = p534Hex(Q.hair); if (Q.torso) pal.torso = p534Hex(Q.torso); if (Q.hat) pal.hat = true; } }
+    } catch (e) { p534Err("pnj", e); c = imagePNJ(P.look, vue, f, mir); }
+    PK534_CACHE.set(k, c);
+  }
+  return c;
+}
+
+/* ---------- 3. Pokémon sauvages cachés dans les hautes herbes ---------- */
+const PK534_MAXH = 4;
+function pk534Garder(S) {
+  if (S.herbe) return true; if (S.vu534) return false; S.vu534 = 1;
+  if (window.__pk534off) return false;
+  let n = 0; for (const s of PK.sauvages) if (s.herbe) n++;
+  if (n >= PK534_MAXH || Math.hypot(S.x - perso.x, S.y - perso.y) < 150) return false;
+  S.herbe = 1; S.ph = Math.random() * 6; return true;
+}
+function pk534Herbe(x, y) { const m = jeu.monde, T = CONFIG.TAILLE_MONDE, tx = x >> 4, ty = y >> 4; return !!(m && m.DEC && tx >= 0 && ty >= 0 && tx < T && ty < T && m.DEC[ty * T + tx] === DECOR.HERBE_HAUTE); }
+const PK534_TOUFFE = [];
+function pk534Touffe(i) {
+  if (PK534_TOUFFE[i]) return PK534_TOUFFE[i];
+  const c = nouveauCanvas(22, 12), x = c.getContext("2d");
+  const brin = (bx, h, d, col) => { for (let j = 0; j < h; j++) { const px = Math.round(bx + d * j * j / (h * h)); x.fillStyle = j === h - 1 ? "#8ae85a" : col; x.fillRect(px, 11 - j, 1, 1); if (j < 2) { x.fillStyle = "#2a6a1a"; x.fillRect(px + 1, 11 - j, 1, 1); } } };
+  const s = i === 0 ? 0 : i === 1 ? 1.5 : -1.5;
+  [[2, 6, -1], [4, 8, 1], [7, 5, 0], [9, 9, -1], [12, 7, 1], [14, 9, 0], [17, 6, 1], [19, 8, -1]].forEach(([bx, h, d], j) => brin(bx, h, d + s, j & 1 ? "#5ac83a" : "#3aa02a"));
+  return PK534_TOUFFE[i] = c;
+}
+// 3D : contour sombre des sprites Pokémon remplacé par la couleur voisine assombrie (sinon le volume paraît noir vu d'en haut)
+const PK534_IM3 = new Map();
+function pk534ImagePk3D(id, mir) {
+  const k = id + (mir ? "m" : ""); let c = PK534_IM3.get(k); if (c) return c;
+  const src = (P534.ipk || imagePk)(id, mir); c = nouveauCanvas(src.width, src.height); const x = c.getContext("2d"); x.drawImage(src, 0, 0);
+  try { const W = c.width, H = c.height, D = x.getImageData(0, 0, W, H), d = D.data, o = new Uint8ClampedArray(d);
+    const dark = i => d[i + 3] > 90 && Math.max(d[i], d[i + 1], d[i + 2]) < 60;
+    for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) { const i = (y * W + xx) * 4; if (!dark(i)) continue; let r = 0, g = 0, b = 0, n = 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const X = xx + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = (Y * W + X) * 4; if (d[j + 3] > 90 && !dark(j)) { r += d[j]; g += d[j + 1]; b += d[j + 2]; n++; } }
+      if (n) { o[i] = r / n * 0.62; o[i + 1] = g / n * 0.62; o[i + 2] = b / n * 0.62; } }
+    D.data.set(o); x.putImageData(D, 0, 0); } catch (e) { p534Err("im3", e); }
+  c.__mince = 1; PK534_IM3.set(k, c); return c;
+}
+function pk534MajSauvages(dt) {
+  if (!PK.sauvages) return;
+  for (const S of PK.sauvages) {
+    if (!S.herbe) continue;
+    if (!pk534Herbe(S.x, S.y)) { if (S.gx != null) { S.x = S.gx; S.y = S.gy; } S.t = 0; }
+    else { S.gx = S.x; S.gy = S.y; }
+  }
+}
+function pk534DessinerHerbe(S, o, e, t, base) {
+  const k = Math.max(1, e), sx = Math.round((S.x - o.x) * e), sy = Math.round((S.y - o.y) * e);
+  const cap = P534.cap;
+  if (cap) return base(S, o, e, t);                   // 3D : volume entier, les herbes 3D le cachent déjà
+  // la créature sort la tête de temps en temps (sinon seules les oreilles / le haut dépassent)
+  const ph = Math.sin(t * 1.1 + (S.ph || 0)), sort = S.bouge ? 0.55 : Math.max(0, ph) ** 0.6, cache = Math.round(12 - sort * 7);
+  ctx.save(); ctx.beginPath(); ctx.rect(sx - 24 * k, sy - 70 * k, 48 * k, (70 - cache) * k); ctx.clip();
+  try { base(S, o, e, t); } finally { ctx.restore(); }
+  const fr = S.bouge ? (Math.floor(t * 9) % 3) : (Math.sin(t * 2 + (S.ph || 0)) > 0.6 ? 1 : 0);
+  ctx.drawImage(pk534Touffe(fr), sx - 11 * k, sy - (cache + 2) * k, 22 * k, 12 * k);
+  ctx.drawImage(pk534Touffe((fr + 2) % 3), sx - 13 * k, sy - (cache - 4) * k, 22 * k, 12 * k);
+  if (sort > 0.85 && !S.bouge && (Math.floor(t * 4 + (S.ph || 0)) & 7) === 0) { ctx.fillStyle = "#ffffff"; ctx.fillRect(sx + 9 * k, sy - (cache + 20) * k, k, 3 * k); ctx.fillRect(sx + 9 * k, sy - (cache + 16) * k, k, k); }
+}
+
+/* ---------- 4. compagnons des habitants ---------- */
+const PK534_COMP = { max: "chenipan", jo: "roucool", marin: "ptitard", tom: "rattata", clara: "nidoran", lina: "carapuce" };
+function pk534Compagnons(items, o, e, visible) {
+  const t = AV.temps || performance.now() / 1000;
+  for (const P of PK.pnj) {
+    const sp = PK534_COMP[P.id]; if (!sp || !visible(P.x, P.y, 40)) continue;
+    const side = P.id === "jo" || P.id === "marin" ? -1 : 1, cx = P.x + side * 15, cy = P.y + 3;
+    items.push({ y: cy, dessiner: () => {
+      const k = Math.max(1, e), sx = Math.round((cx - o.x) * e), sy = Math.round((cy - o.y) * e), bob = Math.abs(Math.sin(t * 3 + P.x)) * 1.5, mir = perso.x < cx;
+      ctx.drawImage(ombreAnimal(10), sx - 5 * k, sy - 2 * k, 10 * k, 3 * k);
+      ctx.drawImage(P534.cap ? pk534ImagePk3D(sp, mir) : imagePk(sp, mir), sx - 10 * k, Math.round(sy - (19 + bob) * k), 20 * k, 20 * k);
+    } });
+  }
+}
+
+/* ---------- 5. décor des villages : sprites ---------- */
+const PK534_SPR = {};
+function p534Spr(k, w, h, ax, ay, f) { if (PK534_SPR[k]) return PK534_SPR[k]; const c = nouveauCanvas(w, h); f(pinceau(c.getContext("2d")), c); c.ax = ax; c.ay = ay; return PK534_SPR[k] = c; }
+const P534D = {
+  poteau: () => p534Spr("poteau", 5, 40, 2, 39, P => { P.r(1, 2, 3, 38, "#1a1010"); P.r(2, 3, 1, 36, "#9a6a3a"); P.r(0, 0, 5, 3, "#1a1010"); P.r(1, 1, 3, 1, "#e8c050"); P.r(0, 38, 5, 2, "#4a3020"); }),
+  fontaine: () => p534Spr("fontaine", 36, 28, 18, 26, P => {
+    P.ell(18, 20, 17.5, 7.6, "#1a1010"); P.ell(18, 19.6, 16.5, 6.7, "#a8a8b8"); P.ell(18, 21.5, 16, 5, "#8a8a9a"); P.ell(18, 18.6, 12.6, 4.2, "#1a1010"); P.ell(18, 18.6, 11.8, 3.6, "#3a8ad8"); P.ell(16, 18, 7, 1.8, "#6ab8f0");
+    P.r(16, 6, 5, 13, "#1a1010"); P.r(17, 7, 3, 12, "#c8c8d4"); P.r(17, 7, 1, 12, "#e8e8f0"); P.ell(18.5, 7, 6.5, 2.6, "#1a1010"); P.ell(18.5, 6.6, 5.5, 1.8, "#b8b8c8"); P.ell(18.5, 6.2, 3.5, 1, "#5aa8e8");
+    P.r(17, 0, 3, 6, "#9ad8ff"); P.r(18, 0, 1, 6, "#e8f8ff"); for (const [x, y] of [[12, 4], [24, 5], [11, 9], [26, 10], [9, 14], [28, 15]]) P.p(x, y, "#bfe8ff");
+    P.ell(18, 24, 2.4, 2.4, "#1a1010"); P.r(16, 22, 5, 2, "#e03a3a"); P.r(16, 24, 5, 2, "#f4f4f4"); P.p(18, 23, "#1a1010"); P.p(18, 24, "#1a1010"); }),
+  bouee: () => p534Spr("bouee", 12, 22, 6, 21, P => { P.r(5, 4, 3, 18, "#1a1010"); P.r(6, 5, 1, 16, "#9a6a3a"); P.ell(6, 9, 5.6, 5.6, "#1a1010"); P.ell(6, 9, 4.6, 4.6, "#f4f4f4"); P.r(1, 8, 10, 2, "#e03a3a"); P.r(5, 4, 2, 10, "#e03a3a"); P.ell(6, 9, 2, 2, "#1a1010"); P.ell(6, 9, 1, 1, "#9a6a3a"); P.r(3, 20, 7, 2, "#4a3020"); }),
+  poissons: () => p534Spr("poissons", 18, 13, 9, 12, P => { P.r(0, 4, 18, 9, "#1a1010"); P.r(1, 5, 16, 7, "#c8964c"); P.r(1, 5, 16, 1, "#e0b068"); P.r(1, 8, 16, 1, "#9a6a30"); P.r(6, 5, 1, 7, "#9a6a30"); P.r(12, 5, 1, 7, "#9a6a30");
+    for (const [x, y, c] of [[4, 3, "#8ab8d8"], [9, 2, "#e8a070"], [14, 3, "#a8c8e0"]]) { P.ell(x, y + 1, 3, 1.6, "#1a1010"); P.ell(x, y + 1, 2.4, 1, c); P.r(x + 2, y, 2, 3, c); P.p(x - 1, y + 1, "#1a1010"); } }),
+  ancre: () => p534Spr("ancre", 14, 17, 7, 16, P => { P.r(6, 1, 3, 13, "#1a1010"); P.ell(7.5, 2, 2.5, 2.5, "#1a1010"); P.ell(7.5, 2, 1.2, 1.2, "#6a6a78"); P.r(3, 4, 9, 2, "#1a1010"); P.r(7, 2, 1, 11, "#6a6a78"); P.r(4, 5, 7, 1, "#6a6a78");
+    P.r(0, 8, 3, 6, "#1a1010"); P.r(11, 8, 3, 6, "#1a1010"); P.r(2, 12, 10, 3, "#1a1010"); P.r(1, 9, 1, 4, "#6a6a78"); P.r(12, 9, 1, 4, "#6a6a78"); P.r(3, 13, 8, 1, "#6a6a78"); P.r(0, 15, 14, 2, "#4a4a54"); }),
+  fleursB: () => p534Spr("fleursB", 20, 9, 10, 8, P => { P.ell(10, 6, 9.6, 3, "#1a1010"); P.ell(10, 5.6, 8.8, 2.4, "#5a3a20"); for (let i = 0; i < 8; i++) { const x = 2 + i * 2.2, y = 2 + (i % 3); P.r(x, y + 1, 1, 2, "#3a8a2a"); P.r(x - 1, y, 3, 2, i & 1 ? "#5aa8f0" : "#f4f4f4"); P.p(x, y, "#f0d040"); } }),
+  fleursR: () => p534Spr("fleursR", 20, 9, 10, 8, P => { P.ell(10, 6, 9.6, 3, "#1a1010"); P.ell(10, 5.6, 8.8, 2.4, "#7a7a80"); for (let i = 0; i < 7; i++) { const x = 2.5 + i * 2.5, y = 2 + (i % 2); P.r(x, y + 1, 1, 2, "#3a8a2a"); P.r(x - 1, y, 3, 2, i & 1 ? "#e8a030" : "#e85a5a"); } }),
+  rocher: () => p534Spr("rocher", 20, 15, 10, 14, P => { P.ell(10, 9, 9.6, 6, "#1a1010"); P.ell(10, 8.6, 8.6, 5.2, "#8a8478"); P.ell(8, 7, 5.6, 3.4, "#a8a294"); P.ell(6.5, 5.6, 2.6, 1.4, "#c8c2b4"); P.r(3, 12, 14, 1, "#6a6458"); P.ell(14, 5, 2.4, 1.2, "#5a8a3a"); P.p(12, 10, "#6a6458"); P.p(15, 9, "#6a6458"); }),
+  caillou: () => p534Spr("caillou", 11, 8, 5, 7, P => { P.ell(5.5, 4.6, 5, 3.4, "#1a1010"); P.ell(5.5, 4.2, 4.2, 2.6, "#9a9488"); P.ell(4.5, 3.4, 2, 1.2, "#bab4a6"); }),
+  wagon: () => p534Spr("wagon", 22, 17, 11, 16, P => { P.r(1, 5, 20, 9, "#1a1010"); P.r(2, 6, 18, 7, "#7a6a5a"); P.r(2, 6, 18, 1, "#9a8a7a"); P.r(2, 11, 18, 1, "#5a4a3a"); P.r(7, 6, 1, 7, "#5a4a3a"); P.r(14, 6, 1, 7, "#5a4a3a");
+    for (const [x, y, c] of [[5, 4, "#8a8a98"], [9, 3, "#a8a8b8"], [13, 4, "#6a6a78"], [16, 3, "#e8c050"], [7, 2, "#7a7a88"]]) { P.ell(x, y, 2.6, 2, "#1a1010"); P.ell(x, y, 1.8, 1.3, c); }
+    for (const x of [5, 16]) { P.ell(x, 14, 2.6, 2.6, "#1a1010"); P.ell(x, 14, 1.6, 1.6, "#4a4a54"); } P.r(0, 16, 22, 1, "#5a4a3a"); }),
+  statue: () => p534Spr("statue", 16, 32, 8, 31, P => { P.r(1, 25, 14, 7, "#1a1010"); P.r(2, 26, 12, 5, "#8a8478"); P.r(2, 26, 12, 1, "#a8a294"); P.r(4, 6, 8, 20, "#1a1010"); P.r(5, 7, 6, 19, "#a8a294"); P.r(5, 7, 1, 19, "#c8c2b4"); P.r(10, 7, 1, 19, "#7a7468");
+    P.r(5, 2, 6, 5, "#1a1010"); P.r(6, 3, 4, 4, "#a8a294"); P.r(7, 0, 2, 3, "#1a1010"); P.ell(8, 14, 2.4, 2.4, "#1a1010"); P.ell(8, 14, 1.6, 1.6, "#c8a24a"); P.r(6, 20, 4, 1, "#7a7468"); P.r(6, 22, 4, 1, "#7a7468"); }),
+  panneau: () => p534Spr("panneau", 16, 18, 8, 17, P => { P.r(6, 8, 3, 10, "#1a1010"); P.r(7, 9, 1, 8, "#7a4a28"); P.r(0, 1, 16, 9, "#1a1010"); P.r(1, 2, 14, 7, "#c8964c"); P.r(1, 2, 14, 1, "#e0b068"); P.r(3, 4, 10, 1, "#6a3c1c"); P.r(3, 6, 7, 1, "#6a3c1c"); })
+};
+const PK534_SOLIDE = { poteau: [3, 3], fontaine: [30, 10], bouee: [6, 4], poissons: [16, 6], ancre: [10, 4], rocher: [18, 8], caillou: [8, 4], wagon: [20, 6], statue: [14, 6], panneau: [6, 4], tonneau: [10, 5], caisse: [11, 5], banc: [24, 5] };
+const PK534_PLAN = {
+  azur: [["fontaine", -2, -54], ["bouee", -84, 62], ["bouee", 100, 72], ["poissons", -104, 6], ["poissons", 122, 14], ["ancre", 44, -72], ["fleursB", -64, -84], ["fleursB", 74, -84], ["fleursB", -126, 146], ["fleursB", 132, 146],
+    ["tonneau", -98, 24], ["banc", -34, 88], ["banc", 56, 92], ["panneau", -60, 150], ["fleursB", 30, 40]],
+  granit: [["statue", 0, -58], ["rocher", -92, -72], ["rocher", 102, -66], ["rocher", -134, 150], ["rocher", 144, 142], ["rocher", -206, 12], ["rocher", 204, 2], ["caillou", -72, 92], ["caillou", 86, 98], ["caillou", -30, -94],
+    ["wagon", 112, 22], ["caisse", -102, 20], ["caisse", -90, 30], ["tonneau", 130, 36], ["panneau", -54, 150], ["fleursR", -64, -86], ["fleursR", 72, -86]],
+  bourg: []
+};
+const P534V = { m: null, L: [] };
+function p534SprDe(k) { if (P534D[k]) return P534D[k](); if (k === "tonneau") { const c = PK534_SPR.tonneau || (PK534_SPR.tonneau = imageTonneau()); c.ax = 6; c.ay = 13; return c; }
+  if (k === "caisse") { const c = PK534_SPR.caisse || (PK534_SPR.caisse = imageCaisse()); c.ax = 6; c.ay = 12; return c; } if (k === "banc") { const c = PK534_SPR.banc || (PK534_SPR.banc = imageBanc()); c.ax = 13; c.ay = 11; return c; } return null; }
+function p534Placer() {
+  const m = jeu.monde; if (!(m instanceof MondePoke) || !PK_BAT.length) return null;
+  if (P534V.m === m) return P534V.L;
+  P534V.m = m; const L = P534V.L = [];
+  try {
+    const autres = [], fan = []; try { const VD = vdDecorMonde(3); if (VD) { for (const it of VD.items) autres.push([it.x, it.y]);
+      // guirlandes allongées (mâts hors des places des habitants) et tenues par deux mâts
+      for (const F of VD.fanions) { if (!F.__p534) { const c = (F.x0 + F.x1) / 2; F.x0 = c - 100; F.x1 = c + 100; F.__p534 = 1; } fan.push(F); } } } catch (_) { }
+    P534V.fan = fan;
+    try { if (window.v52BfProps) for (const d of window.v52BfProps()) autres.push([d.x, d.y]); } catch (_) { }
+    const libre = (x, y, w) => { for (let dx = -w / 2; dx <= w / 2; dx += 3) for (const dy of [-8, -4, 0]) if (m.bloque(Math.round(x + dx), Math.round(y + dy))) return false; return true; };
+    for (const V of PKG.villages) {
+      const vx = T2P(V.tx), vy = T2P(V.ty), cx = V.tx * 16, cy = V.ty * 16;
+      const F = fan.find(F => Math.abs((F.x0 + F.x1) / 2 - cx) < 4 && Math.abs(F.y - cy - 30) < 4);
+      const plan = (F ? [["poteau", F.x0 - vx, F.y - vy], ["poteau", F.x1 - vx, F.y - vy]] : []).concat(PK534_PLAN[V.id] || []);
+      for (const [k, dx, dy] of plan) {
+        const sp = p534SprDe(k); if (!sp) continue;
+        const sol = PK534_SOLIDE[k], w = sol ? sol[0] : sp.width; let ok = null;
+        for (const [ox, oy] of k === "poteau" ? [[0, 0]] : [[0, 0], [10, 0], [-10, 0], [0, 10], [0, -10], [16, 8], [-16, 8]]) {
+          const x = vx + dx + ox, y = vy + dy + oy;
+          if (k !== "poteau" && Math.hypot(x - vx, y - vy) < 36) continue;
+          if (PK_BAT.some(B => B.v === V.id && x > B.x - B.w / 2 - 14 && x < B.x + B.w / 2 + 14 && y > B.y - 84 && y < B.y + 40)) continue;
+          if (k !== "poteau" && PK_PNJ_DEF.some(D => D.v === V.id && Math.hypot(vx + D.dx - x, vy + D.dy - y) < 32)) continue;
+          if (k !== "poteau" && autres.some(([ax, ay]) => Math.abs(ax - x) < w / 2 + 10 && Math.abs(ay - y) < 12)) continue;
+          if (sol && !libre(x, y, w)) continue;
+          ok = [x, y]; break;
+        }
+        if (!ok) continue;
+        const d = { k, sp, x: ok[0], y: ok[1], v: V.id };
+        if (sol) { const [sw, sh] = sol; obstacle(m, Math.round(d.x - sw / 2), Math.round(d.y - sh), Math.round(d.x + sw / 2), Math.round(d.y)); d.solide = 1; }
+        L.push(d); autres.push([d.x, d.y]);
+      }
+    }
+    if ((AV.monde || 1) === 3 && m.bloque(Math.round(perso.x), Math.round(perso.y))) { const q = chercherSol(perso.x, perso.y, 120, 4); if (q) { perso.x = q.x; perso.y = q.y; } }
+  } catch (e) { p534Err("placer", e); }
+  return L;
+}
+function p534Garlande3D() {
+  if (P534V.g3 && P534V.g3m === P534V.m) return P534V.g3;
+  const g = new G3Geo(), cols = (typeof VD !== "undefined" && VD.fanion ? VD.fanion : ["#e83030", "#f0c040", "#3a78d0", "#3aa050", "#ffffff"]).map(p534Hex);
+  for (const F of P534V.fan || []) {
+    const x0 = F.x0, x1 = F.x1, z = F.y, n = Math.max(4, Math.round((x1 - x0) / 9));
+    const H = f => (e3Sol(x0 + (x1 - x0) * f, z - 2) + 0) + 37 - Math.sin(f * Math.PI) * 8;
+    for (let i = 0; i < n * 2; i++) { const fa = i / (n * 2), fb = (i + 1) / (n * 2), xa = x0 + (x1 - x0) * fa, xb = x0 + (x1 - x0) * fb, ya = H(fa), yb = H(fb);
+      g.box((xa + xb) / 2, (ya + yb) / 2 - 0.3, z, xb - xa + 0.4, 0.7, 0.7, [0.25, 0.16, 0.1]); }
+    for (let i = 0; i < n; i++) { const f = (i + 0.5) / n, x = x0 + (x1 - x0) * f, y = H(f) - 0.2, c = cols[i % cols.length];
+      g.t([x - 3, y, z], [x + 3, y, z], [x, y - 6, z], [0, 0, 1], c); g.t([x + 3, y, z], [x - 3, y, z], [x, y - 6, z], [0, 0, -1], c.map(v => v * 0.8)); }
+  }
+  P534V.g3m = P534V.m; return P534V.g3 = g.build();
+}
+function p534Dessiner3D(U, A, Pl, I, TR, gy) {
+  if ((AV.monde || 1) !== 3 || E3.sc || !P534V.m) return;
+  try { const G = p534Garlande3D(); let near = false; for (const F of P534V.fan || []) if (Math.hypot((F.x0 + F.x1) / 2 - E3.cx, F.y - E3.cz) < TR.R + 200) near = true; if (near && G) g3Mesh(G, I); } catch (e) { p534Err("guirl3d", e); }
+}
+
+/* ---------- branchements ---------- */
+try {
+  const ms = pkMajSauvages;
+  pkMajSauvages = function (dt) { const r = ms.apply(this, arguments); try { pk534MajSauvages(dt); } catch (e) { p534Err("sauv", e); } return r; };
+  const ds = pkDessinerSauvage; P534.ipk = imagePk;
+  pkDessinerSauvage = function (S, o, e, t) {
+    if (P534.cap && !window.__pk534off) { const ip = imagePk; imagePk = (id, m, f) => f ? ip(id, m, f) : pk534ImagePk3D(id, m); try { return ds.apply(this, arguments); } finally { imagePk = ip; } }
+    if (S && S.herbe) { try { return pk534DessinerHerbe(S, o, e, t, ds); } catch (er) { p534Err("dsauv", er); } } return ds.apply(this, arguments); };
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    if ((AV.monde || 1) !== 3 || jeu.scene !== sceneMonde) return;
+    try { const L = p534Placer(); if (L) for (const d of L) if (visible(d.x, d.y - 10, 40)) items.push({ y: d.y, dessiner: () => {
+      poserImg(d.sp, d.x, d.y, d.sp.ax, d.sp.ay, o, e);
+      if (d.k === "fontaine" && !P534.cap) { const t = AV.temps || 0, k = Math.max(1, e); ctx.fillStyle = "#e8f8ff"; for (let i = 0; i < 4; i++) { const a = (t * 1.3 + i / 4) % 1, sx = Math.round((d.x - o.x) * e + (i & 1 ? 1 : -1) * (2 + a * 9) * k), sy = Math.round((d.y - 26 - o.y) * e + (a * a * 14 - a * 4) * k); ctx.fillRect(sx, sy, k, k); } }
+    } }); } catch (er) { p534Err("ea", er); }
+    try { pk534Compagnons(items, o, e, visible); } catch (er) { p534Err("comp", er); }
+  };
+  // volumes 3D des sprites : faces fusionnées (rendu identique, beaucoup moins de sommets) — tous les mondes
+  const vx = e3Vox, gb = G3Geo.prototype.build;
+  e3Vox = function (im) { if (!im || !im.width || window.__noFus) return vx.apply(this, arguments); const m0 = E3.vox.get(im); if (m0) return m0; B534.fus = true; try { return vx.apply(this, arguments); } finally { B534.fus = false; } };
+  G3Geo.prototype.build = function () { if (B534.fus && this.v && this.v.length > 540) { try { const n0 = this.v.length, F = b534Fusion(new Float32Array(this.v), true); if (F.length < n0) { this.v = F; P534.st.fus = (P534.st.fus || 0) + 1; } } catch (e) { p534Err("fus", e); } } return gb.apply(this, arguments); };
+  const ec = e3Capter;
+  e3Capter = function (fx, fy, R) { let r; P534.cap = true; try { r = ec.apply(this, arguments); } finally { P534.cap = false; } try { b534Filtrer(fx, fy, R); } catch (e) { p534Err("filtre", e); } return r; };
+  const x3 = e3Extra3D;
+  e3Extra3D = function (U, A, Pl, I, TR, gy, now, dt) { x3.apply(this, arguments); try { b534Dessiner(U, Pl, I, TR, gy); } catch (er) { p534Err("lot3d", er); } try { p534Dessiner3D(U, A, Pl, I, TR, gy); } catch (er) { p534Err("x3d", er); } };
+} catch (e) { console.warn("v53.4", e); }
+/* ---------- combats Pokémon : lisibilité ---------- */
+try {
+  const st = document.createElement("style");
+  st.textContent = `#v52nord[hidden]{display:none!important} body.pkcombat #p105n{visibility:hidden!important}`;
+  document.head.appendChild(st);
+  // notifications (album, succès) gardées pour la fin du combat au lieu de couvrir les boutons
+  if (typeof p105Bloque === "function") { const pb = p105Bloque; p105Bloque = function () { return pb.apply(this, arguments) || document.body.classList.contains("pkcombat"); }; }
+  // 3D du combat : contours des sprites adoucis (le Pokémon n'est plus une masse noire vu de dessus)
+  if (typeof e3PkScene === "function") { const ps = e3PkScene; e3PkScene = function () { if (window.__pk534off) return ps.apply(this, arguments); const ip = imagePk; imagePk = (id, m, f) => f ? ip(id, m, f) : pk534ImagePk3D(id, m); try { return ps.apply(this, arguments); } finally { imagePk = ip; } }; }
+} catch (e) { console.warn("v53.4 combat", e); }
 
 </script>
 </body>
