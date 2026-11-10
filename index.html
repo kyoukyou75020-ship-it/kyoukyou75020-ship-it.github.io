@@ -39006,7 +39006,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "52.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "52.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -41477,6 +41477,150 @@ function v52Exclam() {
     return r;
   };
 }
+/* ===== v52.4 — décors : Ma Ville, Cocobaya, Bourg-Feuille (aucune nouvelle fonction) ===== */
+(() => {
+  const SP = {}, MV = {}, BF = {};
+  const mk = (k, w, h, ax, ay, f) => { if (SP[k]) return SP[k]; const cv = nouveauCanvas(w, h); f(pinceau(cv.getContext("2d"))); const c = cv; c.ax = ax; c.ay = ay; return SP[k] = c; };
+  const FL = ["#e84a6a", "#f0c040", "#8a5ae0", "#ffffff", "#ff8a3a"];
+  const S = {
+    jardin: c => mk("jar" + c, 16, 9, 8, 9, P => { P.r(0, 4, 16, 5, "#7a4a24"); P.r(0, 4, 16, 1, "#9a6a3a"); P.r(1, 1, 14, 4, "#3a8a3a"); for (let i = 1; i < 15; i += 3) { P.r(i, 0, 2, 2, FL[(c + i) % FL.length]); } }),
+    haie: () => mk("haie", 22, 13, 11, 13, P => { P.ell(11, 7, 10.5, 6, "#3a9a3a"); P.ell(7, 5, 5, 4, "#5ab84a"); P.ell(15, 6, 5, 4, "#4aaa44"); P.r(1, 10, 20, 3, "#2e8030"); }),
+    banc: k => mk("banc" + k, 20, 12, 10, 12, P => { const b = k ? "#e8e4dc" : "#a8743e", d = k ? "#b8b0a0" : "#6a4220"; P.r(1, 1, 18, 3, b); P.r(1, 4, 18, 1, d); P.r(0, 6, 20, 3, b); P.r(2, 9, 2, 3, d); P.r(16, 9, 2, 3, d); }),
+    barriere: k => mk("bar" + k, 24, 11, 12, 11, P => { const b = k ? "#f6f4ee" : "#9a6a3a", d = k ? "#c8c4b8" : "#5a3a1e"; for (let i = 1; i < 24; i += 5) { P.r(i, 1, 3, 10, b); P.r(i, 0, 3, 1, d); } P.r(0, 3, 24, 2, b); P.r(0, 7, 24, 2, b); P.r(0, 9, 24, 1, d); }),
+    boite: () => mk("boite", 8, 15, 4, 15, P => { P.r(3, 6, 2, 9, "#6a4a2a"); P.r(0, 0, 8, 6, "#d83a30"); P.r(0, 0, 8, 1, "#f06a5a"); P.r(1, 2, 6, 1, "#7a1a14"); P.r(7, 1, 1, 3, "#f0c040"); }),
+    arbre: k => mk("arb" + k, 26, 34, 13, 33, P => { const C = [["#3a9a3c", "#5aba4a", "#2e7e30"], ["#e88aa8", "#f8b8cc", "#c86a8a"], ["#4a8a2a", "#6aaa3a", "#3a6a20"]][k]; P.r(11, 20, 4, 13, "#6a4424"); P.ell(13, 12, 12, 11, C[2]); P.ell(12, 10, 10, 9, C[0]); P.ell(9, 7, 5, 4, C[1]); P.ell(17, 11, 4, 3, C[1]); }),
+    pin: () => mk("pin", 18, 32, 9, 31, P => { P.r(8, 25, 3, 7, "#5a3a1e"); for (let i = 0; i < 4; i++) { const w = 3 + i * 2, y = 2 + i * 6; P.r(9 - w, y + 2, w * 2, 6, i & 1 ? "#2a7a34" : "#348a3c"); P.r(9 - w + 1, y + 2, w - 1, 2, "#3a8a40"); } }),
+    lampe: () => mk("lampe", 9, 26, 4, 26, P => { P.r(4, 7, 1, 18, "#3a3430"); P.r(2, 24, 5, 2, "#2a2420"); P.r(1, 1, 7, 6, "#2a2420"); P.r(2, 2, 5, 4, "#ffd880"); P.r(3, 0, 3, 1, "#2a2420"); }),
+    tonneau: () => mk("ton", 12, 15, 6, 15, P => { P.r(1, 1, 10, 14, "#8a5a2a"); P.r(1, 4, 10, 1, "#3a2414"); P.r(1, 11, 10, 1, "#3a2414"); P.r(3, 1, 2, 14, "#a8743e"); }),
+    caisse: k => mk("cai" + k, 14, 14, 7, 14, P => { P.r(0, 4, 14, 10, "#a8743e"); P.r(0, 8, 14, 1, "#6a4220"); P.r(0, 4, 14, 1, "#c89458"); if (k) for (let i = 1; i < 13; i += 3) P.ell(i + 1, 3, 1.6, 1.6, ["#e83a2a", "#f0a030", "#7ac040"][k - 1]); }),
+    massif: c => mk("mas" + c, 14, 10, 7, 10, P => { P.ell(7, 6, 6.5, 4.5, "#3a9a3c"); P.ell(5, 4, 3, 2.5, "#5ab84a"); for (const [i, j] of [[3, 3], [7, 2], [10, 4], [5, 6], [9, 7]]) P.r(i, j, 2, 2, FL[(c + i) % FL.length]); }),
+  };
+  window.V52D = S;
+  const pose = (L, sp, x, y, solide, w) => L.push({ sp, x, y, solide, w: w || Math.max(6, sp.width - 4) });
+
+  /* ---------- Ma Ville ---------- */
+  function mvProps() {
+    const cle = JSON.stringify(P96.s.bat) + ":" + P96.G.vx + ":" + P96.G.vy; if (MV.k === cle && MV.p) return MV.p;
+    const L = [], bats = p96Batiments(), C = p96C();
+    // empreintes de tous les emplacements (construits ou non) pour ne rien poser dessus
+    const zones = [];
+    for (const t in P96_SLOTS) { if (!P96_SLOTS[t] || !P96_DIM[t]) continue; P96_SLOTS[t].forEach((s, i) => { const D = P96_DIM[t]; zones.push({ t, i, r: [C.x + s[0] - D[0] / 2 - 6, C.y + s[1] - D[1] - 30, C.x + s[0] + D[0] / 2 + 6, C.y + s[1] + 14] }); }); }
+    const libre = (x, y, t, i) => { for (const z of zones) if (!(z.t === t && z.i === i) && x > z.r[0] && x < z.r[2] && y > z.r[1] && y < z.r[3]) return false; const g = P96.G.gaston; if (g && Math.hypot(x - g.x, y - g.y) < 18) return false; if (x > C.x + 56 && x < C.x + 84 && y > C.y + 30 && y < C.y + 52) return false; try { if (typeof niveauIci === "function" && niveauIci(x, y) < NIV.SABLE) return false; } catch (_) { } return true; };
+    const add = (b, sp, dx, dy, sol) => { const x = b.x + dx, y = b.y + dy; if (libre(x, y, b.t, b.i)) pose(L, sp, x, y, sol); };
+    for (const b of bats) {
+      const D = P96_DIM[b.t]; if (!D) continue; const w2 = D[0] / 2, v = (b.i + (b.t.length)) % 3;
+      if (b.t === "maison") {
+        add(b, S.jardin(b.i), -w2 + 7, 7, 0); add(b, S.jardin(b.i + 2), w2 - 7, 7, 0);
+        const g = b.i % 2 ? 1 : -1;
+        add(b, S.arbre(v === 1 ? 1 : 0), g * (w2 + 14), -4, 1); add(b, S.haie(), -g * (w2 + 12), 2, 0);
+        add(b, S.boite(), g * (w2 + 3), 12, 1);
+      } else if (b.t === "forge") {
+        add(b, S.tonneau(), w2 + 8, -2, 1); add(b, S.tonneau(), w2 + 18, 2, 1); add(b, S.caisse(0), -w2 - 9, 4, 1); add(b, S.pin(), -w2 - 16, -10, 1);
+      } else if (b.t === "marche") {
+        add(b, S.caisse(1), -w2 - 9, 6, 1); add(b, S.caisse(2), w2 + 9, 6, 1); add(b, S.caisse(3), w2 + 22, 2, 1); add(b, S.massif(1), -w2 - 22, 4, 0);
+      } else if (b.t === "auberge") {
+        add(b, S.banc(0), -w2 - 14, 12, 1); add(b, S.tonneau(), w2 + 8, 0, 1); add(b, S.jardin(3), w2 - 7, 7, 0); add(b, S.lampe(), -w2 - 3, 10, 1); add(b, S.arbre(2), w2 + 22, -6, 1);
+      } else if (b.t === "place") {
+        add(b, S.banc(1), -58, 2, 1); add(b, S.banc(1), 58, -30, 1); add(b, S.massif(0), -40, -34, 0); add(b, S.massif(2), 40, -34, 0);
+        add(b, S.lampe(), -84, 44, 1); add(b, S.lampe(), 96, 44, 1); add(b, S.lampe(), -84, -60, 1); add(b, S.lampe(), 84, -60, 1);
+        for (const [dx, dy, k] of [[-150, 80, 0], [150, 80, 2], [-130, -120, 1], [130, -120, 0], [-240, 20, 2], [240, 20, 1]]) add(b, k === 2 ? S.pin() : S.arbre(k), dx, dy, 1);
+      } else if (b.t === "tour") {
+        add(b, S.haie(), -w2 - 12, 4, 0); add(b, S.haie(), w2 + 12, 4, 0);
+      }
+    }
+    MV.p = L; MV.k = cle; return L;
+  }
+  window.v52MvProps = mvProps;
+  const el = p96Elements;
+  p96Elements = function (items, o, e, visible) {
+    el(items, o, e, visible);
+    try { for (const d of mvProps()) if (visible(d.x, d.y - 10, 40)) items.push({ y: d.y, dessiner: () => poserImg(d.sp, d.x, d.y, d.sp.ax, d.sp.ay, o, e) }); } catch (er) { p96Err("v52d", er); }
+  };
+  const rc = p96Rects;
+  p96Rects = function () {
+    const L = rc(); if (L.__v52) return L;
+    try { for (const d of mvProps()) if (d.solide) { const h = Math.min(6, d.w / 2); L.push([d.x - d.w / 2, d.y - h, d.x + d.w / 2, d.y]); } } catch (er) { }
+    L.__v52 = 1; return L;
+  };
+
+  /* ---------- Cocobaya (île « arlong ») ---------- */
+  const pv = SceneIle.prototype.peupler_village;
+  SceneIle.prototype.peupler_village = function (W, H) {
+    pv.call(this, W, H);
+    if (!this.ile || this.ile.id !== "arlong") return;
+    try {
+      const sx = this.sx, R = (x, y, w, h, c) => { sx.fillStyle = c; sx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+      const H4 = [[220, 200], [330, 170], [160, 300], [370, 420]];
+      // chemins de terre battue : porte de chaque maison → puits
+      sx.save(); sx.lineCap = "round"; sx.lineJoin = "round";
+      for (const [hx, hy] of H4) { const dx = hx - 10.8, fy = hy + 20; for (const [lw, col] of [[13, "#b89060"], [9, "#d8b884"]]) { sx.strokeStyle = col; sx.lineWidth = lw; sx.beginPath(); sx.moveTo(dx, fy + 2); sx.lineTo(dx, fy + 16); sx.lineTo(420, 262 + 14); sx.stroke(); } }
+      sx.restore();
+      for (let i = 0; i < 90; i++) { const [hx, hy] = H4[i % 4], f = (i / 4 | 0) / 22, dx = hx - 10.8, x = dx + (420 - dx) * f + ((i * 37) % 7) - 3, y = hy + 36 + (276 - hy - 36) * f + ((i * 53) % 5) - 2; R(x, y, 2, 1, i & 1 ? "#a88050" : "#ecd8a8"); }
+      for (const [hx, hy] of H4) {
+        const dx = hx - 10.8, fy = hy + 20, gx = hx + 4, gy = fy + 6;
+        // potager / parterre à droite de la porte
+        R(gx, gy, 22, 12, "#6a4224"); for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) { R(gx + 2 + c * 3.5, gy + 2 + r * 4, 2, 2, (r + c) % 3 ? "#3a9a3c" : ["#f04a5a", "#f0c040", "#ff8a3a"][(r + c + hx) % 3]); }
+        for (const [px, py] of [[gx, gy], [gx + 11, gy], [gx + 22, gy], [gx + 22, gy + 12], [gx + 11, gy + 13], [gx, gy + 12]]) this.poser({ k: "poteau", x: px, y: py, h: 7 });
+        this.poser({ k: "lampion", x: dx - 13, y: fy + 4, h: 26, col: "#ffb050" });
+        this.poser({ k: "buisson", x: hx - 34, y: hy + 10 }); this.poser({ k: "buisson", x: hx + 33, y: hy - 8 });
+        this.poser({ k: "tonneau", x: hx + 33, y: hy + 12 });
+      }
+      this.poser({ k: "caisse", x: 124, y: 320, s: 10 }); this.poser({ k: "caisse", x: 130, y: 330, s: 8 });
+      this.poser({ k: "tableR", x: 478, y: 222 }); this.poser({ k: "tabouret", x: 458, y: 226 }); this.poser({ k: "tabouret", x: 498, y: 226 });
+      this.poser({ k: "fougere", x: 270, y: 262, h: 30 }); this.poser({ k: "fougere", x: 112, y: 362, h: 34, n: 1 }); this.poser({ k: "fougere", x: 268, y: 150, h: 30, n: 2 });
+      this.poser({ k: "arbre", x: 70, y: 300, h: 40, n: 1 }); this.poser({ k: "arbre", x: 490, y: 400, h: 44, n: 2 });
+      this.v52Deco = 1;
+    } catch (er) { console.warn("v52 deco ile", er); }
+  };
+  const isp = ilSpr;
+  ilSpr = function (d) {
+    if (d.k === "poteau") return mk("ilpot" + (d.h | 0), 5, (d.h || 10) + 4, 2, (d.h || 10) + 3, P => { P.r(1, 1, 3, (d.h || 10) + 2, "#6a4424"); P.r(0, 0, 5, 2, "#d8b878"); });
+    if (d.k === "tabouret") return mk("iltab", 10, 9, 5, 9, P => { P.r(0, 1, 10, 3, "#b87a42"); P.r(1, 4, 2, 5, "#6a4220"); P.r(7, 4, 2, 5, "#6a4220"); });
+    return isp(d);
+  };
+
+  /* ---------- Bourg-Feuille (monde Pokémon) ---------- */
+  function bfProps() {
+    if (BF.p) return BF.p;
+    const V = PKG.villages.find(v => v.id === "bourg"); if (!V) return BF.p = [];
+    const vx = T2P(V.tx), vy = T2P(V.ty), L = [];
+    for (const sg of [-1, 1]) {   // maisons du bas, jardins clôturés côté extérieur
+      const hx = vx + sg * 150, hy = vy + 104, gx = hx + sg * 48;
+      for (const dx of [-12, 12]) pose(L, S.barriere(1), gx + dx, hy + 8, 1, 24);
+      pose(L, S.barriere(1), gx + sg * 12, hy - 34, 1, 24);
+      pose(L, S.jardin(sg > 0 ? 0 : 2), gx - 6, hy - 6, 0); pose(L, S.jardin(sg > 0 ? 4 : 1), gx + 8, hy - 6, 0);
+      pose(L, S.massif(sg > 0 ? 3 : 0), gx, hy - 20, 0);
+      pose(L, S.boite(), hx + sg * 22, hy + 12, 1);
+      pose(L, S.arbre(sg > 0 ? 1 : 0), hx - sg * 6, hy + 56, 1); pose(L, S.pin(), gx + sg * 30, hy - 30, 1);
+      pose(L, S.haie(), hx - sg * 40, hy + 2, 0);
+    }
+    { const hx = vx + 4, hy = vy - 116; pose(L, S.haie(), hx - 44, hy - 2, 0); pose(L, S.haie(), hx + 46, hy - 2, 0); pose(L, S.arbre(2), hx - 62, hy - 30, 1); pose(L, S.arbre(1), hx + 64, hy - 30, 1); pose(L, S.boite(), hx + 22, hy + 12, 1); }
+    pose(L, S.banc(1), vx - 200, vy + 30, 1); pose(L, S.banc(1), vx + 200, vy + 30, 1);
+    for (const [dx, dy, k] of [[-230, -60, 0], [230, -60, 2], [-60, 200, 1], [70, 200, 0], [-250, 150, 3], [250, 150, 3]]) pose(L, k === 3 ? S.pin() : S.arbre(k), vx + dx, vy + dy, 1);
+    for (const [dx, dy, c] of [[-40, 150, 0], [44, 150, 1], [-188, 54, 2], [188, 54, 4]]) pose(L, S.massif(c), vx + dx, vy + dy, 0);
+    return BF.p = L;
+  }
+  window.v52BfProps = bfProps;
+  const cd3 = creerDonneesMonde3;
+  creerDonneesMonde3 = function () {
+    const r = cd3.apply(this, arguments);
+    try {
+      BF.p = null; const m = r.monde;
+      for (const d of bfProps()) if (d.solide) { const h = Math.min(6, d.w / 2); obstacle(m, Math.round(d.x - d.w / 2), Math.round(d.y - h), Math.round(d.x + d.w / 2), Math.round(d.y)); }
+      // allées : porte des maisons du bas → chemin central
+      const V = PKG.villages.find(v => v.id === "bourg"), T = CONFIG.TAILLE_MONDE, Sl = m.sol;
+      if (V && Sl) { const ty = V.ty + 8; for (const sg of [-1, 1]) { const hx = V.tx + Math.round(sg * 150 / 16); for (let t = V.ty + 7; t <= ty; t++) if (!Sl[t * T + hx]) Sl[t * T + hx] = 1; for (let tx = Math.min(hx, V.tx); tx <= Math.max(hx, V.tx); tx++) if (!Sl[ty * T + tx]) Sl[ty * T + tx] = 1; } }
+    } catch (er) { console.warn("v52 deco bourg", er); }
+    return r;
+  };
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea(items, o, e, visible);
+    if ((AV.monde || 1) !== 3) return;
+    try { for (const d of bfProps()) if (visible(d.x, d.y - 10, 40)) items.push({ y: d.y, dessiner: () => poserImg(d.sp, d.x, d.y, d.sp.ax, d.sp.ay, o, e) }); } catch (er) { }
+  };
+})();
+
 if (!window.MODE_APERCU) demarrer();
 </script>
 </body>
