@@ -21533,10 +21533,9 @@ function suRecolter(L) {
   for (const h of L.slice(0, 3)) {
     const x = h.tx * S + 8, y = h.ty * S + 8, k = h.ty * 100000 + h.tx;
     if (h.dec === DECOR.BUISSON || h.dec === DECOR.HERBE_HAUTE) {
-      gain("fibre", (h.dec === DECOR.BUISSON ? 2 : 1) * x2, x, y);
       if (h.dec === DECOR.BUISSON && Math.random() < 0.35) gain("baie", 1, x, y);
       if (w !== 1 && h.dec === DECOR.BUISSON && Math.random() < 0.12) gain("viande", 1, x, y);
-    } else if (EST_ARBRE(h.dec) || h.dec === DECOR.ROCHER) {
+    } else if (false) {
       const roche = h.dec === DECOR.ROCHER, max = roche ? 3 : 4;
       let A = SU.arbres.get(k); if (A && AV.temps - A.t > 45) A = null;
       if (!A) { A = { n: 0, t: AV.temps }; SU.arbres.set(k, A); }
@@ -27964,13 +27963,14 @@ function fiRendu() {
     h += `</div><small style="display:block;margin-top:6px;opacity:.7">Les formes se débloquent pour Sangoku (bouton ⚡ en jeu).</small>`;
   } else if (FI.tab === "equip") {
     h += `<div class="sl">${EQ_ORDRE.map(s => { const it = q.inv.find(i => i.id === q.on[s]); return it ? eqCarte(it, { btns: `<button data-fi="ote:${s}">Retirer</button>` }) : `<div class="it vide"><span class="ic">${EQ_SL[s].ic}</span> <b>${EQ_SL[s].n}</b><br><small>Emplacement vide</small></div>`; }).join("")}</div>`;
+    h += `<div class="sec">Matériaux récoltés (pour Ma Ville et l'atelier)</div><div class="st">${Object.keys(SU_MAT).map(k => `<div>${SU_MAT[k].ic} ${SU_MAT[k].n} <span>${SU.inv[k] | 0}</span></div>`).join("")}</div>`;
     h += `<div class="sec">Sac (${q.inv.length}/${EQ_MAX_INV}) — butin des boss, zones ☠ et coffres</div>`;
     h += `<div class="fl">${[["tous", "Tout"], ...EQ_ORDRE.map(s => [s, EQ_SL[s].ic])].map(([k, n]) => `<button data-fi="flt:${k}" class="${(FI.flt || "tous") === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
     const l = q.inv.filter(i => (FI.flt || "tous") === "tous" || i.s === FI.flt).sort((a, b) => b.r - a.r || b.l - a.l || b.p - a.p);
     h += l.length ? `<div class="inv">${l.map(it => eqCarte(it, { cmp: q.on[it.s] !== it.id, btns: (q.on[it.s] === it.id ? "" : `<button data-fi="equ:${it.id}">Équiper</button>`) + `<button data-fi="vdr:${it.id}" ${q.on[it.s] === it.id ? "disabled" : ""}>Vendre ${eqPrix(it)} Z</button>` })).join("")}</div>` : `<div class="it vide">Rien dans le sac. Bats des boss, explore les zones ☠ et ouvre les coffres du donjon !</div>`;
   } else {
     const ok = fiAtelierOK();
-    h += `<div class="sec">Matériaux de survie</div><div class="st">${Object.keys(SU_MAT).map(k => `<div>${SU_MAT[k].ic} ${SU_MAT[k].n} <span>${SU.inv[k] | 0}</span></div>`).join("")}<div>💰 Zénis <span>${prog.argent}</span></div></div>`;
+    h += `<div class="sec">Matériaux récoltés</div><div class="st">${Object.keys(SU_MAT).map(k => `<div>${SU_MAT[k].ic} ${SU_MAT[k].n} <span>${SU.inv[k] | 0}</span></div>`).join("")}<div>💰 Zénis <span>${prog.argent}</span></div></div>`;
     h += ok ? "" : `<div class="it vide" style="margin-bottom:8px">🏘 L'atelier ne fonctionne que dans un village (ou à ses portes), ou près de ton camp / ta maison de survie. Récolte bois, pierre, fibre et minerai en explorant.</div>`;
     h += `<div class="msg">${FI.msg}</div><div class="inv">${q.inv.slice().sort((a, b) => (q.on[b.s] === b.id) - (q.on[a.s] === a.id) || b.r - a.r).map(it => {
       if ((it.p | 0) >= EQ_MAX_PLUS) return eqCarte(it, { btns: `<button disabled>Niveau max</button>` });
@@ -36554,17 +36554,12 @@ function p96Panneau() {
   const S = P96.s, niv = p96Niveau(), nb = p96NbBat(), tab = P96.tab, sv = (() => { try { return suOn(); } catch (_) { return false; } })();
   const tabs = [["bat", "🏗 Bâtir"], ["heros", "🦸 Héros"], ["poissons", "🐟 Poissons"], ["boss", "⚔ Finale"]].map(([k, n]) => `<button data-v="tab" data-k="${k}" class="${tab === k ? "on" : ""}">${n}</button>`).join("");
   let h = `<div class="cp"><div class="t" style="position:sticky">🏘 MA VILLE · niveau ${niv}<button class="x" data-v="fermer">✕</button></div>`;
-  h += `<div style="margin-bottom:6px">${nb} bâtiment${nb > 1 ? "s" : ""} · ${p96NbInvites()} habitant${p96NbInvites() > 1 ? "s" : ""} · 💰 ${prog.argent} Z${sv ? " · " + ["bois", "pierre", "fibre", "minerai"].map(k => `${suIc(k)} ${SU.inv[k] | 0}`).join(" ") : ""}</div>`;
+  h += `<div style="margin-bottom:6px">${nb} bâtiment${nb > 1 ? "s" : ""} · ${p96NbInvites()} habitant${p96NbInvites() > 1 ? "s" : ""} · 💰 ${prog.argent} Z · ${["bois", "pierre", "fibre", "minerai"].map(k => `${suIc(k)} ${SU.inv[k] | 0}`).join(" ")}</div>`;
   h += `<div class="bar" style="margin-bottom:8px"><i style="width:${Math.min(100, (nb % 3) / 3 * 100 + (niv >= 5 ? 100 : 0))}%"></i></div><div class="tabs">${tabs}</div>`;
   if (tab === "bat") {
     h += `<div class="g">`;
-    for (const t of P96_ORDRE) {
-      const B = P96_BAT[t], n = p96Nb(t), plein = n >= B.max, mat = sv && suAssez(B.c), z = p96CoutZ(B.c);
-      h += `<div class="it${plein ? " fait" : ""}"><b>${B.ic} ${B.n} ${B.max > 1 ? `(${n}/${B.max})` : plein ? "✔" : ""}</b><small>${B.d}</small>`;
-      if (!plein) h += `<small>${sv ? p96CoutTxt(B.c) : "Survie désactivée : paiement en zénis"}</small><div class="bb">${sv ? `<button data-v="bat" data-k="${t}" ${mat ? "" : "disabled"}>🔨 Matériaux</button>` : ""}<button data-v="batz" data-k="${t}" ${prog.argent >= z ? "" : "disabled"}>💰 ${z} Z</button></div>`;
-      h += `</div>`;
-    }
-    h += `</div><p style="opacity:.8">Les bâtiments apparaissent sur les emplacements jalonnés (piquets jaunes). Niveau de la ville : +1 tous les 3 bâtiments.</p>`;
+    for (const t of P96_ORDRE) h += p533CarteBat(t);
+    h += `</div><p style="opacity:.8">Chaque bâtiment se construit avec des matériaux récoltés : 🪵 bois (abats des arbres), 🪨 pierre et ⛏ fer (casse les rochers, ceux à veines orange donnent du fer), 🌿 fibre (buissons, hautes herbes). Le chantier apparaît sur l'emplacement jalonné (piquets jaunes). Niveau de la ville : +1 tous les 3 bâtiments.</p>`;
   } else if (tab === "heros") {
     h += `<p>Invite les héros à vivre en ville : chacun a sa petite demande. Ils se promènent ensuite dans les rues et combattront avec toi le boss final.</p><div class="g">`;
     for (const H of P96_HEROS) {
@@ -36605,7 +36600,10 @@ function p96Clic(v, k) {
   if (v === "tab") { P96.tab = k; return p96Panneau(); }
   if (v === "bat" || v === "batz") {
     const B = P96_BAT[k]; if (!B || p96Nb(k) >= B.max) return;
-    if (v === "bat") { if (!suAssez(B.c)) return; suPayer(B.c); } else { const z = p96CoutZ(B.c); if (prog.argent < z) return; prog.argent -= z; }
+    if (v !== "bat") return;
+    if (P533.chant) { p96Msg("Un chantier est déjà en cours : attends qu'il soit fini."); return; }
+    if (!suAssez(B.c)) { try { son.jouer("erreur"); } catch (_) { } p96Msg("Il manque : " + p533Manque(B.c)); return p96Panneau(); }
+    suPayer(B.c); p533Chantier(k); return p96Panneau();
     const av = p96Niveau(); S.bat[k] = p96Nb(k) + 1; P96.rr = null; P96.murs = null;
     try { son.jouer("fanfare"); } catch (_) { } vibrer(40);
     const p = k === "remparts" ? p96C() : p96Pos(k, S.bat[k] - 1); try { nombreFlottant(p.x, p.y - 50, B.n + " !", "#ffe070", true); } catch (_) { }
@@ -39019,7 +39017,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40537,7 +40535,7 @@ function p105Suivi(x, y, s, txt) {
     const W = Math.max(tit.width * pt, ...ims.map(([i, q]) => i.width * q), ...imh.map(([i, q]) => i.width * q));
     const lh = 9 * p, H = 4 * p + tit.height * pt + 2 * p + ims.length * lh + imh.length * 9 * ph + (imh.length ? 3 * p : 0);
     let X = x - 3 * p, Y = y;
-    const now = performance.now(); if (!P105.jg || now - P105.jg.t > 500) { const J = document.getElementById("suJauges"); let r = null; if (J && !J.hidden && getComputedStyle(J).display !== "none") { const q = J.getBoundingClientRect(); if (q.width) r = q; } P105.jg = { t: now, r, k: ecran.width / Math.max(1, ecran.getBoundingClientRect().width) }; }
+    const now = performance.now(); if (!P105.jg || now - P105.jg.t > 500) { const J = document.getElementById("suJauges"); let r = null; if (J && !J.hidden && getComputedStyle(J).display !== "none") { const q = J.getBoundingClientRect(); if (q.width) r = q; } try { const M = document.getElementById("p533mat"); if (M && !M.hidden && getComputedStyle(M).display !== "none") { const q = M.getBoundingClientRect(); if (q.width) r = r ? { left: Math.min(r.left, q.left), top: Math.min(r.top, q.top), right: Math.max(r.right, q.right), bottom: Math.max(r.bottom, q.bottom), width: 1 } : q; } } catch (_) { } P105.jg = { t: now, r, k: ecran.width / Math.max(1, ecran.getBoundingClientRect().width) }; }
     const k = P105.jg.k || dpr; if (typeof hud41Borner !== "undefined" && hud41Borner.jy) Y = Math.max(Y, Math.round(hud41Borner.jy * k));
     const jr = P105.jg.r; if (jr && jr.left * k < X + W + 9 * p && jr.bottom * k > Y && jr.top * k < Y + H) { if (land) { X = Math.round(jr.right * k + 5 * p); Y = Math.round(jr.top * k); } else Y = Math.round(jr.bottom * k + 4 * p); }
     ctx.save(); ctx.globalAlpha = 1;
@@ -42419,6 +42417,409 @@ function p532AvAp(id) {
     return r;
   };
 })();
+
+/* ===================== v53.3 (lot 4) : récolte visible, repousse par étapes, chantiers de Ma Ville =====================
+   - arbres : 3 coups (secousse, copeaux, bois qui vole vers le héros), chute, souche → pousse → jeune arbre → arbre
+   - rochers : fissures à chaque coup, éclatement, gravats → petit rocher → rocher ; ~22 % de rochers à veines de fer
+   - état sauvegardé (d.p533), compteur de matériaux (HUD + inventaire), récolte active même sans le mode survie
+   - Ma Ville : matériaux obligatoires, ce qui manque affiché, chantier visible (fondations → échafaudage → bâtiment) */
+const P533 = { abat: [], pv: new Map(), vols: [], chutes: [], chant: null, mApp: null, mkApp: "", err: [], fer: [], tFer: 0, hud: null, tHud: 0, sigHud: "", tGain: 0, gainK: {}, tCheck: 0, img: new Map(), m3: null, jeune: new Map(), tPan: 0, arr: 0 };
+const P533_T = { a: [60, 120, 180], r: [75, 150] };     // secondes : souche / pousse / jeune arbre ; gravats / petit rocher
+const P533_CHDUR = { place: 20, maison: 20, forge: 25, marche: 25, auberge: 30, port: 25, tour: 25, remparts: 40 };
+const P533_LBL = { bois: "BOIS", pierre: "PIERRE", fibre: "FIBRE", minerai: "FER", fruit: "FRUIT" };
+function p533Err(w, e) { if (P533.err.length < 10) P533.err.push(w + ": " + (e && e.message || e)); try { console.warn("p533", w, e); } catch (_) { } }
+const p533_3D = () => { try { return p532_3D(); } catch (_) { return false; } };
+function p533MK() { const w = suW(); return w === 4 && typeof KN !== "undefined" && KN.transforme ? "4k" : String(w); }
+function p533Fer(tx, ty) { return p40H(tx * 31 + 5, ty * 17 + 11) < 0.22; }
+function p533Cle(tx, ty) { return ty * CONFIG.TAILLE_MONDE + tx; }
+try { SU_MAT.minerai.n = "Fer"; } catch (_) { }
+
+/* ---------- sprites 2D ---------- */
+function p533Img(k) {
+  let c = P533.img.get(k); if (c) return c;
+  const BOIS = ["#3c2414", "#6c4426", "#9a6a3c", "#d8b070", "#c09050"];
+  if (k === "souche") c = objetSimple(14, 10, P => { P.ell(7, 8, 7, 2, "rgba(20,30,10,.35)"); P.r(3, 3, 8, 6, BOIS[0]); P.r(4, 3, 6, 5, BOIS[1]); P.r(4, 4, 2, 4, BOIS[2]); P.r(1, 7, 3, 2, BOIS[0]); P.r(10, 7, 3, 2, BOIS[0]); P.ell(7, 3, 4, 1.6, BOIS[0]); P.ell(7, 3, 3.2, 1.1, BOIS[3]); P.p(7, 3, BOIS[1]); P.p(5, 3, BOIS[4]); P.p(9, 3, BOIS[4]); });
+  else if (k === "pousse") c = objetSimple(14, 14, P => { P.ell(7, 12, 6, 1.8, "rgba(20,30,10,.3)"); P.r(4, 8, 6, 4, BOIS[0]); P.r(5, 8, 4, 3, BOIS[1]); P.ell(7, 8, 2.5, 1, BOIS[3]); P.r(7, 2, 1, 7, "#3e7a2a"); P.ell(5, 3, 2.4, 1.3, "#5aa83a"); P.ell(10, 4, 2.4, 1.3, "#6cbc4c"); P.ell(8, 1.5, 1.6, 1.2, "#8ad060"); });
+  else if (k === "gravats") c = objetSimple(16, 8, P => { P.ell(8, 6, 7, 2, "rgba(20,20,20,.3)"); for (const [x, y, r] of [[4, 5, 2.2], [9, 5, 2.6], [13, 6, 1.6], [6, 3, 1.5], [11, 3, 1.3]]) { P.ell(x, y, r, r * 0.8, "#4a4a54"); P.ell(x - 0.4, y - 0.4, r - 0.7, (r - 0.7) * 0.8, "#8a8a96"); } });
+  else if (k === "caillou" || k === "cailloufer") c = objetSimple(12, 9, P => { P.ell(6, 7.5, 6, 1.6, "rgba(20,20,20,.3)"); P.ell(6, 5, 5.5, 3.6, "#3a3a44"); P.ell(6, 4.6, 4.6, 3, "#8a8a96"); P.ell(5, 3.6, 2.6, 1.5, "#b0b0bc"); if (k === "cailloufer") { P.p(3, 5, "#c86a2a"); P.p(8, 4, "#e08a3a"); P.p(7, 6, "#c86a2a"); } });
+  else if (k === "veine") c = objetSimple(16, 16, P => { for (const [x, y, b] of [[4, 11, 1], [6, 9, 0], [10, 12, 1], [11, 9, 0], [8, 7, 1], [5, 13, 0]]) { P.p(x, y, b ? "#e8903a" : "#a8501a"); if (b) P.p(x + 1, y, "#ffc070"); } });
+  else if (k === "fis1" || k === "fis2" || k === "fis3") { const n = +k[3]; c = objetSimple(16, 16, P => { const K = "#1a1a20"; P.p(8, 6, K); P.p(7, 7, K); P.p(8, 8, K); P.p(7, 9, K); if (n >= 2) { P.p(9, 9, K); P.p(10, 10, K); P.p(6, 10, K); P.p(5, 11, K); P.p(9, 7, "#d0d0dc"); } if (n >= 3) { P.p(11, 11, K); P.p(4, 12, K); P.p(10, 6, K); P.p(11, 5, K); P.p(6, 8, K); P.p(12, 12, K); } }); }
+  else if (k.startsWith("ic_")) { const m = k.slice(3); c = objetSimple(9, 9, P => {
+      if (m === "bois") { P.r(0, 3, 9, 4, "#3c2414"); P.r(1, 3, 7, 3, "#9a6a3c"); P.r(1, 3, 7, 1, "#c09050"); P.ell(8, 5, 1.4, 2, "#d8b070"); P.p(8, 5, "#6c4426"); }
+      else if (m === "pierre") { P.ell(4.5, 5, 4.4, 3.4, "#3a3a44"); P.ell(4.5, 4.6, 3.6, 2.7, "#9a9aa6"); P.ell(3.5, 3.6, 1.8, 1.1, "#c8c8d4"); }
+      else if (m === "minerai") { P.ell(4.5, 5, 4.4, 3.4, "#3a3a44"); P.ell(4.5, 4.6, 3.6, 2.7, "#7a7a86"); P.p(3, 4, "#e8903a"); P.p(5, 5, "#ffc070"); P.p(6, 3, "#e8903a"); P.p(4, 6, "#c86a2a"); }
+      else if (m === "fibre") { P.r(4, 1, 1, 8, "#3e7a2a"); P.ell(2.5, 3, 2.2, 1, "#6cbc4c"); P.ell(6.5, 5, 2.2, 1, "#5aa83a"); P.ell(2.5, 7, 2, 1, "#8ad060"); }
+      else { P.ell(4.5, 5, 3.6, 3.6, "#c03030"); P.ell(3.5, 4, 1.4, 1.2, "#ff8080"); P.r(4, 0, 1, 2, "#4a7a2a"); }
+    }); }
+  else if (k.startsWith("barre")) { const p = +k.slice(5) / 20; c = objetSimple(26, 5, P => { P.r(0, 0, 26, 5, "#1a1008"); P.r(1, 1, 24, 3, "#4a3a2a"); P.r(1, 1, Math.round(24 * p), 3, "#6ad040"); P.r(1, 1, Math.round(24 * p), 1, "#a8f080"); }); }
+  P533.img.set(k, c); return c;
+}
+/* chantier : fondations → échafaudage → murs → finitions (canvas mis en cache par type et étape) */
+function p533ImgChant(t, st, d3) {
+  const key = "ch_" + t + "_" + st + (d3 ? "_3" : ""); let c = P533.img.get(key); if (c) return c;
+  const im = t === "remparts" ? suImg("porte") : p96Img2(t), W = im.width, H = im.height, M = 4;
+  c = nouveauCanvas(W + 2 * M, H + M); const g = c.getContext("2d"); g.imageSmoothingEnabled = false;
+  const fr = [0, 0.35, 0.72, 1][st];
+  // fondations (pierres) sur toute la largeur
+  g.fillStyle = "#3a3a44"; g.fillRect(M + 1, H - 3, W - 2, 3); g.fillStyle = "#9a9aa6"; for (let x = M + 2; x < M + W - 2; x += 4) g.fillRect(x, H - 3, 3, 2);
+  if (fr > 0) { const hh = Math.round(H * fr); g.drawImage(im, 0, H - hh, W, hh, M, M + H - hh, W, hh); }
+  if (st < 3) {   // échafaudage
+    const top = st === 0 ? H - 6 : Math.round(M + H * (1 - Math.min(1, fr + 0.18)));
+    g.fillStyle = "#6c4426"; for (const x of [M - 2, M + Math.floor(W / 2), M + W]) g.fillRect(x, top, 2, H + M - top);
+    if (!d3) { g.fillStyle = "#a8783c"; for (let y = H + M - 6; y > top; y -= 9) g.fillRect(M - 3, y, W + 6, 2);
+    g.fillStyle = "#3c2414"; for (let y = H + M - 6; y > top; y -= 9) g.fillRect(M - 3, y + 2, W + 6, 1); }
+    else { g.fillStyle = "#a8783c"; g.fillRect(M - 3, top, 6, 2); g.fillRect(M + W - 3, top, 6, 2); }
+  }
+  if (st <= 1) {  // tas de matériaux au pied
+    g.fillStyle = "#3c2414"; g.fillRect(0, H + M - 4, 9, 4); g.fillStyle = "#9a6a3c"; g.fillRect(1, H + M - 4, 7, 1); g.fillRect(1, H + M - 2, 7, 1);
+    g.fillStyle = "#4a4a54"; g.fillRect(W + 2 * M - 8, H + M - 4, 8, 4); g.fillStyle = "#a0a0ac"; g.fillRect(W + 2 * M - 7, H + M - 4, 3, 2); g.fillRect(W + 2 * M - 3, H + M - 3, 2, 2);
+  }
+  P533.img.set(key, c); return c;
+}
+
+/* ---------- récolte ---------- */
+function p533Gain(k, n, sx, sy) {
+  if (!n) return;
+  if (SU_MAT[k]) suAjout(k, n); else SU.inv[k] = Math.max(0, Math.min(999, (SU.inv[k] | 0) + n));
+  P533.vols.push({ k, n, x: sx + (Math.random() - 0.5) * 6, y: sy, t: 0, d: 0.5 + Math.random() * 0.15, h: 10 + Math.random() * 8 });
+  if (P533.vols.length > 40) P533.vols.shift();
+}
+function p533Couper(m, tx, ty, on) {
+  const k = p533Cle(tx, ty), old = m.coupes.size;
+  if (on) m.coupes.add(k); else m.coupes.delete(k);
+  try { rafraichirChunkDe(tx, ty); } catch (_) { }
+  p533Chunk3D(tx, ty, old);
+}
+// 3D : seul le morceau de terrain touché est reconstruit (au lieu de tous)
+function p533Chunk3D(tx, ty, old) {
+  try {
+    if (typeof E3 === "undefined" || !E3.ter || !E3.ter.size) return;
+    const nv = jeu.monde.coupes.size, ci = Math.floor(tx / E3_CH), cj = Math.floor(ty / E3_CH);
+    for (const [k, C] of E3.ter) { const q = k.split(","), i = +q[0], j = +q[1]; if (i === ci && j === cj) C.cv = -1; else if (C.cv === old) C.cv = nv; }
+  } catch (_) { }
+}
+function p533Frapper(L, zone) {
+  if (!dansMonde() || AV.nav) return;
+  const m = jeu.monde, x2 = (() => { try { return suOn() && suA1(suBase(false), "forge") ? 2 : 1; } catch (_) { return 1; } })();
+  // aider le chantier de Ma Ville en tapant dessus
+  try { const C = P533.chant; if (C && suW() === 1 && P96.G) { const p = p533PosChant(C); if (Math.abs(p.x - perso.x) < 40 && p.y - perso.y > -36 && p.y - perso.y < 60) { C.t0 -= 1500; etincelles(p.x + (Math.random() - 0.5) * 20, p.y - 14); try { nombreFlottant(p.x, p.y - 40, "-1,5 s", "#ffe070"); } catch (_) { } } } } catch (_) { }
+  if (!L || !L.length) return;
+  let nF = 0, nA = 0;
+  L = L.slice().sort((p, q) => Math.hypot(p.tx * 16 + 8 - perso.x, p.ty * 16 + 12 - perso.y) - Math.hypot(q.tx * 16 + 8 - perso.x, q.ty * 16 + 12 - perso.y));
+  for (const h of L) {
+    const x = h.tx * 16 + 8, y = h.ty * 16 + 8;
+    if (h.dec === DECOR.BUISSON || h.dec === DECOR.HERBE_HAUTE) { if (nF < 3) { p533Gain("fibre", (h.dec === DECOR.BUISSON ? 2 : 1) * x2, x, y); nF++; } continue; }
+    const roche = h.dec === DECOR.ROCHER; if (!roche && !EST_ARBRE(h.dec)) continue;
+    if (nA >= 1) continue; nA++;
+    const fer = roche && p533Fer(h.tx, h.ty), key = p533Cle(h.tx, h.ty), now = AV.temps || 0, max = roche ? (fer ? 4 : 3) : 3;
+    let A = P533.pv.get(key); if (!A || now - A.t > 30) A = { n: 0, t: now, tx: h.tx, ty: h.ty, dec: h.dec };
+    A.n++; A.t = now; A.tc = performance.now(); P533.pv.set(key, A);
+    if (roche) { try { secouerArbre(h.tx, h.ty); } catch (_) { } for (let i = 0; i < 5; i++) particules.push({ x: x + (Math.random() - .5) * 8, y: y + 4, z: 6, vx: (Math.random() - .5) * 60, vy: (Math.random() - .5) * 20, vz: 30 + Math.random() * 40, age: 0, vie: 0.45, col: fer && i < 2 ? "#e8903a" : (i & 1 ? "#9a9aa6" : "#5a5a64"), g: 260, frein: 2.5, oscille: 0, taille: Math.random() < 0.5 ? 2 : 1 }); }
+    else for (let i = 0; i < 5; i++) particules.push({ x: x + (Math.random() - .5) * 6, y: y + 6, z: 5, vx: (Math.random() - .5) * 50, vy: (Math.random() - .5) * 16, vz: 30 + Math.random() * 30, age: 0, vie: 0.5, col: i & 1 ? "#d8b070" : "#9a6a3c", g: 220, frein: 2.5, oscille: 0, taille: 1 });
+    p533Coup3D(h.tx, h.ty, roche);
+    if (A.n < max) {
+      if (roche) p533Gain(fer && A.n >= 2 ? "minerai" : "pierre", x2, x, y); else p533Gain("bois", x2, x, y);
+      continue;
+    }
+    // coup final : l'arbre tombe / le rocher éclate
+    P533.pv.delete(key);
+    const e = { mk: p533MK(), tx: h.tx, ty: h.ty, d: h.dec, k: roche ? "r" : "a", t0: Date.now(), fer: fer ? 1 : 0 };
+    P533.abat.push(e); if (P533.abat.length > 400) { const v = P533.abat.findIndex(q => q.mk === e.mk); if (v >= 0 && v < P533.abat.length - 1) p533Repousser(P533.abat[v], true); else P533.abat.shift(); }
+    p533Couper(m, h.tx, h.ty, true);
+    const sens = perso.x <= x ? 1 : -1;
+    P533.chutes.push({ tx: h.tx, ty: h.ty, dec: h.dec, t: 0, sens, roche, fer, dx: x - perso.x, dz: (h.ty * 16 + 12) - perso.y, me: null });
+    try { vibrer(roche ? 30 : 45); } catch (_) { }
+    try { son.jouer(roche ? "boum" : "secoue"); } catch (_) { }
+    if (roche) {
+      p533Gain("pierre", x2 * (fer ? 1 : 2), x, y);
+      if (fer) p533Gain("minerai", 2 * x2, x, y); else if (Math.random() < 0.25) p533Gain("minerai", 1, x, y);
+      for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 60; particules.push({ x, y: y + 4, z: 6, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, vz: 40 + Math.random() * 50, age: 0, vie: 0.6 + Math.random() * 0.3, col: fer && i % 3 === 0 ? "#e8903a" : (i & 1 ? "#9a9aa6" : "#4a4a54"), g: 260, frein: 2, oscille: 0, taille: 2 }); }
+    } else {
+      p533Gain("bois", 2 * x2, x, y);
+      try { if (suOn() && Math.random() < 0.2) p533Gain("fruit", 1, x, y); } catch (_) { }
+    }
+    if (!P533.vuMsg) { P533.vuMsg = 1; setTimeout(() => { try { messageInfo(roche ? "Rocher cassé ! Il réapparaîtra dans quelques minutes." : "Arbre abattu ! Une pousse repoussera sur la souche dans quelques minutes."); } catch (_) { } }, 900); }
+  }
+}
+function p533Repousser(e, vite) {
+  const i = P533.abat.indexOf(e); if (i >= 0) P533.abat.splice(i, 1);
+  const m = jeu.monde, k = p533Cle(e.tx, e.ty);
+  if (!m || e.mk !== p533MK()) return;
+  if (!m.coupes.has(k)) return;
+  p533Couper(m, e.tx, e.ty, false);
+  if (vite) return;
+  try { m.masques.add(k); m.pousses.set(k, { tx: e.tx, ty: e.ty, dec: e.d, t: 0 }); rafraichirChunkDe(e.tx, e.ty); } catch (_) { }
+  for (let j = 0; j < 6; j++) particules.push({ x: e.tx * 16 + 8 + (Math.random() - .5) * 10, y: e.ty * 16 + 13, z: 1, vx: (Math.random() - .5) * 24, vy: 0, vz: 20 + Math.random() * 24, age: 0, vie: 0.5, col: e.k === "a" ? "#b0e078" : "#c8c8d4", g: 120, frein: 2, oscille: 0, taille: 1 });
+  const j = P533.jeune.get(k); if (j) { try { G3.gl.deleteBuffer(j.b); } catch (_) { } P533.jeune.delete(k); }
+}
+function p533Etape(e, now) {
+  const s = ((now || Date.now()) - e.t0) / 1000, T = P533_T[e.k];
+  for (let i = 0; i < T.length; i++) if (s < T[i]) return i;
+  return T.length;   // terminé
+}
+// ré-applique les arbres abattus / rochers cassés à l'entrée d'un monde (ou après chargement)
+function p533Appliquer() {
+  const m = jeu.monde, mk = p533MK(); if (!m || !m.coupes) return;
+  if (P533.mApp === m && P533.mkApp === mk) return;
+  P533.mApp = m; P533.mkApp = mk;
+  const now = Date.now(), ch = new Set();
+  for (const e of P533.abat.slice()) {
+    if (e.mk !== mk) continue;
+    const k = p533Cle(e.tx, e.ty), fin = p533Etape(e, now) >= P533_T[e.k].length;
+    if (fin) { m.coupes.delete(k); P533.abat.splice(P533.abat.indexOf(e), 1); }
+    else m.coupes.add(k);
+    ch.add(Math.floor(e.tx / CONFIG.CHUNK) + "," + Math.floor(e.ty / CONFIG.CHUNK));
+  }
+  for (const c of ch) { const [cx, cy] = c.split(",").map(Number); try { rafraichirChunkDe(cx * CONFIG.CHUNK, cy * CONFIG.CHUNK); } catch (_) { } }
+}
+function p533Verifier() {
+  if (!dansMonde() || !jeu.monde) return;
+  p533Appliquer();
+  const mk = p533MK(), now = Date.now();
+  for (const e of P533.abat.slice()) {
+    if (e.mk !== mk || p533Etape(e, now) < P533_T[e.k].length) continue;
+    try { if (tuileOccupee(e.tx, e.ty)) continue; } catch (_) { }
+    p533Repousser(e, false);
+  }
+  // rochers à veines de fer visibles autour du héros
+  const L = [], tx0 = Math.floor(perso.x / 16), ty0 = Math.floor(perso.y / 16), m = jeu.monde;
+  for (let dy = -16; dy <= 16; dy++) for (let dx = -13; dx <= 13; dx++) { const tx = tx0 + dx, ty = ty0 + dy; if (p533Fer(tx, ty) && m.decorPose(tx, ty) === DECOR.ROCHER) L.push([tx, ty]); }
+  P533.fer = L;
+}
+
+/* ---------- animations ---------- */
+function p533Maj(dt) {
+  for (let i = P533.vols.length - 1; i >= 0; i--) {
+    const v = P533.vols[i]; v.t += dt;
+    if (v.t >= v.d) {
+      P533.vols.splice(i, 1);
+      const nb = performance.now() - (P533.tArr || 0) < 350 ? (P533.arr = (P533.arr + 1) % 4) : (P533.arr = 0); P533.tArr = performance.now();
+      try { nombreFlottant(perso.x, perso.y - 30 - nb * 9, "+" + v.n + " " + (P533_LBL[v.k] || String(v.k).toUpperCase()), v.k === "minerai" ? "#ffb070" : v.k === "fibre" ? "#b8f090" : v.k === "fruit" ? "#ffb0c0" : "#f0d890"); } catch (_) { }
+      P533.tGain = performance.now(); P533.gainK[v.k] = P533.tGain; P533.sigHud = "";
+    }
+  }
+  for (let i = P533.chutes.length - 1; i >= 0; i--) {
+    const c = P533.chutes[i]; c.t += dt;
+    if (!c.roche && !c.poc && c.t > 0.72) { c.poc = 1; try { const pal = c.dec === DECOR.SAPIN ? PAL_PIN : c.dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE; const cols = [pal.d, pal.m, pal.l, pal.m].map(q => "#" + [q & 255, (q >> 8) & 255, (q >> 16) & 255].map(v => v.toString(16).padStart(2, "0")).join("")); feuilles(c.tx * 16 + 8 + c.sens * 14, c.ty * 16 + 12, 12, cols); } catch (_) { } try { son.jouer("boum"); } catch (_) { } try { vibrer(25); } catch (_) { } p533Poussiere3D(c); }
+    if (c.t > (c.roche ? 0.5 : 1.7)) { if (c.me) { try { G3.gl.deleteBuffer(c.me.b); } catch (_) { } } P533.chutes.splice(i, 1); }
+  }
+  for (const [k, A] of P533.pv) if ((AV.temps || 0) - A.t > 30) P533.pv.delete(k);
+}
+function p533Dessiner(items, o, e, visible) {
+  if (!dansMonde() || !jeu.monde) return;
+  const d3 = p533_3D(), mk = p533MK(), now = Date.now(), S = 16;
+  if (!d3) {
+    // souches, pousses, jeunes arbres, gravats, petits rochers
+    for (const a of P533.abat) {
+      if (a.mk !== mk) continue; const x = a.tx * S + 8, yb = a.ty * S + 16; if (!visible(x, yb - 8, 30)) continue;
+      const st = p533Etape(a, now); if (st >= P533_T[a.k].length) continue;
+      if (P533.chutes.some(c => c.tx === a.tx && c.ty === a.ty && c.roche)) continue;
+      items.push({ y: a.ty * S + 12, dessiner: () => {
+        if (a.k === "a") {
+          if (st === 0) poserImg(p533Img("souche"), x, yb - 2, 7, 9, o, e);
+          else if (st === 1) poserImg(p533Img("pousse"), x, yb - 2, 7, 13, o, e);
+          else { const cv = CANVAS_DECOR[a.d][miroirDecor(jeu.monde, a.tx, a.ty, a.d) ? 1 : 0], f = 0.55 + 0.25 * Math.min(1, ((now - a.t0) / 1000 - P533_T.a[1]) / (P533_T.a[2] - P533_T.a[1])), w = S * e * f, h = S * e * f;
+            ctx.drawImage(cv.ombre, Math.round((x - o.x) * e - w / 2), Math.round((yb - o.y) * e - h), Math.round(w), Math.round(h));
+            ctx.drawImage(cv.corps, Math.round((x - o.x) * e - w / 2), Math.round((yb - o.y) * e - h), Math.round(w), Math.round(h)); }
+        } else poserImg(p533Img(st === 0 ? "gravats" : a.fer ? "cailloufer" : "caillou"), x, yb - 3, st === 0 ? 8 : 6, st === 0 ? 6 : 8, o, e);
+      } });
+    }
+    // fissures et veines de fer
+    for (const [k, A] of P533.pv) { if (A.dec !== DECOR.ROCHER || !visible(A.tx * S + 8, A.ty * S + 8, 20)) continue; const n = Math.min(3, A.n), fer = p533Fer(A.tx, A.ty);
+      items.push({ y: A.ty * S + PROFONDEUR_DECOR[DECOR.ROCHER] + 0.2, dessiner: () => { const dx = jeu.monde.secousses.has(k) ? Math.round(Math.sin((AV.temps || 0) * 55) * 1.2) : 0; poserImg(p533Img("fis" + (fer ? Math.max(1, n - 1) || 1 : n)), A.tx * S + 8 + dx, A.ty * S + 16, 8, 16, o, e); } }); }
+    for (const [tx, ty] of P533.fer) { if (!visible(tx * S + 8, ty * S + 8, 20)) continue; const k = p533Cle(tx, ty); if (jeu.monde.secousses.has(k)) continue;
+      items.push({ y: ty * S + PROFONDEUR_DECOR[DECOR.ROCHER] + 0.1, dessiner: () => poserImg(p533Img("veine"), tx * S + 8, ty * S + 16, 8, 16, o, e) }); }
+    // arbres qui tombent
+    for (const c of P533.chutes) { if (c.roche) continue; const x = c.tx * S + 8, yb = c.ty * S + 15; if (!visible(x, yb - 10, 40)) continue;
+      items.push({ y: c.ty * S + 13, dessiner: () => {
+        const u = Math.min(1, c.t / 0.72), ang = c.sens * (u * u * 1.45 + (c.t > 0.72 ? Math.sin(Math.min(1, (c.t - 0.72) / 0.25) * Math.PI) * 0.06 : 0)), al = c.t > 1.25 ? Math.max(0, 1 - (c.t - 1.25) / 0.45) : 1;
+        const cv = CANVAS_DECOR[c.dec][miroirDecor(jeu.monde, c.tx, c.ty, c.dec) ? 1 : 0];
+        ctx.save(); ctx.globalAlpha = al; ctx.translate(Math.round((x - o.x) * e), Math.round((yb - o.y) * e)); ctx.rotate(ang);
+        ctx.drawImage(cv.corps, Math.round(-8 * e), Math.round(-15 * e), Math.round(16 * e), Math.round(16 * e)); ctx.restore();
+      } });
+    }
+    // matériaux qui volent vers le héros
+    for (const v of P533.vols) { const u = Math.min(1, v.t / v.d), x = v.x + (perso.x - v.x) * u, y = v.y + (perso.y - 14 - v.y) * u - Math.sin(u * Math.PI) * v.h;
+      items.push({ y: perso.y + 60, dessiner: () => poserImg(p533Img("ic_" + v.k), x, y, 4, 4, o, e) }); }
+  }
+  // chantier de Ma Ville (2D et 3D : les images sont reprises par la 3D)
+  try { const C = P533.chant; if (C && suW() === 1 && P96.G) {
+    const p = p533PosChant(C); if (visible(p.x, p.y - 20, 80)) {
+      const pr = p533Prog(C), st = pr < 0.25 ? 0 : pr < 0.55 ? 1 : pr < 0.85 ? 2 : 3, im = p533ImgChant(C.t, st, d3);
+      const D = C.t === "remparts" ? [0, 0, 18, 30] : (P96_DIM[C.t] || [30, 10, 15, 30]);
+      items.push({ y: p.y, dessiner: () => { poserImg(im, p.x, p.y, D[2] + 4, D[3] + 2, o, e); if (!d3) poserImg(p533Img("barre" + Math.round(pr * 20)), p.x, p.y - D[3] - 8, 13, 2, o, e); } });
+      if (!d3 && Math.random() < 0.08) etincelles(p.x + (Math.random() - 0.5) * 24, p.y - 6 - Math.random() * D[3] * pr);
+    } } } catch (e2) { p533Err("chd", e2); }
+}
+
+/* ---------- 3D ---------- */
+function p533Pos3(tx, ty) { const r = p40H(tx * 3, ty * 7), r2 = p40H(tx * 5 + 1, ty * 11), x = tx * 16 + 8 + (r - 0.5) * 5, z = ty * 16 + 8 + (r2 - 0.5) * 5; return { x, z, h: e3Sol(x, z), r }; }
+function p533ArbreGeo(dec, tx, ty) {
+  const g = new G3Geo(), r = p40H(tx * 3, ty * 7), pal = dec === DECOR.SAPIN ? PAL_PIN : dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE, kv = 0.86 + r * 0.28;
+  let cm = e3Sombre(n3U32(pal.m), kv), cl = e3Sombre(n3U32(pal.l), kv), cd = e3Sombre(n3U32(pal.d), kv); const tr = n3U32(pal.t);
+  if (dec !== DECOR.SAPIN && (AV.monde || 1) !== 4) { const hv2 = p40H(tx * 13 + 7, ty * 17 + 3); const TT = hv2 < 0.07 ? [[0.95, 0.62, 0.72], [1, 0.78, 0.85], [0.8, 0.45, 0.58]] : hv2 < 0.15 ? [[0.86, 0.5, 0.18], [0.95, 0.68, 0.26], [0.7, 0.36, 0.14]] : hv2 < 0.28 ? [[0.5, 0.7, 0.24], [0.66, 0.82, 0.32], [0.36, 0.55, 0.18]] : null; if (TT) { cm = e3Sombre(TT[0], kv); cl = e3Sombre(TT[1], kv); cd = e3Sombre(TT[2], kv); } }
+  if (dec === DECOR.SAPIN) { g.box(0, 0, 0, 2.6, 6, 2.6, tr); g.cyl(0, 4, 0, 9, 0, 13 + r * 4, 6, cd, cd); g.cyl(0, 11 + r * 3, 0, 7, 0, 12, 6, cm, cm); g.cyl(0, 19 + r * 3, 0, 4.5, 0, 10, 6, cl, cl); }
+  else if (dec === DECOR.ARBRE2) { g.cyl(0, 0, 0, 1.7, 1.3, 9, 5, tr); g.sph(0, 15, 0, 10, 9, 10, 8, cm, 0.1); g.sph(2, 20, -1, 6, 5.5, 6, 6, cl, 0.1); }
+  else { g.cyl(0, 0, 0, 1.9, 1.5, 8, 5, tr); g.cyl(0, 6, 0, 10.5, 6, 9, 6, cd, cm); g.cyl(0, 14, 0, 7.5, 1, 9, 6, cm, cl); }
+  return g.build();
+}
+function p533M3() {
+  if (P533.m3) return P533.m3;
+  const tr = n3U32(PAL_ARBRE.t), cl = [0.85, 0.68, 0.42], g1 = [0.56, 0.56, 0.6], g2 = [0.66, 0.66, 0.7], K = [0.12, 0.12, 0.15], F = [0.85, 0.45, 0.18];
+  const souche = new G3Geo(); souche.cyl(0, 0, 0, 2.6, 2.2, 3, 7, tr, cl); souche.box(-2.6, 0, 0.5, 2.4, 1, 1.2, tr, 0.4); souche.box(2.4, 0, -0.6, 2.2, 1, 1.2, tr, 2.6);
+  const pousse = new G3Geo(); pousse.cyl(0, 0, 0, 2.4, 2.1, 2.4, 7, tr, cl); pousse.cyl(0.4, 2.4, 0, 0.45, 0.35, 5, 4, [0.25, 0.5, 0.18]); pousse.sph(0.4, 7.6, 0, 2.2, 1.5, 2.2, 6, [0.42, 0.75, 0.3]); pousse.sph(-1.4, 5.6, 0.6, 1.6, 1, 1.6, 5, [0.5, 0.82, 0.34]); pousse.sph(2.2, 6, -0.4, 1.5, 0.9, 1.5, 5, [0.36, 0.66, 0.26]);
+  const gravats = new G3Geo(); for (const [x, z, s, c, a] of [[-3, 1, 3, g1, 0.3], [2, -1, 2.6, g2, 1.1], [0, 3, 2.2, g1, 2], [3.5, 2.5, 1.6, g2, 0.7], [-1, -2.5, 1.8, g2, 1.7]]) gravats.box(x, 0, z, s, s * 0.55, s * 0.85, c, a);
+  const caillou = new G3Geo(); caillou.box(0, 0, 0, 5.5, 3.2, 5, g1, 0.5); caillou.box(1, 2.4, 0, 3.2, 2, 3.2, g2, 0.9);
+  const cailF = new G3Geo(); cailF.box(0, 0, 0, 5.5, 3.2, 5, g1, 0.5); cailF.box(1, 2.4, 0, 3.2, 2, 3.2, g2, 0.9); cailF.box(-1.2, 1.4, 2.4, 1.2, 1, 0.6, F); cailF.box(1.6, 3.6, 1.2, 1, 0.6, 1, F);
+  const fis = [1, 2, 3].map(n => { const g = new G3Geo(); const seg = [[-0.5, 3.6, 0.9, 1.7, 0.2], [0.4, 2.2, 0.8, 1.6, -0.5], [-0.8, 1, 0.8, 1.4, 0.6], [2, 2.8, 0.7, 1.4, -0.3], [-2.4, 2.4, 0.7, 1.5, 0.4], [1.2, 0.6, 0.7, 1.2, 0.2]].slice(0, n * 2); for (const [x, y, w, h] of seg) g.box(x, y, 4.06, w, h, 0.25, K); if (n >= 2) g.box(-1, 5.55, 0.5, 0.6, 0.12, 4, K); if (n >= 3) g.box(2, 7.55, 0, 0.5, 0.12, 3.2, K); return g.build(); });
+  const veine = new G3Geo(); for (const [x, y, z] of [[-2.2, 2.4, 4.08], [2.2, 1.4, 4.08], [0.4, 3.8, 4.08], [-1.6, 5.55, 1.2]]) veine.box(x, y, z, 1.4, 1.1, 0.5, F);
+  return P533.m3 = { souche: souche.build(), pousse: pousse.build(), gravats: gravats.build(), caillou: caillou.build(), cailF: cailF.build(), fis, veine: veine.build() };
+}
+function p533Coup3D(tx, ty, roche) {
+  try { if (!p533_3D()) return; const P = p533Pos3(tx, ty);
+    for (let i = 0; i < 7; i++) g3Part(P.x + (Math.random() - 0.5) * 6, P.h + (roche ? 5 : 4) + Math.random() * 3, P.z + (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 40, 20 + Math.random() * 30, (Math.random() - 0.5) * 40, 0.55, 1.1, roche ? (i & 1 ? [0.6, 0.6, 0.66, 1] : [0.35, 0.35, 0.4, 1]) : (i & 1 ? [0.85, 0.68, 0.42, 1] : [0.6, 0.4, 0.22, 1]), { add: false, g: 90 });
+    if (!roche) { P533.sec3 = P533.sec3 || new Map(); P533.sec3.set(p533Cle(tx, ty), { tx, ty, t: performance.now() }); }
+  } catch (_) { }
+}
+function p533Poussiere3D(c) {
+  try { if (!p533_3D()) return; const P = p533Pos3(c.tx, c.ty), L = Math.hypot(c.dx, c.dz) || 1, ux = c.dx / L, uz = c.dz / L;
+    for (let i = 0; i < 14; i++) { const d = 6 + Math.random() * 20; g3Part(P.x + ux * d + (Math.random() - 0.5) * 8, P.h + 2 + Math.random() * 4, P.z + uz * d + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 30, 10 + Math.random() * 25, (Math.random() - 0.5) * 30, 0.8, 1.6, i & 1 ? [0.42, 0.75, 0.3, 1] : [0.8, 0.74, 0.6, 1], { add: false, g: 40 }); }
+  } catch (_) { }
+}
+function p533Dessiner3D(U, Pl) {
+  if (!dansMonde() || !jeu.monde) return;
+  const M3 = p533M3(), mk = p533MK(), now = Date.now(), cx = E3.cx, cz = E3.cz, R = 330;
+  const vu = (x, y, z, r) => Math.abs(x - cx) < R && Math.abs(z - cz) < R && (!Pl || e3Vu(Pl, x, y, z, r));
+  for (const a of P533.abat) {
+    if (a.mk !== mk) continue; const st = p533Etape(a, now); if (st >= P533_T[a.k].length) continue;
+    const P = p533Pos3(a.tx, a.ty); if (!vu(P.x, P.h, P.z, 30)) continue;
+    if (a.k === "a") {
+      if (st === 0) g3Mesh(M3.souche, M4.trs(P.x, P.h, P.z, P.r * 6));
+      else if (st === 1) g3Mesh(M3.pousse, M4.trs(P.x, P.h, P.z, P.r * 6));
+      else { const k = p533Cle(a.tx, a.ty); let j = P533.jeune.get(k); if (!j) { j = p533ArbreGeo(a.d, a.tx, a.ty); P533.jeune.set(k, j); }
+        const f = 0.5 + 0.3 * Math.min(1, ((now - a.t0) / 1000 - P533_T.a[1]) / (P533_T.a[2] - P533_T.a[1])); g3Mesh(j, M4.trs(P.x, P.h, P.z, 0, 0, 0, f, f, f)); }
+    } else if (!P533.chutes.some(c => c.roche && c.tx === a.tx && c.ty === a.ty && c.t < 0.15)) g3Mesh(st === 0 ? M3.gravats : a.fer ? M3.cailF : M3.caillou, M4.trs(P.x, P.h, P.z, P.r * 3));
+  }
+  for (const [k, A] of P533.pv) { if (A.dec !== DECOR.ROCHER) continue; const P = p533Pos3(A.tx, A.ty); if (!vu(P.x, P.h, P.z, 12)) continue; const n = Math.min(3, p533Fer(A.tx, A.ty) ? Math.max(1, A.n - 1) : A.n); g3Mesh(M3.fis[n - 1], M4.trs(P.x, P.h, P.z, P.r * 3)); }
+  for (const [tx, ty] of P533.fer) { const P = p533Pos3(tx, ty); if (!vu(P.x, P.h, P.z, 12)) continue; g3Mesh(M3.veine, M4.trs(P.x, P.h, P.z, P.r * 3), { e: 0.25 }); }
+  // arbres qui tombent (vrai maillage, pivot à la base, chute à l'opposé du héros)
+  for (const c of P533.chutes) {
+    if (c.roche) continue; const P = p533Pos3(c.tx, c.ty); if (!vu(P.x, P.h, P.z, 40)) continue;
+    if (!c.me) c.me = p533ArbreGeo(c.dec, c.tx, c.ty);
+    const u = Math.min(1, c.t / 0.72), th = u * u * 1.42 + (c.t > 0.72 ? Math.sin(Math.min(1, (c.t - 0.72) / 0.25) * Math.PI) * 0.07 : 0), sk = c.t > 1.2 ? Math.max(0.01, 1 - (c.t - 1.2) / 0.5) : 1;
+    g3Mesh(c.me, M4.trs(P.x, P.h - (1 - sk) * 4, P.z, Math.atan2(-c.dz, c.dx), 0, -th, sk, sk, sk));
+  }
+  // bois / pierres qui volent jusqu'au héros
+  if (E3.hx != null) for (const v of P533.vols) {
+    const u = Math.min(1, v.t / v.d), P = p533Pos3(Math.floor(v.x / 16), Math.floor(v.y / 16)), x = P.x + (E3.hx - P.x) * u, z = P.z + (E3.hz - P.z) * u, y = P.h + 8 + ((E3.hy || P.h) + 10 - P.h - 8) * u + Math.sin(u * Math.PI) * 14, a = v.t * 9;
+    const col = v.k === "bois" ? [0.62, 0.42, 0.22, 0.85] : v.k === "minerai" ? [0.9, 0.5, 0.2, 0.85] : v.k === "fibre" ? [0.4, 0.75, 0.3, 0.85] : v.k === "fruit" ? [0.85, 0.2, 0.2, 0.85] : [0.62, 0.62, 0.68, 0.85];
+    if (v.k === "bois") g3Mesh(U.cylX, M4.trs(x, y, z, a, 0, a * 0.7, 4.5, 1.3, 1.3), { tint: col });
+    else if (v.k === "fibre" || v.k === "fruit") g3Mesh(U.sph, M4.trs(x, y, z, a, 0, 0, 1.6, 1.6, 1.6), { tint: col });
+    else g3Mesh(U.cube, M4.trs(x, y, z, a, a * 0.5, 0, 2.4, 2.4, 2.4), { tint: col });
+  }
+}
+
+/* ---------- HUD : compteur de matériaux ---------- */
+function p533HUD() {
+  let H = P533.hud;
+  if (!H) {
+    const st = document.createElement("style"); st.textContent = `#p533mat{position:fixed;z-index:8;display:flex;gap:7px;align-items:center;padding:3px 7px;background:rgba(20,12,8,.74);border:2px solid #6a4a2a;border-radius:9px;pointer-events:none;font:bold 12px system-ui,sans-serif;color:#fff4d8;white-space:nowrap;transition:transform .15s,border-color .15s;transform-origin:left center}
+#p533mat[hidden]{display:none!important}#p533mat.pulse{transform:scale(1.12);border-color:#ffe070}#p533mat b{font-weight:800}#p533mat .g{color:#ffe070}
+body.actc #p533mat{display:none!important}#p96p .ok{color:#9ef08a}#p96p .ko{color:#ff9a8a}#p96p .manque{display:block;color:#ffb0a0;font-size:11px}#p96p .chb{height:7px;background:#3a2a1a;border-radius:4px;overflow:hidden;margin:4px 0}#p96p .chb i{display:block;height:100%;background:#6ad040}`;
+    document.head.appendChild(st);
+    H = P533.hud = document.createElement("div"); H.id = "p533mat"; H.hidden = true; document.body.appendChild(H);
+  }
+  const ok = jeu && jeu.scene === sceneMonde && !jeu.pause && !(typeof FI !== "undefined" && FI.ouvert) && !(AV.cine);
+  if (H.hidden === ok) H.hidden = !ok;
+  if (!ok) return;
+  const now = performance.now(), sig = ["bois", "pierre", "fibre", "minerai"].map(k => (SU.inv[k] | 0) + (now - (P533.gainK[k] || 0) < 900 ? "g" : "")).join(",");
+  if (sig !== P533.sigHud) { P533.sigHud = sig; H.innerHTML = ["bois", "pierre", "fibre", "minerai"].map(k => `<span class="${now - (P533.gainK[k] || 0) < 900 ? "g" : ""}">${suIc(k)} <b>${SU.inv[k] | 0}</b></span>`).join(""); }
+  const pulse = now - P533.tGain < 220; if (H.classList.contains("pulse") !== pulse) H.classList.toggle("pulse", pulse);
+  if (now - P533.tHud > 250) {
+    P533.tHud = now; const J = document.getElementById("suJauges"), land = innerWidth > innerHeight;
+    let l, t;
+    if (J && !J.hidden && getComputedStyle(J).display !== "none" && J.offsetWidth) { const q = J.getBoundingClientRect(); if (land) { l = q.left; t = q.bottom + 4; } else { l = q.right + 6; t = q.top; } }
+    else { const cs = getComputedStyle(document.documentElement); l = parseFloat(cs.getPropertyValue("--jgx")) || 10; t = parseFloat(cs.getPropertyValue("--jgy")) || 150; }
+    const sg = Math.round(l) + "," + Math.round(t); if (H._sg !== sg) { H._sg = sg; H.style.left = Math.round(l) + "px"; H.style.top = Math.round(t) + "px"; }
+  }
+}
+
+/* ---------- Ma Ville : chantiers ---------- */
+function p533PosChant(C) { if (C.t === "remparts") { const c = p96C(); return { x: c.x, y: c.y + P96_REMP.y1 + 6 }; } return p96Pos(C.t, C.i); }
+function p533Prog(C) { return Math.max(0, Math.min(1, (Date.now() - C.t0) / (C.dur * 1000))); }
+function p533Manque(c) { const L = []; for (const k in c) { const n = c[k] - (SU.inv[k] | 0); if (n > 0) L.push(`${suIc(k)} ${n} ${suNom(k).toLowerCase()}`); } return L.join(", "); }
+function p533Chantier(t) {
+  const B = P96_BAT[t]; if (!B || p96Nb(t) >= B.max || P533.chant) return false;
+  P533.chant = { t, i: p96Nb(t), t0: Date.now(), dur: P533_CHDUR[t] || 25 };
+  try { son.jouer("piece"); } catch (_) { } try { vibrer(30); } catch (_) { }
+  const p = p533PosChant(P533.chant); try { nombreFlottant(p.x, p.y - 40, "🔨 Chantier !", "#ffe070", true); } catch (_) { }
+  p96Msg(`🚧 Chantier lancé : ${B.n}. Les ouvriers travaillent (${P533.chant.dur} s) — tape le chantier pour aider !`);
+  return true;
+}
+function p533FinChant(silence) {
+  const C = P533.chant; if (!C) return; P533.chant = null;
+  const S = P96.s, B = P96_BAT[C.t]; if (!B) return;
+  const av = p96Niveau(); S.bat[C.t] = Math.min(B.max, p96Nb(C.t) + 1); P96.rr = null; P96.murs = null;
+  if (silence) return;
+  try { son.jouer("fanfare"); } catch (_) { } try { vibrer(40); } catch (_) { }
+  const p = C.t === "remparts" ? p96C() : p96Pos(C.t, S.bat[C.t] - 1); try { nombreFlottant(p.x, p.y - 50, B.n + " !", "#ffe070", true); } catch (_) { }
+  try { for (let i = 0; i < 16; i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 50; particules.push({ x: p.x, y: p.y - 10, z: 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, vz: 40 + Math.random() * 50, age: 0, vie: 0.9, col: i & 1 ? "#ffe070" : "#ffffff", g: 160, frein: 2, oscille: 0, taille: 2 }); } } catch (_) { }
+  p96Msg(`${B.ic} ${B.n} terminé${C.t === "remparts" ? "s" : ""} !${p96Niveau() > av ? ` La ville passe au niveau ${p96Niveau()} !` : ""}${p96BossDispo() && !S.bossAnnonce ? " ⚔ La quête finale est disponible !" : ""}`);
+  if (p96BossDispo()) S.bossAnnonce = 1;
+  try { const el = document.getElementById("p96p"); if (el && !el.hidden && el.innerHTML) p533Rafraichir(); } catch (_) { }
+}
+function p533Rafraichir() { const el = document.getElementById("p96p"); if (!el) return; const cp = el.querySelector(".cp"), s1 = cp ? cp.scrollTop : 0, s2 = el.scrollTop; p96Panneau(); const cp2 = el.querySelector(".cp"); if (cp2) cp2.scrollTop = s1; el.scrollTop = s2; }
+function p533CarteBat(t) {
+  const B = P96_BAT[t], n = p96Nb(t), plein = n >= B.max, C = P533.chant;
+  let h = `<div class="it${plein ? " fait" : ""}"><b>${B.ic} ${B.n} ${B.max > 1 ? `(${n}/${B.max})` : plein ? "✔" : ""}</b><small>${B.d}</small>`;
+  if (C && C.t === t) { const pr = p533Prog(C); h += `<small>🚧 Chantier en cours : ${Math.round(pr * 100)} % · encore ${Math.max(0, Math.ceil(C.dur * (1 - pr)))} s</small><div class="chb"><i style="width:${Math.round(pr * 100)}%"></i></div>`; }
+  else if (!plein) {
+    const ok = suAssez(B.c), man = p533Manque(B.c);
+    h += `<small>Coût : ${p96CoutTxt(B.c)}</small>${ok ? "" : `<small class="manque">Il manque : ${man}</small>`}<div class="bb"><button data-v="bat" data-k="${t}" ${ok && !C ? "" : "disabled"}>${C ? "⏳ Un chantier à la fois" : ok ? "🔨 Construire" : "🔒 Matériaux manquants"}</button></div>`;
+  }
+  return h + `</div>`;
+}
+function p533EtatSv() { return { v: 1, abat: P533.abat.slice(-400).map(e => [e.mk, e.tx, e.ty, e.d, e.k, e.t0, e.fer | 0]), chant: P533.chant ? { t: P533.chant.t, i: P533.chant.i, t0: P533.chant.t0, dur: P533.chant.dur } : null }; }
+function p533Restaurer(x) {
+  P533.abat = []; P533.chant = null; P533.pv.clear(); P533.vols = []; P533.chutes = []; P533.mApp = null; P533.mkApp = "";
+  try {
+    if (!x || typeof x !== "object") return;
+    if (Array.isArray(x.abat)) for (const q of x.abat.slice(-400)) { if (!Array.isArray(q) || q.length < 6) continue; const [mk, tx, ty, d, k, t0, fer] = q; if (typeof mk !== "string" || !(k === "a" || k === "r") || !isFinite(tx) || !isFinite(ty) || !isFinite(t0)) continue; if (k === "a" ? !EST_ARBRE(d) : d !== DECOR.ROCHER) continue; P533.abat.push({ mk, tx: tx | 0, ty: ty | 0, d, k, t0: Math.min(+t0, Date.now()), fer: fer ? 1 : 0 }); }
+    const c = x.chant; if (c && P96_BAT[c.t] && isFinite(c.t0)) { P533.chant = { t: c.t, i: Math.max(0, c.i | 0), t0: Math.min(+c.t0, Date.now()), dur: Math.max(5, Math.min(120, +c.dur || 25)) }; if (p96Nb(c.t) >= P96_BAT[c.t].max) P533.chant = null; else P533.chant.i = p96Nb(c.t); }
+  } catch (e) { p533Err("rest", e); }
+}
+
+/* ---------- branchements ---------- */
+{
+  const fr0 = perso.frapper;
+  perso.frapper = function (dir) {
+    let L = []; try { L = suCibles(dir); } catch (_) { }
+    const r = fr0.apply(this, arguments);
+    try { p533Frapper(L); } catch (e) { p533Err("frap", e); }
+    return r;
+  };
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) { ea(items, o, e, visible); try { p533Dessiner(items, o, e, visible); } catch (er) { p533Err("dess", er); } };
+  const ma = majAventure;
+  majAventure = function (dt) {
+    ma(dt);
+    try { if (jeu.scene === sceneMonde && !jeu.pause) { p533Appliquer(); p533Maj(Math.min(0.1, dt || 0)); } } catch (er) { p533Err("maj", er); }
+  };
+  const x3 = e3Extra3D;
+  e3Extra3D = function (U, A, Pl, I, TR, gy, now, dt) { x3.apply(this, arguments); try { p533Dessiner3D(U, Pl); } catch (er) { p533Err("3d", er); } };
+  const es = etatSauvegarde;
+  etatSauvegarde = function () { const d = es.apply(this, arguments); try { if (d) d.p533 = p533EtatSv(); } catch (er) { p533Err("sv", er); } return d; };
+  const re = restaurer;
+  restaurer = function (d) { const r = re.apply(this, arguments); try { p533Restaurer(d && d.p533); } catch (er) { p533Err("rs", er); } return r; };
+  // la partie est restaurée par demarrer() avant ce bloc : on reprend l'état v53.3 ici
+  try { const sv = lireSauvegarde(); if (sv && sv.p533) p533Restaurer(sv.p533); } catch (er) { p533Err("init", er); }
+  setInterval(() => {
+    try { p533HUD(); } catch (er) { p533Err("hud", er); }
+    try { const now = performance.now(); if (now - P533.tCheck > 500) { P533.tCheck = now; p533Verifier(); } } catch (er) { p533Err("ver", er); }
+    try { const C = P533.chant; if (C && p533Prog(C) >= 1) p533FinChant(!(dansMonde() && suW() === 1)); } catch (er) { p533Err("chf", er); }
+    try { const C = P533.chant, el = document.getElementById("p96p"), now = performance.now(); if (C && el && !el.hidden && el.innerHTML && P96.tab === "bat" && now - P533.tPan > 1000) { P533.tPan = now; p533Rafraichir(); } } catch (_) { }
+  }, 100);
+}
 
 </script>
 </body>
