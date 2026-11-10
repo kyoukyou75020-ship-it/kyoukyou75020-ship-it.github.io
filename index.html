@@ -30096,7 +30096,7 @@ function e3Rendu() {
     const v = e3Vox(b.im); if (!v) continue; if (Math.hypot(b.x - px, b.y - pz) > TR.R * 0.95) continue;
     const g0 = e3Sol(b.x, b.y - 2); nb++;
     if (TR.ombre && !shDone && !b.proj && b.lift < 30) g3Mesh(U.ombre, M4.trs(b.x + 2, g0 + 0.5, b.y + 1, 0, 0, 0, Math.min(26, v.bw * 0.5 + 2), 1, Math.min(20, v.bw * 0.34 + 2)), { a: 0.34, tint: [0, 0.02, 0.05, 1] });
-    const zO = E3.sc && v.bw >= 40 && !ILs ? -11 * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
+    const zO = (E3.sc || b.im.__v52f) && v.bw >= 40 && !ILs ? (b.im.__v52f ? -28 : -11) * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
     const yA = E3.camA || 0;
     g3Mesh(v, M4.trs(b.x + zO * Math.sin(yA), g0 + b.lift, b.y + zO * Math.cos(yA), yA, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s), { a: b.a < 1 ? b.a : null, e: b.proj ? 0.8 : 0 });
   }
@@ -38995,7 +38995,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "52.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "52.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -41386,6 +41386,49 @@ setInterval(() => { try { v52Nord(); } catch (_) { } }, 120);
     sauverParams(); menuReglages.onglet = "simple"; menuReglages.afficher("menu"); P.scrollTop = sc;
   };
 }
+/* ===== v52.2 — maisons habitables : One Piece (îles, ex. Cocobaya) et Britannia =====
+   Même intérieur que les autres maisons v52 (SceneMaisonV52) : 🚪 Entrer devant la porte,
+   sortie par le paillasson, sauvegarde reprise devant la porte. Les boutiques, la taverne
+   du Boar Hat, la cuisine du restaurant flottant et les maisons spéciales restent inchangées. */
+const V52_OP = ["Les hommes-poissons nous prenaient tout… on respire enfin !", "Une part de tarte aux mandarines ? C'est la spécialité du village.", "Tu es pirate ? Tu n'as pas l'air bien méchant.", "Le vent tourne : la mer sera calme demain.", "Mon fils rêve de partir sur Grand Line."];
+const V52_BR = ["Les chevaliers sacrés patrouillent encore la nuit…", "Une chope d'hydromel ? Non, ça c'est à la taverne !", "On dit que les Sept Péchés capitaux sont revenus.", "Le château de Liones brille au soleil couchant.", "Fais attention aux démons près du donjon."];
+function v52IleMaisonProche(S) {
+  if (!S || !S.ile || !S.dec || S.v52int) return null;
+  for (let i = 0; i < S.dec.length; i++) {
+    const d = S.dec[i]; if (!d || d.k !== "maison") continue;
+    const px = d.x - d.w * 0.2, fy = d.y + d.d / 2;   // porte en bois de ilMaison (à gauche de la façade)
+    if (Math.abs(perso.x - px) < 13 && perso.y > fy - 2 && perso.y < fy + 16) return { d, i, px, fy };
+  }
+  return null;
+}
+function v52BrMaisonProche() {
+  if (typeof BR_BAT === "undefined" || typeof brIci !== "function" || !brIci() || jeu.scene !== sceneMonde || !BR.transforme) return null;
+  for (const B of BR_BAT) { if (B.type !== "maison" || B.shop) continue; if (Math.abs(perso.x - B.x) < 16 && perso.y > B.y - 4 && perso.y < B.y + 30) return B; }
+  return null;
+}
+{
+  const ad = actionDispo;
+  actionDispo = function () {
+    const r = ad.apply(this, arguments);
+    try {
+      if (r || !jeu || AV.cine || perso.ko || jeu.transition || jeu.pause) return r;
+      const S = jeu.scene;
+      const h = v52IleMaisonProche(S);
+      if (h) {
+        const I = S.ile, d = h.d;
+        return { txt: "🚪 Entrer", f: () => v52Entrer(S, d, { nom: I.id === "arlong" ? "Maison de Cocobaya" : "Maison", cle: "ile" + I.id + ":" + h.i, n: h.i, rx: h.px, ry: h.fy + 9, hab: { look: (h.i * 3 + 2) % 10 }, phrases: V52_OP }) };
+      }
+      const B = v52BrMaisonProche();
+      if (B) {
+        const n = BR_BAT.indexOf(B);
+        return { txt: "🚪 Entrer", f: () => v52Entrer(sceneMonde, B, { nom: "Maison de Britannia", cle: "br" + n, n: (B.c | 0) + n, rx: B.x, ry: B.y + 16, hab: { look: (n * 7 + 3) % 10 }, phrases: V52_BR }) };
+      }
+    } catch (e) { if (!window.__v52dErr) { window.__v52dErr = 1; console.warn("v52.2 maisons", e); } }
+    return r;
+  };
+}
+/* Britannia : les maisons et boutiques de la carte sont alignées sur leur base en 3D (le héros n'est plus caché devant la porte) */
+{ const f = brImgBat; brImgBat = function (B) { const c = f.apply(this, arguments); try { if (c && B && B.type !== "chateau") c.__v52f = 1; } catch (_) { } return c; }; }
 if (!window.MODE_APERCU) demarrer();
 </script>
 </body>
