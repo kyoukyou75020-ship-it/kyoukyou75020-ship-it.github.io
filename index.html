@@ -39006,7 +39006,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "52.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -41620,6 +41620,450 @@ function v52Exclam() {
     try { for (const d of bfProps()) if (visible(d.x, d.y - 10, 40)) items.push({ y: d.y, dessiner: () => poserImg(d.sp, d.x, d.y, d.sp.ax, d.sp.ay, o, e) }); } catch (er) { }
   };
 })();
+
+/* ===== v53.0 — lot 1 : magasins et bâtiments accessibles dans tous les mondes =====
+   Intérieurs de magasins (vendeur derrière le comptoir, rayons adaptés à l'univers), entrée
+   par « 🚪 Entrer », sortie par le paillasson, sauvegarde reprise devant la porte.
+   Achats : prix, niveau requis et stats avant → après affichés ; achat impossible = bouton grisé. */
+const M53 = { err: [] };
+function m53Err(k, e) { if (M53.err.length < 20) M53.err.push(k + ": " + (e && e.message || e)); }
+const m53Sym = () => { try { return monnaie().sym; } catch (_) { return "Z"; } };
+const M53_TH = {
+  //        titre affiché, mur, sol, comptoir, rayons, décor, vendeur (look), phrases
+  pkcentre: { mur: "#f4b8c0", sol: ["#f8f4f0", "#ece6e0"], cpt: "#e84a5a", ray: "balls", deco: ["soin", "plantes", "banc"], look: 6, nom: "Infirmière", phr: ["Bienvenue au Centre Pokémon !", "Tes Pokémon ont l'air fatigués…", "On soigne gratuitement, c'est notre devise !"] },
+  pkmart: { mur: "#a8c8f0", sol: ["#eef2f8", "#e0e8f2"], cpt: "#3a70e0", ray: "balls", ray2: "potions", deco: ["caisses", "plantes"], look: 4, nom: "Vendeur", phr: ["Des Poké Balls toutes neuves !", "Une Potion avant la route ?", "Les objets rares arrivent quand tu montes de niveau."] },
+  brtaverne: { mur: "#7a4a2a", sol: ["#8a6a4a", "#7a5a3a"], cpt: "#6a3a1a", ray: "chopes", deco: ["tables", "tonneaux"], look: 3, nom: "Tavernier", phr: ["Une chope ? La maison régale… presque.", "Les chevaliers sacrés boivent ici après leur ronde.", "La soupe du jour est encore chaude !"] },
+  brauberge: { mur: "#8a5a3a", sol: ["#9a7a5a", "#8a6a4a"], cpt: "#6a3a1a", ray: "chopes", deco: ["lits", "tonneaux"], look: 5, nom: "Aubergiste", phr: ["Une chambre pour la nuit ?", "Les lits sont propres, promis !", "Repose-toi, la route est longue."] },
+  brarmes: { mur: "#5a5a64", sol: ["#8a8a90", "#7a7a80"], cpt: "#4a3a2a", ray: "armes", deco: ["forge", "tonneaux"], look: 1, nom: "Forgeron", phr: ["Mes lames coupent l'acier !", "Une bonne épée vaut mieux qu'un long discours.", "Reviens plus fort et je te forgerai mieux."] },
+  brarmures: { mur: "#4a5a7a", sol: ["#8a8a98", "#7a7a88"], cpt: "#3a3a5a", ray: "armures", deco: ["mannequins", "tonneaux"], look: 2, nom: "Armurier", phr: ["Une armure de Liones, solide et brillante.", "Un bouclier t'évitera bien des bosses !"] },
+  brpotions: { mur: "#3a6a4a", sol: ["#9a8a6a", "#8a7a5a"], cpt: "#4a3a2a", ray: "potions", deco: ["chaudron", "plantes"], look: 7, nom: "Apothicaire", phr: ["Des herbes de la forêt d'Excalibur…", "Une potion par jour éloigne les démons !"] },
+  breglise: { mur: "#c8c8d8", sol: ["#b8b0a0", "#aaa294"], cpt: "#e8e0c8", ray: "bougies", deco: ["autel", "bancs"], look: 9, nom: "Sœur", phr: ["Que la Déesse te protège.", "Prie un instant, voyageur."] },
+  mvforge: { mur: "#5a4a40", sol: ["#7a6a5a", "#6a5a4a"], cpt: "#4a3a2a", ray: "outils", deco: ["forge", "tonneaux"], look: 1, nom: "Forgeron de Ma Ville", phr: ["Le feu est chaud, ton bâton va chanter !", "Apporte des zénis et de l'expérience, je fais le reste."] },
+  mvmarche: { mur: "#a87a3a", sol: ["#c8a070", "#b89060"], cpt: "#8a5a2a", ray: "pain", ray2: "poissons", deco: ["caisses", "tonneaux"], look: 8, nom: "Marchande", phr: ["Tes poissons se vendent bien ici !", "Provisions fraîches pour les héros !"] },
+  mvauberge: { mur: "#8a4a3a", sol: ["#9a7a5a", "#8a6a4a"], cpt: "#6a3a1a", ray: "chopes", deco: ["lits", "tables"], look: 5, nom: "Aubergiste des Héros", phr: ["Les héros invités passent la soirée ici.", "Repose-toi, champion !"] },
+  mvport: { mur: "#4a6a8a", sol: ["#9a8a6a", "#8a7a5a"], cpt: "#5a4a3a", ray: "poissons", deco: ["filets", "tonneaux"], look: 4, nom: "Capitaine du port", phr: ["Les poissons rares aiment le Lac du Ponton.", "Montre-moi ta pêche du jour !"] },
+  atelier: { mur: "#6a4a30", sol: ["#8a6a4a", "#7a5a3a"], cpt: "#5a3a1a", ray: "outils", deco: ["forge", "caisses"], look: 1, nom: "Artisan", phr: ["L'établi est à toi : améliore ton équipement.", "Du bois, de la pierre, du minerai… et de la patience !"] },
+  academie: { mur: "#a8b890", sol: ["#c8a878", "#b89868"], cpt: "#6a4a2a", ray: "livres", deco: ["bureaux", "plantes"], look: 3, nom: "Professeur de l'Académie", phr: ["Un ninja doit lire sous les sous-entendus.", "Le chakra, c'est l'équilibre du corps et de l'esprit !"] },
+  ramen: { mur: "#c84a3a", sol: ["#d8c8a8", "#c8b898"], cpt: "#7a4a2a", ray: "bols", deco: ["tables", "plantes"], look: 2, nom: "Chef ramen", phr: ["Un bol bien chaud ?", "Le bouillon mijote depuis l'aube !"] },
+  burger: { mur: "#e89830", sol: ["#f0e0c0", "#e4d2b0"], cpt: "#c84828", ray: "bols", deco: ["tables", "plantes"], look: 6, nom: "Serveur", phr: ["Burger double, frites capsule !", "Le menu maxi, c'est pour les vrais guerriers."] },
+  glace: { mur: "#f0a0c8", sol: ["#fff0f6", "#f6e2ec"], cpt: "#d870a0", ray: "glaces", deco: ["tables", "plantes"], look: 8, nom: "Glacière", phr: ["Fraise, vanille ou capsule-menthe ?", "Rien de tel qu'une glace après un combat !"] },
+  cafe: { mur: "#6a4a3a", sol: ["#c8a888", "#b89878"], cpt: "#4a2a1a", ray: "cafe", deco: ["tables", "plantes"], look: 7, nom: "Barista", phr: ["Un café pour remplir ton KI ?", "Les gâteaux sortent du four !"] },
+  arcade: { mur: "#3a2a68", sol: ["#2a2440", "#242036"], cpt: "#5a3aa8", ray: "gadgets", deco: ["bornes"], look: 0, nom: "Gérant de l'arcade", phr: ["Bats le record et gagne de l'expérience !", "Le tournoi, c'est pour les pros."] },
+  robot: { mur: "#4a5868", sol: ["#c8ccd4", "#bcc0c8"], cpt: "#3a4858", ray: "gadgets", deco: ["robots", "plantes"], look: 2, nom: "Ingénieur", phr: ["Des gadgets Capsule Corp. dernier cri !", "Ces bottes à réaction ? Il faut de l'expérience pour les maîtriser."] },
+  mode: { mur: "#c84890", sol: ["#f2d8e8", "#e8c8dc"], cpt: "#7a2a5a", ray: "tenues", deco: ["mannequins", "plantes"], look: 4, nom: "Styliste", phr: ["Essaie nos tenues !", "Le style, c'est la moitié du combat."] },
+};
+/* ---------- dessin des meubles (petits sprites, voxelisés en 3D) ---------- */
+function m53Rayon(kind) {
+  return knMeuble(56, 40, P => {
+    P.r(0, 0, 56, 40, "#5a3a1e"); P.r(2, 2, 52, 36, "#7a5230"); for (const y of [12, 25, 37]) P.r(1, y, 54, 3, "#4a2a12");
+    const C = ["#e84040", "#3a78d0", "#3aa050", "#f0c040", "#a050d0", "#ffffff", "#ff8a3a"];
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) {
+      const x = 4 + i * 8 + (r & 1) * 2, y = 3 + r * 13, c = C[(i + r * 2) % C.length];
+      switch (kind) {
+        case "balls": P.ell(x + 3, y + 5, 3, 3, "#f0f0f0"); P.r(x, y + 2, 7, 3, "#e83838"); P.r(x, y + 5, 7, 1, "#202020"); break;
+        case "potions": P.r(x + 1, y + 3, 5, 6, c); P.r(x + 2, y + 1, 3, 2, "#d8d8d8"); P.p(x + 2, y + 4, "#ffffff"); break;
+        case "chopes": P.r(x, y + 3, 6, 7, "#a8743e"); P.r(x, y + 3, 6, 2, "#f8f0d8"); P.r(x + 6, y + 5, 1, 3, "#6a4220"); break;
+        case "armes": P.r(x + 3, y - 1, 1, 9, "#c8d0dc"); P.r(x + 1, y + 7, 5, 1, "#8a6a2a"); P.r(x + 3, y + 8, 1, 2, "#5a3a1a"); break;
+        case "armures": P.r(x, y + 2, 7, 7, "#9aa8bc"); P.r(x + 2, y + 1, 3, 2, "#c8d0dc"); P.r(x + 3, y + 4, 1, 4, "#5a6478"); break;
+        case "bougies": P.r(x + 2, y + 4, 3, 6, "#f8f0d8"); P.r(x + 3, y + 2, 1, 2, "#ffb030"); break;
+        case "outils": if (i & 1) { P.r(x + 3, y + 1, 1, 9, "#7a5a2a"); P.r(x, y + 1, 7, 3, "#8a8a90"); } else { P.r(x + 3, y + 1, 1, 9, "#7a5a2a"); P.r(x + 4, y + 1, 3, 4, "#a8acb4"); } break;
+        case "pain": P.ell(x + 3, y + 7, 3.5, 2.5, i & 1 ? "#d89a50" : c); P.p(x + 2, y + 6, "#f8d8a0"); break;
+        case "poissons": P.ell(x + 3, y + 7, 3.5, 2, "#7aa8c8"); P.r(x + 6, y + 6, 1, 3, "#5a88a8"); P.p(x + 1, y + 6, "#202020"); break;
+        case "livres": P.r(x, y + 1, 2, 9, c); P.r(x + 2, y + 2, 2, 8, C[(i + 3) % C.length]); P.r(x + 4, y + 1, 2, 9, C[(i + 5) % C.length]); break;
+        case "bols": P.r(x, y + 6, 7, 3, "#f0f0e8"); P.r(x + 1, y + 5, 5, 1, "#e8c060"); P.r(x + 1, y + 9, 5, 1, "#c84a3a"); break;
+        case "glaces": P.r(x + 2, y + 6, 3, 4, "#d8a050"); P.ell(x + 3, y + 4, 3, 2.5, c); break;
+        case "cafe": P.r(x + 1, y + 5, 5, 5, "#f8f0e8"); P.r(x + 1, y + 5, 5, 1, "#6a3a1a"); P.r(x + 6, y + 6, 1, 2, "#f8f0e8"); break;
+        case "gadgets": P.r(x, y + 3, 7, 6, "#c8ccd4"); P.r(x + 1, y + 4, 5, 3, ["#40e0ff", "#ff40c0", "#ffe040"][i % 3]); break;
+        case "tenues": P.r(x + 3, y, 1, 2, "#202020"); P.r(x, y + 2, 7, 8, c); P.r(x + 2, y + 2, 3, 2, "#ffffff"); break;
+      }
+    }
+  });
+}
+const M53_IMG = {};
+function m53Meuble(k) {
+  if (M53_IMG[k]) return M53_IMG[k];
+  const M = (w, h, f) => knMeuble(w, h, f);
+  const im = {
+    table: () => M(40, 26, P => { P.r(0, 2, 40, 9, "#a8703a"); P.r(0, 2, 40, 2, "#c89050"); P.r(3, 11, 3, 15, "#6a3a1a"); P.r(34, 11, 3, 15, "#6a3a1a"); P.r(8, 0, 8, 4, "#f0f0e8"); P.r(24, 0, 8, 4, "#e8c060"); }),
+    tabouret: () => M(12, 14, P => { P.r(0, 0, 12, 4, "#a8703a"); P.r(1, 4, 2, 10, "#6a3a1a"); P.r(9, 4, 2, 10, "#6a3a1a"); }),
+    tonneau: () => M(18, 24, P => { P.r(1, 0, 16, 24, "#8a5a2a"); P.r(1, 5, 16, 2, "#3a2414"); P.r(1, 17, 16, 2, "#3a2414"); P.r(4, 0, 3, 24, "#a8743e"); }),
+    caisse: () => M(20, 18, P => { P.r(0, 4, 20, 14, "#a8743e"); P.r(0, 10, 20, 2, "#6a4220"); for (let i = 0; i < 5; i++) P.ell(3 + i * 3.5, 4, 2, 2, ["#e83a2a", "#f0a030", "#7ac040"][i % 3]); }),
+    lit: () => M(30, 44, P => { P.r(0, 0, 30, 44, "#8a5a2a"); P.r(2, 3, 26, 39, "#f0f0f0"); P.r(4, 5, 22, 8, "#ffffff"); P.r(2, 16, 26, 26, "#c84a4a"); P.r(2, 16, 26, 3, "#e87a7a"); }),
+    forge: () => M(40, 40, P => { P.r(4, 0, 12, 16, "#4a4a54"); P.r(0, 14, 40, 26, "#5a5a64"); P.r(0, 14, 40, 3, "#7a7a84"); P.r(6, 22, 28, 12, "#1a1a20"); P.r(8, 26, 24, 8, "#e8701a"); P.r(12, 28, 16, 5, "#ffc040"); }),
+    enclume: () => M(26, 18, P => { P.r(0, 0, 26, 6, "#5a5a64"); P.r(0, 0, 26, 2, "#8a8a94"); P.r(8, 6, 10, 6, "#4a4a54"); P.r(4, 12, 18, 6, "#3a3a44"); }),
+    autel: () => M(48, 30, P => { P.r(0, 8, 48, 22, "#e8e0c8"); P.r(0, 8, 48, 3, "#ffffff"); P.r(20, 0, 8, 10, "#f0c040"); P.r(23, 2, 2, 6, "#ffffff"); P.r(6, 2, 3, 6, "#f8f0d8"); P.r(39, 2, 3, 6, "#f8f0d8"); P.p(7, 1, "#ffb030"); P.p(40, 1, "#ffb030"); }),
+    banc: () => M(44, 16, P => { P.r(0, 0, 44, 5, "#7a4a24"); P.r(0, 6, 44, 5, "#a8703a"); P.r(2, 11, 3, 5, "#5a3018"); P.r(39, 11, 3, 5, "#5a3018"); }),
+    soin: () => M(52, 36, P => { P.r(0, 8, 52, 28, "#e8e8ee"); P.r(0, 8, 52, 3, "#ffffff"); P.r(4, 0, 44, 10, "#d8d8e0"); for (let i = 0; i < 6; i++) { P.ell(8 + i * 7, 18, 3, 3, "#f0f0f0"); P.r(5 + i * 7, 15, 7, 3, "#e83838"); } P.r(18, 26, 16, 6, "#40c0ff"); }),
+    chaudron: () => M(30, 26, P => { P.ell(15, 15, 14, 10, "#2a2a30"); P.ell(15, 9, 12, 4, "#4ae07a"); P.ell(10, 8, 3, 2, "#a0ffc0"); P.r(4, 22, 4, 4, "#2a2a30"); P.r(22, 22, 4, 4, "#2a2a30"); }),
+    plante: () => M(18, 26, P => { P.r(4, 16, 10, 10, "#c85a3a"); P.r(4, 16, 10, 2, "#e07a4a"); P.ell(9, 9, 8, 8, "#3a9a3a"); P.ell(6, 7, 3, 3, "#5ac05a"); }),
+    bureau: () => M(34, 22, P => { P.r(0, 0, 34, 8, "#a8703a"); P.r(0, 0, 34, 2, "#c89050"); P.r(2, 8, 3, 14, "#6a3a1a"); P.r(29, 8, 3, 14, "#6a3a1a"); P.r(6, 1, 9, 5, "#f8f8f0"); P.r(20, 1, 6, 6, "#3a6ab0"); }),
+    tableau: () => M(72, 30, P => { P.r(0, 0, 72, 30, "#6a4a2a"); P.r(3, 3, 66, 24, "#2a4a3a"); for (let i = 0; i < 4; i++) P.r(8 + i * 14, 8 + (i & 1) * 6, 10, 2, "#f0f0e8"); P.r(30, 18, 14, 2, "#f0f0e8"); }),
+    filet: () => M(36, 30, P => { P.r(0, 0, 2, 30, "#6a4a2a"); P.r(34, 0, 2, 30, "#6a4a2a"); for (let i = 2; i < 34; i += 4) P.r(i, 2, 1, 26, "#c8b890"); for (let j = 2; j < 28; j += 4) P.r(2, j, 32, 1, "#c8b890"); P.ell(18, 20, 6, 3, "#7aa8c8"); }),
+    borne: () => M(26, 44, P => { P.r(0, 0, 26, 44, "#2a2440"); P.r(2, 2, 22, 4, ["#ff40c0", "#40e0ff", "#ffe040"][Object.keys(M53_IMG).length % 3]); P.r(3, 8, 20, 16, "#0a0a18"); P.r(5, 10, 16, 12, "#3a8aff"); P.r(7, 13, 4, 4, "#ffe040"); P.r(3, 26, 20, 6, "#4a3a78"); P.ell(8, 29, 2, 2, "#ff3030"); P.ell(17, 29, 2, 2, "#30ff60"); }),
+    robotF: () => M(22, 34, P => { P.r(5, 0, 12, 10, "#c8ccd4"); P.r(7, 3, 3, 3, "#40e0ff"); P.r(12, 3, 3, 3, "#40e0ff"); P.r(2, 11, 18, 14, "#a8b0bc"); P.r(8, 14, 6, 6, "#ff6020"); P.r(4, 25, 5, 9, "#8a90a0"); P.r(13, 25, 5, 9, "#8a90a0"); }),
+    mannequin: () => M(20, 40, P => { P.ell(10, 5, 5, 5, "#e8d0b8"); P.r(3, 10, 14, 18, "#c84890"); P.r(3, 10, 14, 3, "#ffffff"); P.r(9, 28, 2, 8, "#5a3a1e"); P.r(4, 36, 12, 4, "#5a3a1e"); }),
+  }[k];
+  return M53_IMG[k] = im ? im() : null;
+}
+class SceneMagasin53 extends SceneLieu {
+  constructor(src, M, o) {
+    const lieu = src && src.lieu ? src.lieu : { nom: o.nom || "Magasin", id: "mag53" };
+    super(lieu, "mag53:" + (o.cle || ""), 20, 13, 40);
+    this.v52int = true; this.m53 = true; this.src = src; this.M = M; this.o = o; this.nom = o.nom || "Magasin"; this.dialogues = [];
+    this.retour = { x: o.rx != null ? o.rx : M.x, y: o.ry != null ? o.ry : M.y + 2 };
+    const T = this.th = M53_TH[o.theme] || M53_TH.mvmarche;
+    this.fondPlan = "#1a120c"; this.entree = { x: this.largeur / 2, y: this.hauteur - 30 };
+    const W = this.largeur, H = this.hauteur, P = this.P;
+    for (let y = 0; y < H; y += 16) for (let x = 0; x < W; x += 16) { P.r(x, y, 16, 16, ((x + y) / 16 & 1) ? T.sol[0] : T.sol[1]); P.r(x, y + 15, 16, 1, melange(T.sol[1], "#000000", 0.12)); }
+    P.r(0, 0, W, 52, T.mur); P.r(0, 44, W, 8, melange(T.mur, "#000000", 0.35)); P.r(0, 0, W, 6, melange(T.mur, "#000000", 0.25));
+    for (let x = 0; x < W; x += 80) P.r(x, 6, 3, 38, melange(T.mur, "#000000", 0.3));
+    // enseigne au mur
+    P.r(W / 2 - 62, 8, 124, 16, "#2a1a10"); P.r(W / 2 - 60, 10, 120, 12, melange(T.cpt, "#ffffff", 0.15));
+    try { textePixel(this.sx, (o.enseigne || this.nom).toUpperCase().slice(0, 22), W / 2, 11, 1, "#ffffff", "#2a1a10", 0.5); } catch (_) { }
+    P.r(0, 52, 6, H, melange(T.mur, "#000000", 0.4)); P.r(W - 6, 52, 6, H, melange(T.mur, "#000000", 0.4));
+    // tapis vers le comptoir + paillasson de sortie
+    P.r(W / 2 - 24, 104, 48, H - 116, melange(T.cpt, "#000000", 0.15)); P.r(W / 2 - 22, 106, 44, H - 120, melange(T.cpt, "#ffffff", 0.2));
+    P.r(W / 2 - 22, H - 12, 44, 12, "#5a2a1a"); P.r(W / 2 - 20, H - 10, 40, 8, "#a85a3a");
+    try { textePixel(this.sx, "SORTIE", W / 2 - 12, H - 10, 1, "#fff4d0", null); } catch (_) { }
+    this.bloquer(0, 0, W, 56); this.bloquer(0, 0, 8, H); this.bloquer(W - 8, 0, W, H);
+    this.bloquer(0, H - 32, this.porte[0], H); this.bloquer(this.porte[1], H - 32, W, H);
+    // rayons contre le mur du fond
+    const r1 = m53Rayon(T.ray), r2 = m53Rayon(T.ray2 || T.ray);
+    this.ajouter(r1, 14, 22, 62, [14, 52, 70, 62]); this.ajouter(r2, W - 70, 22, 62, [W - 70, 52, W - 14, 62]);
+    // comptoir
+    const cpt = knMeuble(128, 26, Q => { Q.r(0, 0, 128, 7, melange(T.cpt, "#ffffff", 0.25)); Q.r(0, 0, 128, 2, melange(T.cpt, "#ffffff", 0.5)); Q.r(0, 7, 128, 19, T.cpt); for (let x = 6; x < 128; x += 20) Q.r(x, 10, 12, 13, melange(T.cpt, "#000000", 0.18)); Q.r(56, 1, 16, 5, "#f0c040"); });
+    this.cpt = { x0: 96, x1: 224, y: 100 };
+    this.ajouter(cpt, 96, 74, 100, [96, 86, 224, 100]);
+    // décor selon le thème (placé hors du passage central x 120..200)
+    const D = (k, x, y, coll, extra) => { const im = m53Meuble(k); if (im) this.ajouter(im, x, y - im.height, y, coll === false ? null : [x + 1, y - Math.min(10, im.height - 2), x + im.width - 1, y], extra); };
+    const deco = T.deco || [];
+    for (let i = 0; i < deco.length; i++) {
+      const g = i === 0 ? 0 : 1;   // 0 = côté gauche, 1 = côté droit
+      const X = g ? W - 92 : 16, k = deco[i];
+      if (k === "tables") { D("table", X + 8, 150); D("tabouret", X, 160); D("tabouret", X + 40, 160); D("table", X + 8, 186); }
+      else if (k === "tonneaux") { D("tonneau", X + 6, 150); D("tonneau", X + 30, 154); D("caisse", X + 50, 186); }
+      else if (k === "lits") { D("lit", X + 4, 176); D("lit", X + 40, 176); }
+      else if (k === "forge") { D("forge", X + 4, 150, true, { feu: true }); D("enclume", X + 14, 184); }
+      else if (k === "autel") { D("autel", W / 2 - 24, 72, true); this.cpt.autel = true; }
+      else if (k === "bancs") { D("banc", 18, 150); D("banc", 18, 182); D("banc", W - 62, 150); D("banc", W - 62, 182); }
+      else if (k === "soin") { D("soin", X + 8, 150); }
+      else if (k === "plantes") { D("plante", X + 2, 186); D("plante", X + 58, 150); }
+      else if (k === "banc") { D("banc", X + 6, 186); }
+      else if (k === "caisses") { D("caisse", X + 4, 152); D("caisse", X + 30, 156); D("caisse", X + 14, 186); }
+      else if (k === "chaudron") { D("chaudron", X + 14, 160, true, { feu: true }); }
+      else if (k === "bureaux") { for (const bx of [16, 62, W - 96, W - 50]) for (const by of [150, 184]) D("bureau", bx, by); }
+      else if (k === "filets") { D("filet", X + 6, 156); D("caisse", X + 46, 186); }
+      else if (k === "bornes") { for (const bx of [16, 46, W - 72, W - 42]) D("borne", bx, 160); D("borne", 16, 196); D("borne", W - 42, 196); }
+      else if (k === "robots") { D("robotF", X + 6, 160); D("robotF", X + 40, 186); }
+      else if (k === "mannequins") { D("mannequin", X + 4, 160); D("mannequin", X + 40, 160); }
+    }
+    if (o.theme === "academie") { const tb = m53Meuble("tableau"); this.ajouter(tb, 4, 14, 52, null); }
+    this.finir();
+    // vendeur derrière le comptoir
+    const q = this.creerPNJ({ x: W / 2, y: 80, look: T.look, L: o.L, nom: o.vendeur || T.nom, role: "marchand", fixe: true, vue: 0, phrases: o.phrases || T.phr });
+    q.x = W / 2; q.y = 80; this.vendeur = q; this.imgV = o.imgV || null;
+  }
+  imagePNJ(q, f) { try { if (this.imgV) return this.imgV(q, f); } catch (_) { } return imagePNJ(q.look || 0, q.vue, f, q.miroir); }
+  phrasePour(q) { const L = q.phrases || this.th.phr; return L[Math.floor(Math.random() * L.length)]; }
+  nouveauPlan(q) { return [{ f: "attendre", d: 4 + Math.random() * 4, vue: 0, debut: k => { if (Math.random() < 0.3) this.dire(k, this.phrasePour(k), 2.4); } }]; }
+  animer(dt) { if (Math.random() < dt * 3) for (const ob of this.objets) if (ob.feu) particules.push({ x: ob.x + 14, y: ob.base - 34, z: 0, vx: (Math.random() - 0.5) * 4, vy: -12, vz: 0, age: 0, vie: 1.4, col: "rgba(200,200,210,0.5)", g: 0, frein: 0.5, taille: 2 }); }
+  action() {
+    const A = this.o.actions || [], C = this.cpt;
+    if (A.length && perso.y >= C.y - 2 && perso.y < C.y + 30 && perso.x > C.x0 - 6 && perso.x < C.x1 + 6) {
+      const a = A.length > 1 && perso.x > (C.x0 + C.x1) / 2 ? A[1] : A[0];
+      return { txt: a.txt, f: () => { try { if (this.vendeur && Math.random() < 0.5) this.dire(this.vendeur, this.phrasePour(this.vendeur), 2.2); } catch (_) { } a.f(this); } };
+    }
+    return null;
+  }
+  mettreAJour(dt) {
+    if (!jeu.transition && jeu.scene === this && perso.y > this.hauteur - 12 && perso.x >= this.porte[0] && perso.x < this.porte[1]) { v52Sortir(this); return; }
+    super.mettreAJour(dt);
+  }
+}
+function m53Entrer(src, M, o) {
+  if (jeu.transition) return;
+  try { son.jouer("porte"); } catch (_) { }
+  if (M.ob) M.ob.ouverte = 0.9;
+  if (perso.kame) perso.kame = null;
+  lancerTransition(() => {
+    const k = "__int53" + (o.cle || "");
+    const S = M[k] || (M[k] = new SceneMagasin53(src, M, o));
+    jeu.scene = S; particules.length = 0; nombres.length = 0;
+    perso.x = S.entree.x; perso.y = S.entree.y; perso.dir = "haut"; perso.att = null;
+    camera.x = perso.x; camera.y = perso.y - 10; camera.limiter();
+    jeu.banniere = { texte: S.nom, t: 0 };
+    sauvegarder(false);
+    setTimeout(() => { try { if (jeu.scene === S) messageInfo("Va au comptoir : " + ((o.actions && o.actions[0] && o.actions[0].txt) || "")); } catch (_) { } }, 1400);
+  }, [0, -0.5]);
+}
+/* ---------- menu d'achat générique : prix, niveau requis, avant → après, achats impossibles grisés ---------- */
+const M53_MENU = { cle: null, titre: "", sous: "", items: null, msg: "" };
+function m53Menu(titre, sous, items, msg) {
+  Object.assign(M53_MENU, { titre, sous, items, msg: msg || "" });
+  const z = prog.argent | 0, sym = m53Sym(), nivJ = m53NivJoueur();
+  let h = `<div class="titre">${echapHTML(titre)}</div>${sous ? `<div class="ligne petit">${echapHTML(sous)}</div>` : ""}`;
+  if (msg) h += `<div class="ligne" style="color:#a0f0a0">${echapHTML(msg)}</div>`;
+  h += `<div class="ligne">💰 Tu as <b>${z}</b> ${sym} · Niveau <b>${nivJ.n}</b>${nivJ.xp != null ? ` (${nivJ.xp}/${nivJ.xpMax} XP)` : ""}</div>`;
+  items.forEach((it, i) => {
+    const p = typeof it.prix === "function" ? it.prix() : it.prix, niv = typeof it.niv === "function" ? it.niv() : (it.niv || 0);
+    let raison = null;
+    if (it.ok && !it.ok()) raison = (typeof it.pourquoi === "function" ? it.pourquoi() : it.pourquoi) || "Indisponible";
+    else if (niv && nivJ.n < niv) raison = "🔒 Niveau " + niv + " requis";
+    else if (z < p) raison = "Il te manque " + (p - z) + " " + sym;
+    const avap = it.avap ? it.avap() : null;
+    h += `<button data-action="m53" data-id="${i}" ${raison ? "disabled" : ""}>${echapHTML(typeof it.nom === "function" ? it.nom() : it.nom)} — ${p} ${sym}${niv ? ` · niv. ${niv}${nivJ.n >= niv ? " ✔" : ""}` : ""}<br><span class="petit">${echapHTML(typeof it.desc === "function" ? it.desc() : it.desc)}</span>${avap ? `<br><span class="petit">📈 ${echapHTML(avap)}</span>` : ""}${raison ? `<br><span class="petit" style="color:#ffb0a0">${echapHTML(raison)}</span>` : ""}</button>`;
+  });
+  h += `<button data-action="continuer" class="rouge">▶ Fermer</button>`;
+  ouvrirPanneauAv(h); M53.ui = "menu";
+  m53Ecoute();
+}
+function m53NivJoueur() {
+  try {
+    const m = AV.monde || 1;
+    if (m === 3) return { n: PK.niv | 0 };
+    if (m === 5 && typeof BR !== "undefined" && BR.transforme) return { n: BR.niv | 0, xp: BR.xp, xpMax: brXpPour(BR.niv) };
+  } catch (_) { }
+  return { n: prog.niveau | 0, xp: prog.xp | 0, xpMax: xpPour(prog.niveau) };
+}
+function m53Ecoute() {
+  const P = document.getElementById("panneau"); if (!P || P.__m53) return; P.__m53 = 1;
+  P.addEventListener("click", e => {
+    const a = e.target.closest("[data-action=m53]"); if (!a || a.disabled) return;
+    const it = M53_MENU.items && M53_MENU.items[+a.dataset.id]; if (!it) return;
+    const p = typeof it.prix === "function" ? it.prix() : it.prix, niv = typeof it.niv === "function" ? it.niv() : (it.niv || 0);
+    if ((it.ok && !it.ok()) || (niv && m53NivJoueur().n < niv) || (prog.argent | 0) < p) { try { son.jouer("touche"); } catch (_) { } return; }
+    prog.argent -= p; let msg = "Merci !";
+    try { msg = it.f() || msg; } catch (er) { m53Err("achat", er); }
+    try { appliquerStats(); } catch (_) { } try { son.jouer("orbe"); } catch (_) { }
+    sauvegarder(false); m53Menu(M53_MENU.titre, M53_MENU.sous, M53_MENU.items, msg);
+  });
+}
+const m53Soin = n => { perso.pv = Math.min(perso.pvMax, perso.pv + n); perso.pvAff = perso.pv; };
+const m53Ki = n => { perso.ki = Math.min(perso.kiMax, perso.ki + n); };
+const pvPlein = () => perso.pv >= perso.pvMax, kiPlein = () => perso.ki >= perso.kiMax;
+const m53XP = n => { const a = prog.niveau; gagnerXP(n); return "+" + n + " XP" + (prog.niveau > a ? " — NIVEAU " + prog.niveau + " !" : ""); };
+const M53_REPAS = {
+  ramen: ["🍜 RESTAURANT RAMEN", [{ nom: "🍜 Bol de ramen", prix: 30, desc: "+60 PV", ok: () => !pvPlein(), pourquoi: "Tes PV sont déjà au maximum", avap: () => `PV ${Math.round(perso.pv)} → ${Math.min(perso.pvMax, Math.round(perso.pv) + 60)}`, f: () => { m53Soin(60); return "Slurp ! +60 PV"; } },
+    { nom: "🍜 Ramen géant", prix: 80, niv: 5, desc: "PV et KI au maximum", ok: () => !pvPlein() || !kiPlein(), pourquoi: "Tu es déjà en pleine forme", f: () => { m53Soin(9999); m53Ki(9999); return "Quel festin ! Pleine forme."; } }]],
+  burger: ["🍔 BURGER CAPSULE", [{ nom: "🍔 Burger", prix: 25, desc: "+40 PV", ok: () => !pvPlein(), pourquoi: "Tes PV sont déjà au maximum", avap: () => `PV ${Math.round(perso.pv)} → ${Math.min(perso.pvMax, Math.round(perso.pv) + 40)}`, f: () => { m53Soin(40); return "Miam ! +40 PV"; } },
+    { nom: "🍟 Menu maxi", prix: 70, niv: 4, desc: "PV au maximum", ok: () => !pvPlein(), pourquoi: "Tes PV sont déjà au maximum", f: () => { m53Soin(9999); return "Menu maxi avalé : PV au max !"; } }]],
+  glace: ["🍦 GLACIER", [{ nom: "🍦 Cornet", prix: 15, desc: "+40 KI", ok: () => !kiPlein(), pourquoi: "Ton KI est déjà plein", avap: () => `KI ${Math.round(perso.ki)} → ${Math.min(perso.kiMax, Math.round(perso.ki) + 40)}`, f: () => { m53Ki(40); return "Fraîcheur ! +40 KI"; } },
+    { nom: "🍨 Coupe géante", prix: 45, niv: 3, desc: "KI au maximum et +20 PV", ok: () => !kiPlein() || !pvPlein(), pourquoi: "Tu es déjà en pleine forme", f: () => { m53Ki(9999); m53Soin(20); return "Coupe géante terminée !"; } }]],
+  cafe: ["☕ CAFÉ", [{ nom: "☕ Café serré", prix: 20, desc: "KI au maximum", ok: () => !kiPlein(), pourquoi: "Ton KI est déjà plein", avap: () => `KI ${Math.round(perso.ki)} → ${perso.kiMax}`, f: () => { m53Ki(9999); return "Ton KI est rechargé !"; } },
+    { nom: "🍰 Gâteau du jour", prix: 50, niv: 3, desc: "+50 % de tes PV max", ok: () => !pvPlein(), pourquoi: "Tes PV sont déjà au maximum", f: () => { m53Soin(Math.round(perso.pvMax / 2)); return "Délicieux !"; } }]],
+  arcade: ["🕹 ARCADE", [{ nom: "🕹 Partie rapide", prix: 40, desc: "+25 XP", avap: () => `XP ${prog.xp}/${xpPour(prog.niveau)} → +25`, f: () => m53XP(25) },
+    { nom: "🏆 Tournoi d'arcade", prix: 150, niv: 6, desc: "+120 XP", avap: () => `Niveau ${prog.niveau} · XP ${prog.xp}/${xpPour(prog.niveau)}`, f: () => m53XP(120) }]],
+};
+const M53_ETALS = ["🍎 Fruits", "🐟 Poissons grillés", "🥕 Légumes", "🍞 Pain", "🍙 Boulettes de riz", "🍬 Douceurs"];
+function m53Etal(i) {
+  const n = M53_ETALS[i % M53_ETALS.length], v = 15 + (i % 3) * 5;
+  m53Menu("🧺 ÉTAL — " + n.replace(/^\S+ /, "").toUpperCase(), "Produits frais du marché de Paozu", [
+    { nom: n, prix: 10, desc: "+" + v + " PV", ok: () => !pvPlein(), pourquoi: "Tes PV sont déjà au maximum", avap: () => `PV ${Math.round(perso.pv)} → ${Math.min(perso.pvMax, Math.round(perso.pv) + v)}`, f: () => { m53Soin(v); return "C'est bon ! +" + v + " PV"; } },
+    { nom: "🧺 Panier garni", prix: 35, niv: 2, desc: "+70 PV et +30 KI", ok: () => !pvPlein() || !kiPlein(), pourquoi: "Tu es déjà en pleine forme", f: () => { m53Soin(70); m53Ki(30); return "Panier dévoré !"; } }]);
+}
+/* ---------- Capsule : niveau requis, stats avant → après, achat impossible grisé ---------- */
+const M53_NIV = { ermite: 2, neon: 3, ninja: 4, dragon: 6, armure: 8, royal: 10, baton1: 2, baton2: 6, baton3: 12, bottes1: 3, bottes2: 9, bracelets: 5 };
+for (const k in M53_NIV) if (OBJETS[k]) OBJETS[k].niv = M53_NIV[k];
+Object.assign(BOUTIQUES, {
+  gadgets: { id: "gadgets", enseigne: "ROBOTS", titre: "Robots & gadgets", sous: "Équipement Capsule Corp.", col: "#4a5868", neon: NEON.vert, icone: "arme", inter: ["#ffffff", "#60ff90"], theme: { sol: ["#c8ccd4", "#bcc0c8"], mur: "#3a4858", neon: NEON.vert }, articles: ["bottes1", "bottes2", "bracelets", "ki"], accueil: "Gadgets Capsule Corp. : il faut de l'expérience pour les maîtriser !" },
+  mvmarche: { id: "mvmarche", enseigne: "MARCHÉ", titre: "Marché de Ma Ville", sous: "Provisions pour les héros", col: "#a87a3a", neon: NEON.orange, icone: "potion", inter: ["#ffffff", "#ffd080"], theme: { sol: ["#c8a070", "#b89060"], mur: "#8a5a2a", neon: NEON.orange }, articles: ["potion", "ki", "senzu", "parchemin"], accueil: "Des provisions fraîches pour les héros de Ma Ville !" },
+});
+function m53Stat(O) {
+  if (!O) return null;
+  if (O.cat === "baton") { const a = prog.equip.baton ? OBJETS[prog.equip.baton].degats : 0; return `Bâton +${a} → +${O.degats}`; }
+  if (O.cat === "pieds") { const a = prog.equip.pieds ? OBJETS[prog.equip.pieds].vitesse : 0; return `Vitesse +${Math.round(a * 100)} % → +${Math.round(O.vitesse * 100)} %`; }
+  if (O.cat === "poignets") { const a = prog.equip.poignets ? OBJETS[prog.equip.poignets].pv : 0; return `PV max ${perso.pvMax} → ${perso.pvMax - a + O.pv}`; }
+  if (O.cat === "tenue" || O.cat === "tete") return "Style uniquement (aucun bonus de combat)";
+  return null;
+}
+{
+  const ca = boutique.carte.bind(boutique);
+  boutique.carte = function (id, mode) {
+    let h = ca(id, mode);
+    try {
+      const O = OBJETS[id]; if (!O) return h;
+      const eq = O.cat !== "conso" && O.cat !== "service", possede = prog.possede.includes(id);
+      let info = "";
+      if (eq && !possede) { const s = m53Stat(O); if (s) info += `<div class="bt-desc">📈 ${s}</div>`; }
+      if (O.cat === "conso" && mode === "achat") info += `<div class="bt-desc">🎒 Au sac : ${prog.inv[id] || 0} → ${(prog.inv[id] || 0) + 1}</div>`;
+      if (O.cat === "service") info += `<div class="bt-desc">📈 Niveau ${prog.niveau} · XP ${prog.xp}/${xpPour(prog.niveau)} → +80</div>`;
+      if (eq && !possede && O.niv) info += `<div class="bt-desc">${prog.niveau >= O.niv ? "✔" : "🔒"} Niveau ${O.niv} requis (tu es niveau ${prog.niveau})</div>`;
+      if (mode === "achat" && !possede || O.cat === "conso" || O.cat === "service") {
+        const bloque = eq && !possede && O.niv && prog.niveau < O.niv, cher = prog.argent < O.prix;
+        if (bloque) h = h.replace(/<button data-a="acheter"[^>]*>[^<]*<\/button>/, `<button class="cher" disabled>🔒 Niveau ${O.niv} requis</button>`);
+        else if (cher && mode === "achat") h = h.replace(/<button data-a="acheter" data-id="([^"]+)" class="cher">([^<]*)<\/button>/, (m, i, t) => `<button data-a="acheter" data-id="${i}" class="cher" disabled>${t} · il manque ${O.prix - prog.argent} Z</button>`);
+      }
+      if (info) h = h.replace(/(<div class="bt-desc">[^<]*<\/div>)/, "$1" + info);
+    } catch (e) { m53Err("carte", e); }
+    return h;
+  };
+  const ac = boutique.acheter.bind(boutique);
+  boutique.acheter = function (id) {
+    const O = OBJETS[id];
+    if (O && O.niv && O.cat !== "conso" && O.cat !== "service" && !prog.possede.includes(id) && prog.niveau < O.niv) { try { son.jouer("touche"); } catch (_) { } return this.dire("Il faut être niveau " + O.niv + " pour " + O.nom + " (tu es niveau " + prog.niveau + "). Gagne de l'XP en combattant !"); }
+    return ac(id);
+  };
+}
+/* ---------- Britannia : niveau requis + stats avant → après ---------- */
+const M53_BRN = { epee: 3, bouclier: 2, armure: 5 };
+function m53BrAvAp(id) {
+  try {
+    if (id === "epee") { const o = BR.eq.epee, a = brDeg(); BR.eq.epee = true; const b = brDeg(); BR.eq.epee = o; if (o) return null; return `Dégâts ${Math.round(a)} → ${Math.round(b)}`; }
+    if (id === "armure") { const o = BR.eq.armure, a = brPvMax(); BR.eq.armure = true; const b = brPvMax(); BR.eq.armure = o; if (o) return null; return `PV max ${a} → ${b}`; }
+    if (id === "bouclier") return "Dégâts reçus 100 % → 80 %";
+    if (id === "potion") return `Au sac : ${BR.inv.potion | 0} → ${(BR.inv.potion | 0) + 1}`;
+    if (id === "hydromel") return `Au sac : ${BR.inv.hydromel | 0} → ${(BR.inv.hydromel | 0) + 1}`;
+  } catch (_) { }
+  return null;
+}
+{
+  const bb = brBoutique;
+  brBoutique = function (shop, msg) {
+    bb.apply(this, arguments);
+    try {
+      for (const b of document.querySelectorAll("#panneau [data-action=brAch]")) {
+        const id = b.dataset.id, req = M53_BRN[id], s = m53BrAvAp(id);
+        if (s && !b.disabled) b.insertAdjacentHTML("beforeend", `<br><span class="petit">📈 ${echapHTML(s)}</span>`);
+        if (req) { if ((BR.niv | 0) < req) { b.disabled = true; b.insertAdjacentHTML("beforeend", `<br><span class="petit" style="color:#ffb0a0">🔒 Niveau ${req} requis (tu es niveau ${BR.niv | 0})</span>`); } else b.insertAdjacentHTML("beforeend", `<br><span class="petit">✔ Niveau ${req} requis</span>`); }
+        if (b.disabled && (BR.eq[id])) b.insertAdjacentHTML("beforeend", `<br><span class="petit">✔ Déjà équipé</span>`);
+      }
+      for (const b of document.querySelectorAll("#panneau [data-action=brSoupe]")) if ((prog.argent | 0) < 20) b.disabled = true;
+    } catch (e) { m53Err("brB", e); }
+  };
+  const bc = brClicPanneau;
+  brClicPanneau = function (act, id, el) {
+    if (act === "brAch" && M53_BRN[id] && (BR.niv | 0) < M53_BRN[id]) { messageInfo("Niveau " + M53_BRN[id] + " requis."); return; }
+    if (act === "brAch" && BR.eq && BR.eq[id]) return;
+    return bc.apply(this, arguments);
+  };
+}
+/* ---------- Pokémon : boutons d'achat grisés si pas assez d'argent ---------- */
+{
+  const pb = pkBoutique;
+  pkBoutique = function () {
+    pb.apply(this, arguments);
+    try { for (const b of document.querySelectorAll("#panneau [data-action=pkAchat]")) { const O = PK_OBJ[b.dataset.id], n = +b.dataset.n || 1; if (O && (prog.argent | 0) < O.prix * n) { b.disabled = true; b.title = "Pas assez d'argent"; } } } catch (e) { m53Err("pkB", e); }
+  };
+}
+/* ---------- forge : niveau requis par palier (Ma Ville et marchand ambulant) ---------- */
+const m53NivForge = f => 2 + 3 * f;
+function m53Forge() {
+  const S = P96.s;
+  m53Menu("⚒ FORGE DE MA VILLE", "Améliore ton équipement avec tes zénis et ton expérience", [
+    { nom: () => `⚒ Forger l'équipement (palier ${p103Forge()} → ${p103Forge() + 1})`, prix: () => p103PrixForge(), niv: () => m53NivForge(p103Forge()), ok: () => p103Forge() < 5, pourquoi: "Équipement au maximum (palier 5)", desc: "+2 dégâts au bâton, +8 PV max",
+      avap: () => `Bâton +${bonusBaton()} → +${bonusBaton() + 2} · PV max ${perso.pvMax} → ${perso.pvMax + 8}`, f: () => { p103S().forge = p103Forge() + 1; appliquerStats(); try { son.jouer("fanfare"); } catch (_) { } return "🔨 Clang ! Équipement forgé au palier " + p103Forge() + " !"; } },
+    { nom: "🎣 Renforcer la canne à pêche", prix: 250, ok: () => S.canne === 1, pourquoi: () => S.canne >= 2 ? "Canne déjà renforcée" : "Il te faut d'abord la canne de Papi Gaston (Lac du Ponton)", desc: "Zone verte plus large, poissons rares plus fréquents",
+      avap: () => "Vieille canne → Canne renforcée", f: () => { S.canne = 2; return "⚒ Canne renforcée !"; } }]);
+}
+try {
+  const po = p103Ouvrir;
+  p103Ouvrir = function (k) {
+    po.apply(this, arguments);
+    try { const b = document.querySelector(`#panneau [data-q49="mc:${k}:f"]`), f = p103Forge(), n = m53NivForge(f); if (b) { if (prog.niveau < n) { b.disabled = true; b.insertAdjacentHTML("beforeend", ` <small>🔒 niveau ${n} requis</small>`); } else b.insertAdjacentHTML("beforeend", ` <small>(Bâton +${bonusBaton()} → +${bonusBaton() + 2})</small>`); } } catch (_) { }
+  };
+  const pc = p103Clic;
+  p103Clic = function (k, act) { if (act === "f" && p103Forge() < 5 && prog.niveau < m53NivForge(p103Forge())) return p103Ouvrir(k, "Il faut être niveau " + m53NivForge(p103Forge()) + " pour ce palier de forge."); return pc.apply(this, arguments); };
+} catch (e) { m53Err("p103", e); }
+/* ---------- entrées : quel bâtiment ouvre quel intérieur ---------- */
+const M53_BR = { taverne: "brtaverne", auberge: "brauberge", armes: "brarmes", armures: "brarmures", potions: "brpotions", eglise: "breglise" };
+function m53Porte(B, dy0, dy1, dx) { return Math.abs(perso.x - B.x) < (dx || 14) && perso.y > B.y + (dy0 || -4) && perso.y < B.y + (dy1 || 22); }
+// Iruka attend juste devant l'Académie : collé à la porte (et tourné vers elle), on entre ; un pas en arrière, on lui parle
+function m53PorteAcad() { try { const B = KN_BAT.find(b => b.id === "academie"); return !!B && perso.dir === "haut" && Math.abs(perso.x - B.x) < 16 && perso.y >= B.y - 2 && perso.y <= B.y + 10 && knPorteProche() === B; } catch (_) { return false; } }
+function m53ActionMonde(r) {
+  const S = jeu.scene, m = AV.monde || 1;
+  // --- Pokémon : Centre et Boutique
+  if (S === sceneMonde && m === 3 && typeof PK_BAT !== "undefined" && r && /^(❤ Centre de soin|🛒 Boutique)$/.test(r.txt)) {
+    const ty = r.txt === "🛒 Boutique" ? "boutique" : "centre"; let B = null, dm = 70; for (const Q of PK_BAT) { if (Q.type !== ty) continue; const d = Math.hypot(perso.x - Q.x, perso.y - Q.y); if (d < dm) { dm = d; B = Q; } }
+    if (B) {
+      const V = PKG.villages.find(v => v.id === B.v), vn = V ? V.nom : "";
+      if (B.type === "centre") return { txt: "🚪 Entrer : Centre Pokémon", f: () => m53Entrer(sceneMonde, B, { theme: "pkcentre", nom: "Centre Pokémon" + (vn ? " — " + vn : ""), enseigne: "Centre Pokémon", cle: "pkc" + B.v, rx: B.x, ry: B.y + 12, actions: [{ txt: "❤ Soigner / PC", f: () => pkCentre(B.v) }] }) };
+      return { txt: "🚪 Entrer : Boutique Pokémon", f: () => m53Entrer(sceneMonde, B, { theme: "pkmart", nom: "Boutique Pokémon" + (vn ? " — " + vn : ""), enseigne: "Boutique", cle: "pkb" + B.v, rx: B.x, ry: B.y + 12, actions: [{ txt: "🛒 Acheter", f: () => pkBoutique() }] }) };
+    }
+  }
+  // --- Britannia : boutiques, tavernes, auberges, chapelles
+  if (S === sceneMonde && m === 5 && r && /^🚪 /.test(r.txt) && r.txt !== "🚪 Entrer" && typeof brPorteProche === "function") {
+    const B = brPorteProche();
+    if (B && M53_BR[B.shop]) {
+      const lab = { taverne: "🍺 Commander", auberge: "🛏 Prendre une chambre", armes: "⚔ Voir les armes", armures: "🛡 Voir les armures", potions: "🧪 Voir les potions", eglise: "🙏 Prier" }[B.shop];
+      return { txt: "🚪 Entrer : " + B.nom, f: () => m53Entrer(sceneMonde, B, { theme: M53_BR[B.shop], nom: B.nom, cle: "br" + BR_BAT.indexOf(B), rx: B.x, ry: B.y + 16, actions: [{ txt: lab, f: () => brBoutique(B.shop) }] }) };
+    }
+  }
+  // --- Konoha : l'Académie ouvre sa salle de classe
+  if (S === sceneMonde && m === 4 && r && (/^🏫 Académie/.test(r.txt) || (/^💬/.test(r.txt) && m53PorteAcad()))) {
+    const B = KN_BAT.find(b => b.id === "academie");
+    if (B) return { txt: "🚪 Entrer : Académie ninja", f: () => m53Entrer(sceneMonde, B, { theme: "academie", nom: "Académie ninja", cle: "kna", rx: B.x, ry: B.y + 12, actions: [{ txt: "📖 Leçon du jour", f: () => m53Lecon() }] }) };
+  }
+  // --- Kame House (carte du monde 1) : la maison de Tortue Géniale se visite (le repos automatique reste)
+  if (S === sceneMonde && m === 1 && !AV.nav && typeof lxPositions === "function") {
+    const K = lxPositions().kame;
+    if (K && Math.abs(perso.x - (K.x - 3)) < 16 && perso.y > K.y - 8 && perso.y < K.y + 14) {
+      const t = !!(TBS && TBS.v && TBS.v.p2_tortue);
+      return { txt: "🚪 Entrer : Kame House", f: () => v52Entrer(sceneMonde, K, { nom: "Kame House", cle: "kame", n: 7, rx: K.x - 3, ry: K.y + 12, hab: t ? null : { look: 6, L: TB_LOOKS.krilin, nom: "Krilin" }, phrases: t ? ["Tortue Géniale est parti avec toi !"] : ["Le vieux maître est parti au Tenkaichi Budokai.", "Repose-toi : à la Kame House, on récupère toujours ses forces.", "Un jour, je battrai Sangoku au tournoi !"] }) };
+    }
+  }
+  // --- Ma Ville : maisons, forge, marché, auberge, port
+  if (S === sceneMonde && m === 1 && typeof p96Ici === "function" && p96Ici() && !P96.f) {
+    for (const b of p96Batiments()) {
+      if (!/^(maison|forge|marche|auberge|port)$/.test(b.t)) continue;
+      if (!(Math.abs(perso.x - b.x) < 13 && perso.y > b.y - 2 && perso.y < b.y + 16)) continue;
+      const o = { rx: b.x, ry: b.y + 10, cle: "mv" + b.t + b.i };
+      if (b.t === "maison") { const R = (p96Resid() || [])[b.i], nomH = R ? ((P96_HEROS.find(q => q.id === R.id) || p96Recrues().find(q => q.id === R.id) || {}).nom) : null;
+        return { txt: "🚪 Entrer", f: () => v52Entrer(sceneMonde, b, { nom: nomH ? "Chez " + nomH : "Maison de Ma Ville", cle: "mv" + b.i, n: b.i + 2, rx: b.x, ry: b.y + 10, hab: { look: (b.i * 5 + 1) % 10, nom: nomH }, phrases: ["Ma Ville grandit à vue d'œil !", "Merci pour ce toit, champion.", "Le marché vend bien les poissons rares.", "La forge peut renforcer ton équipement."] }) }; }
+      if (b.t === "forge") return { txt: "🚪 Entrer : Forge", f: () => m53Entrer(sceneMonde, b, Object.assign(o, { theme: "mvforge", nom: "Forge de Ma Ville", actions: [{ txt: "⚒ Améliorer l'équipement", f: () => m53Forge() }] })) };
+      if (b.t === "marche") return { txt: "🚪 Entrer : Marché", f: () => m53Entrer(sceneMonde, b, Object.assign(o, { theme: "mvmarche", nom: "Marché de Ma Ville", actions: [{ txt: "🛒 Acheter", f: () => boutique.ouvrir("mvmarche") }, { txt: "🐟 Vendre mes poissons", f: () => p96Ouvrir("poissons") }] })) };
+      if (b.t === "auberge") return { txt: "🚪 Entrer : Auberge", f: () => m53Entrer(sceneMonde, b, Object.assign(o, { theme: "mvauberge", nom: "Auberge des Héros", actions: [{ txt: "🍺 Se reposer (PV/KI)", f: () => p96Repos("Auberge des Héros") }, { txt: "🦸 Héros invités", f: () => p96Ouvrir("heros") }] })) };
+      if (b.t === "port") return { txt: "🚪 Entrer : Capitainerie", f: () => m53Entrer(sceneMonde, b, Object.assign(o, { theme: "mvport", nom: "Capitainerie du port", actions: [{ txt: "🎣 Poissons & pêche", f: () => p96Ouvrir("poissons") }] })) };
+    }
+  }
+  // --- villes de Sangoku (Paozu, Néo-Cité, Capsule Métropole)
+  if (S && !S.v52int && !S.boutique && (S instanceof SceneVille || S instanceof SceneFutur)) {
+    // Paozu : atelier et maison « Dormir » deviennent de vrais intérieurs ; étals de vivres
+    if (S.p74act && S.poi && S.poi.maisons) {
+      const M0 = S.poi.maisons[0], M1 = S.poi.maisons[1];
+      if (r && r.txt === "🔨 Atelier" && M0) return { txt: "🚪 Entrer : Atelier", f: () => m53Entrer(S, M0, { theme: "atelier", nom: "Atelier de Paozu", cle: "pzat", rx: M0.x, ry: M0.y + 4, actions: [{ txt: "🔨 Établi : améliorer", f: () => { FI.tab = "atelier"; fiOuvrir(); } }] }) };
+      if (r && r.txt === "😴 Dormir (PV/Ki)" && M1) return { txt: "🚪 Entrer : Ma maison", f: () => v52Entrer(S, M1, { nom: "Ma maison", cle: (S.lieu && S.lieu.id || "") + ":1", n: 1, rx: M1.x, ry: M1.y + 4 }) };
+      if (!r && S.poi.etals) for (let i = 3; i < S.poi.etals.length; i++) { const E = S.poi.etals[i]; if (Math.hypot(perso.x - E.x, perso.y - E.y) < 24) return { txt: "🧺 Étal : " + M53_ETALS[i % M53_ETALS.length].replace(/^\S+ /, ""), f: () => m53Etal(i) }; }
+    }
+    if (S instanceof SceneFutur) {
+      const M = r && r.txt === "🚪 Entrer" ? v52MaisonProche(S) : null;
+      const restoDe = ob => { for (const k in S.restos || {}) if (S.restos[k].ob === ob) return k; return null; };
+      if (M) {
+        const B = (S.boutiques || []).find(B => B.ob === M.ob);
+        if (B) return { txt: "🚪 Entrer : " + B.def.titre, f: () => entrerBoutique(S, B) };
+        const k = restoDe(M.ob);
+        if (k) return m53Resto(S, k, M);
+        if (!(S instanceof SceneMetropole) && M === S.poi.maisons[3]) return { txt: "🚪 Entrer : Mode", f: () => m53Entrer(S, M, { theme: "mode", nom: "Boutique de mode", cle: "neomode", rx: M.x, ry: M.y + 2, actions: [{ txt: "👘 Voir les tenues", f: () => boutique.ouvrir("mode") }] }) };
+      }
+      if (!r) for (const k in S.restos || {}) { const R = S.restos[k], y = R.base != null ? R.base + 7 : R.y - 1; if (Math.abs(perso.x - R.x) < 15 && perso.y > y - 12 && perso.y < y + 10) return m53Resto(S, k, { x: R.x, y, ob: R.ob }); }
+    }
+  }
+  return r;
+}
+function m53Resto(S, k, M) {
+  const nomR = { ramen: "Restaurant de ramen", burger: "Burger Capsule", glace: "Glacier", cafe: "Café", arcade: "Salle d'arcade", robot: "Robots & gadgets" }[k] || "Restaurant";
+  const acts = k === "robot" ? [{ txt: "🤖 Voir les gadgets", f: () => boutique.ouvrir("gadgets") }] : [{ txt: k === "arcade" ? "🕹 Jouer" : "🍽 Commander", f: () => { const R = M53_REPAS[k]; m53Menu(R[0], nomR, R[1]); } }];
+  return { txt: "🚪 Entrer : " + nomR, f: () => m53Entrer(S, M, { theme: k, nom: nomR, cle: (S.lieu && S.lieu.id || "") + ":" + k, rx: M.x, ry: M.y + 2, actions: acts }) };
+}
+function m53Lecon() {
+  const L = ["Le chakra mélange l'énergie du corps et de l'esprit : maîtrise-le et tes techniques coûtent moins cher.", "Un genin progresse en accomplissant des missions : regarde le tableau des missions près de la Tour du Hokage.",
+    "Les boutiques de Konoha débloquent de nouveaux objets quand ton rang ninja monte.", "Un bon ninja connaît son village : l'Herboristerie soigne, l'Armurerie équipe, Ichiraku nourrit !"];
+  let rang = ""; try { rang = KN_RANGS[KN.rang]; } catch (_) { }
+  ouvrirPanneauAv(`<div class="titre">📖 LEÇON DU JOUR</div><div class="ligne">${echapHTML(L[Math.floor(Date.now() / 864e5) % L.length])}</div>${rang ? `<div class="ligne petit">Ton rang actuel : <b>${echapHTML(rang)}</b></div>` : ""}<div class="ligne petit">Iruka-sensei t'attend dehors, devant l'Académie, pour les missions.</div><button data-action="continuer">Merci, sensei !</button>`);
+}
+{
+  const ad = actionDispo;
+  actionDispo = function () {
+    const r = ad.apply(this, arguments);
+    try {
+      if (!jeu || AV.cine || perso.ko || jeu.transition || jeu.pause) return r;
+      if (jeu.scene && jeu.scene.v52int) return r;
+      return m53ActionMonde(r);
+    } catch (e) { m53Err("action", e); return r; }
+  };
+}
+
+/* achats impossibles : bouton visiblement grisé (le panneau n'avait pas de style « disabled ») */
+try { const st = document.createElement("style"); st.textContent = "#panneau button:disabled, #panneau button[disabled], #boutique button:disabled { opacity: .5; filter: grayscale(.85); cursor: not-allowed; }"; document.head.appendChild(st); } catch (_) { }
 
 if (!window.MODE_APERCU) demarrer();
 </script>
