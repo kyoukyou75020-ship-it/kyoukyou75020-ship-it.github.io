@@ -30095,8 +30095,10 @@ function e3Rendu() {
     const v = e3Vox(b.im); if (!v) continue; if (Math.hypot(b.x - px, b.y - pz) > TR.R * 0.95) continue;
     const g0 = e3Sol(b.x, b.y - 2); nb++;
     if (TR.ombre && !shDone && !b.proj && b.lift < 30) g3Mesh(U.ombre, M4.trs(b.x + 2, g0 + 0.5, b.y + 1, 0, 0, 0, Math.min(26, v.bw * 0.5 + 2), 1, Math.min(20, v.bw * 0.34 + 2)), { a: 0.34, tint: [0, 0.02, 0.05, 1] });
-    g3Mesh(v, M4.trs(b.x, g0 + b.lift, b.y, 0, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s), { a: b.a < 1 ? b.a : null, e: b.proj ? 0.8 : 0 });
+    const zO = E3.sc && v.bw >= 40 && !ILs ? -11 * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
+    g3Mesh(v, M4.trs(b.x, g0 + b.lift, b.y + zO, 0, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s), { a: b.a < 1 ? b.a : null, e: b.proj ? 0.8 : 0 });
   }
+  if (typeof v52Lueurs === "function") { try { v52Lueurs(U); } catch (e) { if (!E3.luErr) { E3.luErr = 1; console.warn('lueurs', e); } } }
   e3P('entites');
   E3.hPrev = E3.hNext;
   // héros + ombre
@@ -38991,7 +38993,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "51.5", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "52.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40987,6 +40989,285 @@ function demarrer() {
     requestAnimationFrame(boucle);
   }
   requestAnimationFrame(boucle);
+}
+
+/* ===== v52.0 (lot 1) — rendu 3D des villages : textes et lueurs ne deviennent plus des blocs =====
+   Cause : e3Capter() transforme chaque drawImage 2D en volume 3D (e3Vox). Les étiquettes (noms des
+   habitants, panneaux BOUTIQUE…) et les halos de lanternes (composition « lighter ») étaient donc
+   extrudés en dalles de 12 px d'épaisseur : texte géant posé au sol, boîtes noires (contour sombre
+   du texte) et boîtes grises translucides (halo à 28 % d'opacité). Ici : les textes sont exclus
+   des volumes et redessinés à l'écran, projetés au bon endroit ; les halos deviennent de vraies
+   lueurs additives. */
+{
+  const it0 = imageTexte;
+  imageTexte = function () { const c = it0.apply(this, arguments); try { if (c) c.__txt = 1; } catch (_) { } return c; };
+}
+E3.txt = []; E3.lueurs = [];
+e3Rec = function (fn) {
+  const c = ctx, L = [];
+  c.drawImage = function (im, a, b, w, h) {
+    if (arguments.length >= 9) return; const M = c.getTransform(), ww = w == null ? im.width : w, hh = h == null ? im.height : h;
+    const x0 = M.a * a + M.c * b + M.e, y0 = M.b * a + M.d * b + M.f, x1 = M.a * (a + ww) + M.c * (b + hh) + M.e, y1 = M.b * (a + ww) + M.d * (b + hh) + M.f;
+    L.push({ im, x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0), mir: M.a < 0, al: c.globalAlpha, op: c.globalCompositeOperation });
+  };
+  c.fillRect = function () { }; c.fill = function () { }; c.stroke = function () { };
+  try { fn(); } catch (e) { if (!E3.eRec) { E3.eRec = 1; console.warn(e); } }
+  delete c.drawImage; delete c.fillRect; delete c.fill; delete c.stroke; c.beginPath(); c.globalAlpha = 1; c.globalCompositeOperation = "source-over";
+  return L;
+};
+e3Capter = function (fx, fy, R) {
+  const o = { x: Math.round(fx - R), y: Math.round(fy - R) }, items = [], vis = (x, y, mg = 40) => Math.abs(x - fx) < R + mg && Math.abs(y - fy) < R + mg;
+  try {
+    if (E3.sc) { const oo = camera.origine(1); o.x = oo.x; o.y = oo.y; jeu.scene.elements(items, o, 1); } else {
+    for (const a of animaux) if (vis(a.x, a.y)) items.push({ y: a.y, dessiner: () => dessinerAnimal(a, o, 1), z: a.z || 0 });
+    for (const ob of objetsAuSol) if (vis(ob.x, ob.y)) items.push({ y: ob.y, dessiner: () => dessinerObjetAuSol(ob, o, 1) });
+    for (const p of projectiles) if (vis(p.x, p.y)) items.push({ y: p.y, dessiner: () => dessinerProjectile(p, o, 1), proj: 1 });
+    elementsAventure(items, o, 1, vis); }
+  } catch (e) { if (!E3.eCap) { E3.eCap = 1; console.warn(e); } }
+  const L = [], T = [], G = [], p74 = !!(E3.sc && jeu.scene && jeu.scene.p74eti);
+  for (const it of items) {
+    if (!(it.y > -1e8 && it.y < 1e8)) continue;
+    const prem = it.y >= 99000;   // élément « au premier plan » (étiquettes) : pas de sol de référence
+    const rec = e3Rec(() => { ctx.save(); it.dessiner(); ctx.restore(); });
+    for (const r of rec) {
+      if (!r.im || !r.im.width) continue;
+      const bx = o.x + r.x + r.w / 2, by = o.y + r.y + r.h;
+      if (r.im.__txt) {   // texte pixel : affiché à l'écran (e3Haut2D), jamais en volume
+        if (!(prem && p74) && r.al > 0.02) T.push({ im: r.im, x: bx, top: o.y + r.y, bas: by, sol: !prem && Math.abs(it.y - by) < 200 ? it.y : null, k: r.w / r.im.width, a: r.al });
+        continue;
+      }
+      if (r.op && r.op !== "source-over") {   // halo, reflet, ombre colorée : jamais en volume
+        if (r.op === "lighter" && r.al > 0.02 && !prem) { const cy = o.y + r.y + r.h / 2; G.push({ im: r.im, x: bx, z: it.y, h: Math.max(0, Math.min(80, it.y - cy)), r: Math.min(r.w, r.h) / 2, a: r.al }); }
+        continue;
+      }
+      if (r.w * r.h < 12 || r.w > 700 || r.h > 760) continue;
+      if ((AV.monde || 1) === 2 && typeof RM !== "undefined" && RM.rocs && RM.rocs.length && r.im === rmSprites().roc) continue;
+      const gy = it.y > by - 160 && it.y < by + 160 ? Math.max(by, Math.min(it.y, by + 100)) : by;
+      L.push({ im: r.im, x: bx, y: gy, lift: Math.max(0, gy - by), s: r.w / r.im.width, sy: r.h / r.im.height, mir: r.mir, a: r.al == null ? 1 : r.al, proj: !!it.proj });
+    }
+  }
+  E3.ent = L; E3.txt = T; E3.lueurs = G;
+};
+function v52Couleur(im) {
+  if (im.__c52) return im.__c52;
+  let c = [1, 0.82, 0.5];
+  try { const w = im.width, h = im.height, g = im.getContext ? im.getContext("2d") : null; if (g) { const d = g.getImageData(w >> 1, h >> 1, 1, 1).data; const m = Math.max(1, d[0], d[1], d[2]); c = [d[0] / m, d[1] / m, d[2] / m]; } } catch (_) { }
+  return (im.__c52 = c);
+}
+/* lueurs (appelé dans e3Rendu, après les éléments) */
+function v52Lueurs(U) {
+  const G = E3.lueurs; if (!G || !G.length) return;
+  for (const g of G) {
+    const c = v52Couleur(g.im), y = e3Sol(g.x, g.z) + g.h, rr = Math.max(2, Math.min(24, g.r * 0.42));
+    g3Mesh(U.sph, M4.trs(g.x, y, g.z, 0, 0, 0, Math.max(1.4, rr * 0.18)), { tint: [Math.min(1, c[0] * 1.1), Math.min(1, c[1] * 1.05), c[2], 1], e: 1 });
+    g3Mesh(U.sph, M4.trs(g.x, y, g.z, 0, 0, 0, rr), { tint: [c[0], c[1], c[2], 1], e: 1, add: true, a: Math.min(0.5, g.a * 0.7) });
+  }
+}
+/* textes et panneaux à l'écran, projetés sur la scène 3D */
+function v52Etiquettes() {
+  const S = jeu.scene; if (!E3.VP) return;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.globalCompositeOperation = "source-over";
+  for (const t of E3.txt || []) {
+    const z = t.sol != null ? t.sol : t.bas + 26, h = t.sol != null ? Math.max(4, Math.min(90, t.sol - t.bas)) : 26;
+    const q = e3Ecran(t.x, e3Sol(t.x, z) + h, z); if (!q) continue;
+    const w = t.im.width * t.k, hh = t.im.height * t.k; ctx.globalAlpha = Math.min(1, t.a);
+    ctx.drawImage(t.im, Math.round(q[0] - w / 2), Math.round(q[1] - hh), w, hh);
+  }
+  if (E3.sc && S && S.p74eti && S.poi) {
+    const s = Math.max(2, Math.round(DPR() * 1.5));
+    for (const T of S.p74eti) {
+      if (T.b52 == null) { const M = (S.poi.maisons || []).find(m => m.x === T.x && Math.abs(m.y - 96 - T.y) < 1); T.b52 = M ? M.y - 6 : T.y + 56; T.h52 = M ? 92 : 84; }
+      const dd = Math.hypot(perso.x - T.x, perso.y - T.y - 60); if (dd > 330) continue;
+      const q = e3Ecran(T.x, e3Sol(T.x, T.b52) + T.h52, T.b52); if (!q) continue;
+      ctx.globalAlpha = Math.max(0.45, Math.min(1, 1.5 - dd / 260));
+      const ws = T.l.map(t => imageTexte(t).width * s), w = Math.max(...ws) + 10 * s, h = (T.l.length * 8 + 4) * s, X = Math.round(q[0] - w / 2), Y = Math.round(q[1] - h);
+      ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(X + s, Y + s, w, h);
+      ctx.fillStyle = "#2a1608"; ctx.fillRect(X - s, Y - s, w + 2 * s, h + 2 * s); ctx.fillStyle = "#e8b84a"; ctx.fillRect(X, Y, w, h); ctx.fillStyle = "#6a3c1c"; ctx.fillRect(X + s, Y + s, w - 2 * s, h - 2 * s);
+      ctx.fillStyle = "#7e4a24"; ctx.fillRect(X + s, Y + s, w - 2 * s, s);
+      T.l.forEach((t, i) => textePixel(ctx, t.toUpperCase(), X + w / 2, Y + (3 + i * 8) * s, s, i ? "#ffe8b0" : T.c, "#140a0c", 0.5));
+    }
+    const sn = Math.max(2, Math.round(DPR() * 1.5));
+    for (const q of S.pnj) {
+      if (!q.nom || q.cache || (q.alpha != null && q.alpha < 0.5)) continue;
+      if (q.role === "marchand" && S.p74eti.some(T => Math.abs(T.x - q.x) < 30 && Math.abs(T.b52 - q.y) < 40)) continue;   // l'étal a déjà son panneau
+      const dd = Math.hypot(perso.x - q.x, perso.y - q.y); if (dd > 120) continue;
+      const p = e3Ecran(q.x, e3Sol(q.x, q.y) + (q.role === "enfant" ? 24 : q.role === "marchand" ? 60 : 31), q.y); if (!p) continue;
+      ctx.globalAlpha = Math.max(0.3, Math.min(1, 1.6 - dd / 90));
+      const w = imageTexte(q.nom).width * sn + 6 * sn, X = p[0], Y = p[1] - 10 * sn;
+      ctx.fillStyle = "rgba(20,10,6,0.7)"; ctx.fillRect(Math.round(X - w / 2), Y - 1, w, 9 * sn);
+      textePixel(ctx, q.nom.toUpperCase(), X, Y + sn, sn, q.role === "marchand" ? "#ffe890" : "#ffffff", "#140a0c", 0.5);
+    }
+  }
+  ctx.restore();
+}
+{
+  const h0 = e3Haut2D;
+  e3Haut2D = function () { h0.apply(this, arguments); try { v52Etiquettes(); } catch (e) { if (!E3.etErr) { E3.etErr = 1; console.warn("étiquettes 3D", e); } } };
+}
+
+/* ===== v52.0 (lot 1) — entrer dans les maisons des villages =====
+   Villages (SceneVille, villes du futur), maisons de Konoha sans intérieur et maisons des
+   villages Pokémon : bouton « 🚪 Entrer », intérieur meublé, sortie par le paillasson.
+   Les intérieurs déjà existants (boutiques, Ichiraku, Boar Hat, Atelier, Dormir…) sont conservés. */
+const V52_PHRASES = ["Oh, de la visite ! Fais comme chez toi.", "Essuie tes pieds sur le paillasson, s'il te plaît !", "Tu veux une tasse de thé ?", "Je viens de finir le ménage…", "On est bien au chaud ici.", "Il paraît qu'un trésor est caché près d'ici…", "Repose-toi un peu si tu veux.", "Ne touche pas aux bocaux, ce sont mes confitures !"];
+const V52_PK = ["Chut ! Mon Pokémon fait la sieste.", "Tu as vu ce garçon avec une queue de singe ? Il a mangé tout mon riz !", "Bonne chance pour ta quête, jeune dresseur !", "Mon Roucool chante tous les matins.", "Le Centre Pokémon soigne gratuitement, tu savais ?"];
+const V52_STYLES = [
+  { sol: ["#b8946a", "#a47e56"], mur: "#e8d8b8", lit: "#d84830", tapis: "#a83a2a" },
+  { sol: ["#c8a070", "#b08858"], mur: "#dce8d0", lit: "#3a78d0", tapis: "#2e6a9a" },
+  { sol: ["#a88a64", "#94764e"], mur: "#f0e0c8", lit: "#2e9a5a", tapis: "#5a8a3a" },
+  { sol: ["#bca07a", "#a88a62"], mur: "#ecd8e0", lit: "#8a4ac0", tapis: "#8a3a7a" }];
+const V52_FUTUR = { sol: ["#9aa4b4", "#8a94a4"], mur: "#cfd8e8", lit: "#3ac0c8", tapis: "#2a5a8a" };
+class SceneMaisonV52 extends SceneLieu {
+  constructor(src, M, o) {
+    const lieu = src && src.lieu ? src.lieu : { nom: o.nom || "Maison", id: "maison52" };
+    super(lieu, "maison52:" + (o.cle || ""), 20, 13, 40);
+    this.v52int = true; this.src = src; this.M = M; this.o = o; this.nom = o.nom || "Maison"; this.dialogues = [];
+    this.retour = { x: o.rx != null ? o.rx : M.x, y: o.ry != null ? o.ry : M.y + 2 };
+    this.fondPlan = "#2a1a10"; this.entree = { x: this.largeur / 2, y: this.hauteur - 30 };
+    const W = this.largeur, H = this.hauteur, P = this.P, St = o.style || V52_STYLES[(o.n || 0) % V52_STYLES.length], R = this.rnd;
+    // plancher en lattes
+    for (let y = 0; y < H; y += 8) for (let x = -16; x < W + 16; x += 32) { const dx = (y / 8 & 1) * 16; P.r(x - dx, y, 32, 8, ((x + y) / 8 & 1) ? St.sol[0] : St.sol[1]); P.r(x - dx, y + 7, 32, 1, melange(St.sol[1], "#000000", 0.25)); P.r(x - dx + 31, y, 1, 8, melange(St.sol[1], "#000000", 0.2)); }
+    // mur du fond : plinthe, poutres, fenêtres, cadre
+    P.r(0, 0, W, 52, St.mur); P.r(0, 44, W, 8, melange(St.mur, "#000000", 0.35)); P.r(0, 0, W, 6, melange(St.mur, "#000000", 0.25));
+    for (let x = 0; x < W; x += 64) P.r(x, 6, 4, 38, melange(St.mur, "#3a2010", 0.5));
+    for (const fx of [112, 196]) { P.r(fx, 12, 28, 22, "#5a3418"); P.r(fx + 2, 14, 24, 18, "#a8d8f0"); P.r(fx + 13, 14, 2, 18, "#5a3418"); P.r(fx + 2, 22, 24, 2, "#5a3418"); P.r(fx + 4, 16, 4, 5, "#e0f4ff"); P.r(fx - 2, 33, 32, 3, "#7a4a24"); }
+    P.r(160, 16, 20, 16, "#7a4a24"); P.r(162, 18, 16, 12, ["#f0c060", "#80c0f0", "#f090b0", "#a0e080"][(o.n || 0) % 4]); P.r(166, 22, 8, 5, "#ffffff");
+    // murs latéraux
+    P.r(0, 52, 6, H, melange(St.mur, "#000000", 0.4)); P.r(W - 6, 52, 6, H, melange(St.mur, "#000000", 0.4));
+    // tapis central
+    P.r(W / 2 - 50, 112, 100, 56, melange(St.tapis, "#000000", 0.25)); P.r(W / 2 - 48, 114, 96, 52, St.tapis); P.r(W / 2 - 42, 120, 84, 40, melange(St.tapis, "#ffffff", 0.18)); P.r(W / 2 - 38, 124, 76, 32, St.tapis);
+    // paillasson de sortie
+    P.r(W / 2 - 22, H - 12, 44, 12, "#5a2a1a"); P.r(W / 2 - 20, H - 10, 40, 8, "#a85a3a");
+    textePixel(this.sx, "SORTIE", W / 2 - 12, H - 10, 1, "#fff4d0", null);
+    this.bloquer(0, 0, W, 56); this.bloquer(0, 0, 8, H); this.bloquer(W - 8, 0, W, H);
+    this.bloquer(0, H - 32, this.porte[0], H); this.bloquer(this.porte[1], H - 32, W, H);   // mur du bas (même emprise que le mur 3D)
+    // meubles
+    const lit = knMeuble(40, 56, P => { P.r(0, 0, 40, 56, "#8a5a2a"); P.r(0, 0, 40, 4, "#a8703a"); P.r(2, 4, 36, 50, "#f0f0f0"); P.r(5, 7, 30, 11, "#ffffff"); P.r(2, 22, 36, 32, St.lit); P.r(2, 22, 36, 3, melange(St.lit, "#ffffff", 0.35)); for (let i = 0; i < 4; i++) P.r(4 + i * 9, 30, 4, 22, melange(St.lit, "#000000", 0.12)); });
+    this.ajouter(lit, 20, 56, 112, [20, 60, 60, 112]); this.lit = { x: 70, y: 92 };
+    const armoire = knMeuble(34, 46, P => { P.r(0, 0, 34, 46, "#6a3a1a"); P.r(2, 2, 14, 40, "#8a5a2a"); P.r(18, 2, 14, 40, "#8a5a2a"); P.r(14, 18, 2, 6, "#e8c040"); P.r(18, 18, 2, 6, "#e8c040"); P.r(0, 42, 34, 4, "#4a2410"); });
+    this.ajouter(armoire, 74, 30, 76, [74, 64, 108, 76]);
+    const buffet = knMeuble(44, 34, P => { P.r(0, 8, 44, 26, "#7a4a24"); P.r(0, 8, 44, 3, "#a8703a"); P.r(3, 14, 18, 16, "#8a5a2a"); P.r(23, 14, 18, 16, "#8a5a2a"); for (let i = 0; i < 4; i++) { P.r(4 + i * 10, 1, 7, 7, ["#e8e0d0", "#d8a040", "#c84a3a", "#e8e0d0"][i]); P.r(5 + i * 10, 0, 5, 2, "#f8f0e0"); } });
+    this.ajouter(buffet, 236, 40, 78, [236, 66, 280, 78]);
+    const poele = knMeuble(30, 40, P => { P.r(4, 0, 8, 14, "#3a3a44"); P.r(0, 14, 30, 26, "#4a4a54"); P.r(0, 14, 30, 3, "#6a6a74"); P.r(6, 22, 18, 12, "#1a1a20"); P.r(8, 26, 14, 8, "#e8701a"); P.r(10, 28, 10, 5, "#ffc040"); });
+    this.ajouter(poele, W - 46, 38, 80, [W - 46, 68, W - 16, 80], { feu: true });
+    const table = knMeuble(56, 28, P => { P.r(0, 0, 56, 10, "#a8703a"); P.r(0, 0, 56, 2, "#c89050"); P.r(3, 10, 4, 18, "#6a3a1a"); P.r(49, 10, 4, 18, "#6a3a1a"); P.r(8, 2, 10, 5, "#f0f0e8"); P.r(10, 3, 6, 2, "#c86a28"); P.r(36, 1, 8, 7, "#e8e0d0"); P.r(38, 0, 4, 2, "#5ac05a"); });
+    this.ajouter(table, W / 2 - 28, 112, 140, [W / 2 - 28, 124, W / 2 + 28, 140]);
+    const chaise = knMeuble(14, 20, P => { P.r(1, 0, 12, 10, "#7a4a24"); P.r(3, 2, 8, 6, "#8a5a2a"); P.r(0, 10, 14, 4, "#a8703a"); P.r(1, 14, 2, 6, "#5a3018"); P.r(11, 14, 2, 6, "#5a3018"); });
+    for (const x of [W / 2 - 46, W / 2 + 32]) this.ajouter(chaise, x, 118, 138, [x + 1, 132, x + 13, 138]);
+    const plante = knMeuble(18, 26, P => { P.r(4, 16, 10, 10, "#c85a3a"); P.r(4, 16, 10, 2, "#e07a4a"); P.ell(9, 9, 8, 8, "#3a9a3a"); P.ell(6, 7, 3, 3, "#5ac05a"); });
+    this.ajouter(plante, 12, 140, 166, [14, 158, 28, 166]); this.ajouter(plante, W - 30, 140, 166, [W - 28, 158, W - 14, 166]);
+    const coffre = knMeuble(24, 18, P => { P.r(0, 4, 24, 14, "#8a5a2a"); P.r(0, 0, 24, 6, "#a8703a"); P.r(0, 6, 24, 2, "#4a2a10"); P.r(10, 6, 4, 5, "#e8c040"); });
+    this.ajouter(coffre, 40, 148, 166, [40, 158, 64, 166]);
+    // habitant
+    const hab = o.hab;
+    if (hab) {
+      this.creerPNJ({ x: W / 2 + 54, y: 148, look: hab.look, L: hab.L, nom: hab.nom || null, role: "villageois", fixe: true, vue: 0, phrases: o.phrases || V52_PHRASES });
+      this.imgHab = hab.img;
+    }
+    this.finir();
+  }
+  imagePNJ(q, f) { try { if (this.imgHab) return this.imgHab(q, f); } catch (_) { } return imagePNJ(q.look || 0, q.vue, f, q.miroir); }
+  phrasePour(q) { return (q.phrases || V52_PHRASES)[Math.floor(Math.random() * (q.phrases || V52_PHRASES).length)]; }
+  nouveauPlan(q) { return [{ f: "attendre", d: 3 + Math.random() * 4, vue: 0, debut: k => { if (Math.random() < 0.4) this.dire(k, this.phrasePour(k), 2.4); } }]; }
+  animer(dt) { if (Math.random() < dt * 3) for (const ob of this.objets) if (ob.feu) particules.push({ x: ob.x + 8, y: ob.base - 44, z: 0, vx: (Math.random() - 0.5) * 4, vy: -12, vz: 0, age: 0, vie: 1.6, col: "rgba(200,200,210,0.5)", g: 0, frein: 0.5, oscille: 2, taille: 2 }); }
+  action() {
+    const q = this.pnj[0];
+    if (q && this.o.parler && Math.hypot(perso.x - q.x, perso.y - q.y) < 30) return { txt: "💬 Parler", f: () => this.o.parler(this, q) };
+    if (q && Math.hypot(perso.x - q.x, perso.y - q.y) < 30) return { txt: "💬 Parler" + (q.nom ? " à " + q.nom : ""), f: () => this.dire(q, this.phrasePour(q), 2.6) };
+    if (this.lit && Math.hypot(perso.x - this.lit.x, perso.y - this.lit.y) < 28) return { txt: "😴 Dormir (PV/Ki)", f: () => v74Dormir() };
+    return null;
+  }
+  mettreAJour(dt) {
+    if (!jeu.transition && jeu.scene === this && perso.y > this.hauteur - 12 && perso.x >= this.porte[0] && perso.x < this.porte[1]) { v52Sortir(this); return; }
+    super.mettreAJour(dt);
+  }
+}
+function v52Entrer(src, M, o) {
+  if (jeu.transition) return;
+  try { son.jouer("porte"); } catch (_) { }
+  if (M.ob) M.ob.ouverte = 0.9;
+  if (perso.kame) perso.kame = null;
+  lancerTransition(() => {
+    const S = M.__int52 || (M.__int52 = new SceneMaisonV52(src, M, o));
+    jeu.scene = S; particules.length = 0; nombres.length = 0;
+    perso.x = S.entree.x; perso.y = S.entree.y; perso.dir = "haut"; perso.att = null;
+    camera.x = perso.x; camera.y = perso.y - 10; camera.limiter();
+    jeu.banniere = { texte: S.nom, t: 0 };
+    sauvegarder(false);
+  }, [0, -0.5]);
+}
+function v52Sortir(S) {
+  if (jeu.transition) return;
+  try { son.jouer("porte"); } catch (_) { }
+  lancerTransition(() => {
+    jeu.scene = S.src; particules.length = 0;
+    perso.x = S.retour.x; perso.y = S.retour.y; perso.dir = "bas"; perso.att = null;
+    camera.x = perso.x; camera.y = perso.y - 10; camera.limiter();
+    if (S.M.ob) S.M.ob.ouverte = 0.9;
+    sauvegarder(false);
+  }, [0, 0.5]);
+}
+/* habitant de la maison : le villageois qui y vit (même apparence, même nom) */
+function v52Habitant(sc, M) {
+  const q = (sc.pnj || []).find(p => p.maison === M && p.role !== "marchand") || null;
+  if (!q) return null;
+  return { look: q.look, L: q.L, nom: q.nom || null, img: (p, f) => sc.imagePNJ(Object.assign({}, q, { vue: p.vue, miroir: p.miroir }), f) };
+}
+function v52MaisonProche(sc) {
+  if (!sc || !sc.poi || !sc.poi.maisons || sc.v52int || sc.boutique || sc === sceneMonde) return null;
+  if (!(sc instanceof SceneVille || sc instanceof SceneFutur)) return null;
+  for (const M of sc.poi.maisons) if (M && M.ob && M.ob.porte && Math.abs(perso.x - M.x) < 15 && perso.y > M.y - 12 && perso.y < M.y + 10) return M;
+  return null;
+}
+{
+  const ad = actionDispo;
+  actionDispo = function () {
+    const S = jeu && jeu.scene;
+    if (S && S.v52int) { if (AV.cine || perso.ko || jeu.transition || jeu.pause) return null; try { return S.action(); } catch (_) { return null; } }
+    const r = ad.apply(this, arguments);
+    try {
+      if (!jeu || AV.cine || perso.ko || jeu.transition) return r;
+      // Konoha : « Frapper » devient « Entrer » (intérieur d'habitation)
+      if (r && r.txt === "🚪 Frapper à la porte" && typeof knPorteProche === "function") {
+        const B = knPorteProche(); if (B) return { txt: "🚪 Entrer", f: () => v52KnEntrer(B) };
+      }
+      // Pokémon : « Frapper » devient « Entrer » ; l'habitant garde ses cadeaux et ses phrases
+      if (r && r.txt === "🚪 Frapper" && typeof PK_BAT !== "undefined") {
+        const B = PK_BAT.find(B => B.type === "maison" && Math.abs(perso.x - B.x) < 16 && perso.y > B.y - 4 && perso.y < B.y + 22);
+        if (B) return { txt: "🚪 Entrer", f: () => v52Entrer(sceneMonde, B, { nom: "Maison", cle: "pk" + B.v + B.c, n: (B.c | 0) + 1, rx: B.x, ry: B.y + 14, hab: { look: ((B.c | 0) * 3 + 1) % 10 }, phrases: V52_PK, parler: (S, q) => { const k = B.v + B.c; if ((k === "bourg1" || k === "granit0") && !(PK.maisons && PK.maisons[k])) pkMaison(B); else S.dire(q, S.phrasePour(q), 2.8); } }) };
+      }
+      if (r) return r;
+      const M = v52MaisonProche(S);
+      if (M) { const i = S.poi.maisons.indexOf(M), hab = v52Habitant(S, M); return { txt: "🚪 Entrer", f: () => v52Entrer(S, M, { nom: hab && hab.nom ? "Chez " + hab.nom : "Maison", cle: (S.lieu && S.lieu.id || "") + ":" + i, n: i, hab, style: S instanceof SceneFutur ? V52_FUTUR : null }) }; }
+    } catch (e) { if (!window.__v52aErr) { window.__v52aErr = 1; console.warn("v52 action", e); } }
+    return r;
+  };
+}
+function v52KnEntrer(B) {
+  if (jeu.transition) return;
+  try { son.jouer("porte"); } catch (_) { }
+  lancerTransition(() => {
+    const k = "maison52_" + (B.id || (Math.round(B.x) + "_" + Math.round(B.y)));
+    const S = KN_SCENES[k] || (KN_SCENES[k] = new SceneKonohaInt(Object.assign({}, B, { int: "appart" })));
+    S.nom = B.nom || "Maison";
+    jeu.scene = S; particules.length = 0;
+    perso.x = S.entree.x; perso.y = S.entree.y; perso.dir = "haut"; perso.att = null;
+    camera.x = perso.x; camera.y = perso.y - 10; camera.limiter();
+    jeu.banniere = { texte: S.nom, t: 0 };
+    sauvegarder(false);
+  }, [0, -0.5]);
+}
+/* sauvegarde dans une maison : on reprend devant sa porte */
+{
+  const es = etatSauvegarde;
+  etatSauvegarde = function () {
+    const S = jeu && jeu.scene;
+    if (!S || !S.v52int) return es.apply(this, arguments);
+    // tous les modules sauvegardent comme si le héros était dehors, devant la porte
+    const px = perso.x, py = perso.y, dir = perso.dir;
+    jeu.scene = S.src || sceneMonde; perso.x = S.retour.x; perso.y = S.retour.y; perso.dir = "bas";
+    try { return es.apply(this, arguments); } finally { jeu.scene = S; perso.x = px; perso.y = py; perso.dir = dir; }
+  };
 }
 
 if (!window.MODE_APERCU) demarrer();
