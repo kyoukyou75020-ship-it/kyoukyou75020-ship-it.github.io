@@ -20017,7 +20017,7 @@ function n3Ancre(x, y, dyMonde) {
 }
 function n3Haut2D() {
   const k = Math.max(1, Math.round(DPR() * 1.4));
-  for (const B of AV.bulles) { const a = n3Ancre(B.x, B.y, 60), s = n3Ecran(a[0], a[1], a[2]); if (s) bulle(B.txt, s[0], s[1], Math.min(1, B.t * 3)); }
+  for (const B of AV.bulles) { const a = n3Ancre(B.x, B.y, 60 + (B.h3 || 0)), s = n3Ecran(a[0], a[1], a[2]); if (s) bulle(B.txt, s[0], s[1], Math.min(1, B.t * 3)); }
   for (const N of AV.navires) {
     if (!N.hostile || N.reapp || N.mort || (N.pv >= N.pvMax && N.etat !== "chasse")) continue;
     const s = n3Ecran(N.x, 92, N.y); if (!s || s[2] > 1400) continue; const w = 40 * k, sx = s[0], sy = s[1];
@@ -38186,6 +38186,30 @@ function p99GeoTh(th) {
     for (const s of [-1, 1]) g.box(s * 180, 0, -10, 6, 10, 250, [0.5, 0.34, 0.2]);
     torches([[-RX - 26, -RZ - 18], [RX + 26, -RZ - 18], [-RX - 26, RZ + 22], [RX + 26, RZ + 22]], [0.55, 0.38, 0.22]);
     gradins([0.56, 0.4, 0.26]); gr = null; ciel = [[0.86, 0.88, 0.92], [0.4, 0.62, 0.9]];
+  } else if (th === "plage") {
+    // One Piece : île tropicale — sable, mer turquoise, palmiers, ring de planches
+    g.q([-900, -2, 900], [900, -2, 900], [900, -2, -900], [-900, -2, -900], [0, 1, 0], [0.14, 0.5, 0.74]);
+    for (let i = 0; i < 30; i++) { const x = (H(i, 11) - 0.5) * 1300, z = -300 - H(i, 12) * 500; g.box(x, -1.4, z, 16 + H(i, 13) * 24, 0.4, 2, [0.8, 0.94, 1]); }
+    for (let i = -9; i < 9; i++) g.q([i * 50, 0, 330], [i * 50 + 50, 0, 330], [i * 50 + 50, 0, -230], [i * 50, 0, -230], [0, 1, 0], i & 1 ? [0.93, 0.84, 0.6] : [0.9, 0.8, 0.56]);
+    g.q([-450, -0.6, -230], [450, -0.6, -230], [450, -1.6, -300], [-450, -1.6, -300], [0, 1, 0], [0.46, 0.8, 0.84]);
+    g.box(0, -1.2, -232, 900, 0.6, 5, [0.96, 0.98, 1]);
+    g.box(0, 0, 0, 2 * RX, 1, 2 * RZ, [0.6, 0.44, 0.26]);
+    { const pw = 12.4; for (let j = 0; j < Math.floor(2 * RZ / pw); j++) { const r = H(j, 77); g.box(0, 1, -RZ + (j + 0.5) * pw, 2 * RX - 1, 0.6, pw - 0.8, [0.72 + r * 0.1, 0.54 + r * 0.08, 0.32 + r * 0.06]); } }
+    rebord([0.5, 0.34, 0.18], 3.2, 6);
+    for (const [x, z] of coins) { g.cyl(x * 0.92, 0, z * 0.9, 2.6, 2.6, 14, 6, [0.45, 0.3, 0.16]); }
+    const palmier = (x, z, s, inc) => { for (let k = 0; k < 6; k++) g.cyl(x + inc * k * 2 * s, k * 7 * s, z, 2.6 * s - k * 0.15 * s, 2.4 * s - k * 0.15 * s, 7.4 * s, 6, [0.55, 0.4, 0.24]);
+      const tx = x + inc * 12 * s, ty = 42 * s; for (let a = 0; a < 7; a++) { const an = a / 7 * 6.283; g.box(tx + Math.cos(an) * 10 * s, ty - 2 * s - (a & 1) * 2 * s, z + Math.sin(an) * 10 * s, 20 * s, 1.2 * s, 5 * s, a & 1 ? [0.2, 0.56, 0.22] : [0.26, 0.62, 0.24], -an); }
+      g.sph(tx, ty - 3 * s, z, 3 * s, 3 * s, 3 * s, 5, [0.45, 0.3, 0.15]); };
+    for (let i = 0; i < 7; i++) palmier(-230 + i * 75 + H(i, 3) * 20, -200 - H(i, 5) * 25, 1.1 + H(i, 7) * 0.4, (H(i, 9) - 0.5) * 1.2);
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) palmier(s * (215 + H(i, s + 3) * 30), -90 + i * 90, 1 + H(i, 9) * 0.3, s * 0.5);
+    for (const [x, z] of [[-150, -180], [150, -184]]) { g.box(x, 0, z, 40, 22, 30, [0.7, 0.52, 0.3]); g.cyl(x, 22, z, 31, 0.5, 20, 4, [0.86, 0.74, 0.4]); g.box(x, 0, z + 15.5, 10, 15, 1, [0.3, 0.2, 0.1]); }
+    g.cyl(0, 0, -190, 2.5, 2, 90, 6, [0.4, 0.28, 0.16]); g.box(16, 72, -190, 30, 18, 1, [0.08, 0.08, 0.08]); g.sph(14, 81, -189.4, 5, 5, 1, 8, [0.96, 0.96, 0.92]); g.box(14, 74, -189.3, 12, 2, 0.6, [0.96, 0.96, 0.92]); g.box(14, 85, -189.2, 10, 2, 0.6, [0.95, 0.8, 0.3]);
+    const tonneau = (x, z) => { g.cyl(x, 0, z, 7, 7, 16, 9, [0.56, 0.34, 0.16]); g.cyl(x, 3, z, 7.4, 7.4, 1.6, 9, [0.3, 0.3, 0.32]); g.cyl(x, 12, z, 7.4, 7.4, 1.6, 9, [0.3, 0.3, 0.32]); };
+    for (const [x, z] of [[-180, -120], [-166, -130], [182, 60], [176, -60]]) tonneau(x, z);
+    g.box(-205, 0, 120, 60, 8, 22, [0.5, 0.32, 0.16]); g.box(-205, 8, 120, 52, 2, 16, [0.66, 0.46, 0.24]);
+    for (let i = 0; i < 10; i++) g.sph(-240 + i * 52 + H(i, 40) * 20, 0, 140 + H(i, 41) * 6, 6 + H(i, 42) * 6, 4, 6 + H(i, 43) * 5, 6, [0.5, 0.48, 0.44]);
+    torches(coins.map(([x, z]) => [x * 1.08, z * 1.12]), [0.5, 0.34, 0.18]);
+    gradins([0.62, 0.48, 0.3], 150); ciel = [[0.84, 0.94, 1], [0.26, 0.6, 0.95]]; gr = null;
   } else if (th === "britannia") {
     herbe([0.3, 0.56, 0.24], [0.35, 0.62, 0.28]);
     for (let i = 0; i < 24; i++) { const x = (H(i, 61) - 0.5) * 420, z = 120 + H(i, 62) * 25; g.sph(x, 0, (H(i, 63) < 0.5 ? -1 : 1) * z * 0.9, 2, 1.4, 2, 5, [0.95, 0.85, 0.3]); }
@@ -38680,7 +38704,7 @@ function p99D2(C, W, H, dpr, now) {
   const sh = P99.shake * 4 * dpr, ox = cx + (Math.random() - 0.5) * sh, oy = cy + (Math.random() - 0.5) * sh, X = x => ox + (x - K2.x) * sc, Y = z => oy + (z - K2.z) * sc * 0.82;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
   const th = P99.th || "budokai", RX = P99A.RX, RZ = P99A.RZ;
-  const T2 = { budokai: ["#5aa040", "#7a7a76", [196, 196, 192], "#b8483a", "#c0281e"], pont: ["#1e6ab8", "#7a4a26", [214, 170, 112], "#5a3416", "#e8d090"], konoha: ["#5a9a3a", "#b89a6a", [214, 186, 136], "#7a5232", "#6a4426"], britannia: ["#4e9440", "#5c5852", [160, 150, 136], "#9a968c", "#7c7870"] }[th] || null;
+  const T2 = { budokai: ["#5aa040", "#7a7a76", [196, 196, 192], "#b8483a", "#c0281e"], pont: ["#1e6ab8", "#7a4a26", [214, 170, 112], "#5a3416", "#e8d090"], konoha: ["#5a9a3a", "#b89a6a", [214, 186, 136], "#7a5232", "#6a4426"], britannia: ["#4e9440", "#5c5852", [160, 150, 136], "#9a968c", "#7c7870"], plage: ["#2a8ad0", "#e6d29a", [222, 186, 128], "#8a5a2a", "#7a4a22"] }[th] || null;
   const T = T2 || ["#5aa040", "#7a7a76", [196, 196, 192], "#b8483a", "#e0ddd4"];
   ctx.fillStyle = T[0]; ctx.fillRect(0, 0, W, H);
   if (th === "pont") { ctx.fillStyle = "#6a4020"; ctx.fillRect(X(-190 * P99S), Y(-170 * P99S), 380 * P99S * sc, 330 * P99S * sc * 0.82); }
@@ -39017,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.4", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.5", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -43219,6 +43243,535 @@ try {
   // 3D du combat : contours des sprites adoucis (le Pokémon n'est plus une masse noire vu de dessus)
   if (typeof e3PkScene === "function") { const ps = e3PkScene; e3PkScene = function () { if (window.__pk534off) return ps.apply(this, arguments); const ip = imagePk; imagePk = (id, m, f) => f ? ip(id, m, f) : pk534ImagePk3D(id, m); try { return ps.apply(this, arguments); } finally { imagePk = ip; } }; }
 } catch (e) { console.warn("v53.4 combat", e); }
+
+/* ===== v53.5 — Reverse Mountain : vraie séquence 3D (montagne sculptée, 4 canaux, courant animé, nuages, caméra cinématique) ===== */
+const P535 = { R: 430, Hm: 480, rb: 40, W: 26, D: 17, gl: null, m: null, prog: null };
+P535.R1 = P535.R * 1.12;
+function p535yC(r) { const { R, Hm, rb } = P535; const q = Math.max(0, Math.min(1, (r - rb) / (R - rb))); return Hm * Math.pow(1 - q, 1.35); }
+function p535Ws(r) { return p535yC(r) - 6; }          // surface de l'eau du canal
+function p535Geo() {
+  const gl = G3.gl; if (P535.m && P535.gl === gl) return P535.m;
+  P535.gl = gl; P535.prog = null;
+  const { R, Hm, rb, W } = P535, H = (a, b) => p40H(a, b);
+  const nz = (x, z) => 9 * Math.sin(x * 0.031 + z * 0.017) + 6 * Math.sin(z * 0.043 - x * 0.021 + 1.3) + 4 * Math.sin((x + z) * 0.09);
+  const CAN = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
+  // hauteur du terrain
+  const haut = (r, th) => {
+    const x = Math.cos(th) * r, z = Math.sin(th) * r;
+    let h = r < R * 1.06 ? (Hm + 75) * Math.pow(Math.max(0, 1 - r / (R * 1.06)), 1.12) : 0;
+    const p = (1 - Math.cos(4 * th)) / 2; h += Math.pow(p, 2.2) * 150 * Math.pow(Math.max(0, 1 - r / R), 0.75) * Math.min(1, r / 90);
+    h += nz(x, z) * Math.min(1, r / 60) * (r < R ? 1 : 0.3);
+    if (r > R * 0.98) h = Math.min(h, -14 + (R * 1.06 - r) * 0.3);
+    h = Math.max(-24, h);
+    // canaux
+    let canal = 0;
+    for (const c of CAN) {
+      let da = th - c; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.cos(da) <= 0) continue;
+      const d = Math.abs(r * Math.sin(da)); const yc = p535yC(r);
+      if (r > R * 1.12) continue;
+      if (d < W) { h = yc - 14; canal = 2; }
+      else if (d < W + 7) { h = Math.max(h, yc + 16); canal = 1; }
+      else if (d < W + 34 && r < R * 0.99) { const f = (d - W - 7) / 27; h = Math.max(h, yc + 16 - f * 6, (yc + 10) * (1 - f) + h * f); if (f < 0.4) canal = 1; }
+    }
+    if (r < rb) { h = Hm - 14; canal = 2; }
+    else if (r < rb + 9 && canal !== 2) { h = Math.max(h, Hm + 16); canal = 1; }
+    return [h, canal];
+  };
+  // grille polaire, plus dense près des canaux
+  const TH = []; const NS = 30;
+  for (let k = 0; k < 4; k++) for (let i = 0; i < NS; i++) { const u = i / NS; TH.push(k * Math.PI / 2 + Math.PI / 2 * (u - Math.sin(2 * Math.PI * u) / (2 * Math.PI) * 0.86)); }
+  const RS = []; for (let i = 0; i <= 44; i++) { const u = i / 44; RS.push(R * 1.3 * (0.18 * u + 0.82 * u * u * 0 + 0.82 * u)); }
+  RS.length = 0; for (let i = 0; i <= 44; i++) RS.push(R * 1.3 * i / 44);
+  const nT = TH.length, G = [];
+  for (let j = 0; j < RS.length; j++) { const row = []; for (let i = 0; i < nT; i++) { const r = RS[j], th = TH[i], [h, c] = haut(r, th); row.push([Math.cos(th) * r, h, Math.sin(th) * r, c]); } G.push(row); }
+  const g = new G3Geo();
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nrm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+  for (let j = 0; j < RS.length - 1; j++) for (let i = 0; i < nT; i++) {
+    const a = G[j][i], b = G[j][(i + 1) % nT], c = G[j + 1][(i + 1) % nT], d = G[j + 1][i];
+    if (Math.max(a[1], b[1], c[1], d[1]) < -12) continue;
+    let n = nrm(cr(sub(d, a), sub(b, a))); if (n[1] < 0) n = n.map(v => -v);
+    const hy = (a[1] + b[1] + c[1] + d[1]) / 4, hf = hy / Hm, sl = n[1], ca = Math.max(a[3], b[3], c[3], d[3]), jt = 0.92 + H(i * 3 + j, j * 7 + i) * 0.16;
+    let col;
+    if (ca === 2) col = [0.36, 0.33, 0.3];
+    else if (ca === 1) col = (j + (i >> 1)) & 1 ? [0.7, 0.66, 0.58] : [0.62, 0.58, 0.5];           // murs de pierre taillée
+    else if (hf > 0.74 - 0.08 * H(i, j * 3)) col = sl > 0.55 ? [0.96, 0.97, 1] : [0.82, 0.86, 0.94];
+    else if (hy < 6) col = [0.5, 0.46, 0.36];
+    else if (hf < 0.36 && sl > 0.5) col = H(i * 5, j) < 0.5 ? [0.24, 0.46, 0.2] : [0.3, 0.52, 0.24];
+    else if (hf < 0.5 && sl > 0.62) col = [0.42, 0.5, 0.3];
+    else col = sl < 0.45 ? [0.38, 0.31, 0.27] : [0.52, 0.43, 0.35];
+    col = col.map(v => Math.min(1, v * jt));
+    g.q(a, b, c, d, n, col);
+  }
+  // pins sur les pentes basses
+  for (let k = 0; k < 230; k++) {
+    const th = H(k, 11) * 6.2832, r = R * (0.45 + H(k, 13) * 0.5), [h, c] = haut(r, th); if (c || h < 8 || h > Hm * 0.42) continue;
+    const x = Math.cos(th) * r, z = Math.sin(th) * r, s = 0.7 + H(k, 17) * 0.6;
+    g.cyl(x, h - 2, z, 2 * s, 2 * s, 7 * s, 4, [0.4, 0.28, 0.18]); g.cyl(x, h + 4 * s, z, 9 * s, 0, 20 * s, 6, [0.16, 0.36, 0.2]); g.cyl(x, h + 13 * s, z, 6.5 * s, 0, 15 * s, 6, [0.2, 0.42, 0.22]);
+  }
+  // piliers de l'entrée (deux phares de pierre) et ponton de la sortie
+  for (const s of [-1, 1]) {
+    const x = s * (W + 16), z = R * 1.1;
+    g.cyl(x, -16, z, 13, 10, 92, 8, [0.68, 0.64, 0.56], [0.5, 0.46, 0.4]); g.box(x, 76, z, 26, 6, 26, [0.5, 0.44, 0.38]); g.cyl(x, 82, z, 6, 6, 9, 6, [1, 0.86, 0.5]);
+  }
+  // cap de Grand Line : phare rayé (hommage) sur un rocher
+  { const x = 120, z = -R * 1.18; g.cyl(x, -24, z, 48, 30, 40, 10, [0.46, 0.4, 0.34], [0.36, 0.5, 0.28]);
+    for (let k = 0; k < 5; k++) g.cyl(x, 16 + k * 12, z, 11 - k * 0.8, 10.2 - k * 0.8, 12, 10, k & 1 ? [0.85, 0.2, 0.18] : [0.96, 0.96, 0.94]);
+    g.cyl(x, 76, z, 8, 8, 8, 8, [1, 0.92, 0.6]); g.cyl(x, 84, z, 10, 0, 10, 8, [0.3, 0.3, 0.34]);
+    g.box(x - 34, 16, z + 10, 22, 16, 18, [0.92, 0.88, 0.78]); g.box(x - 34, 32, z + 10, 24, 5, 20, [0.6, 0.3, 0.22]); }
+  const mont = g.build();
+  // eau des canaux (s = distance depuis la mer, a = travers, k = sens)
+  const eau = new G3Geo(), pas = 8;
+  for (let k = 0; k < 4; k++) {
+    const c = CAN[k], cx = Math.cos(c), cz = Math.sin(c), px = -cz, pz = cx, dir = k === 3 ? -1 : 1;
+    const pts = []; for (let r = R * 1.16; r >= rb - 2; r -= pas) pts.push(Math.max(rb - 2, r));
+    for (let i = 0; i < pts.length - 1; i++) for (let a = 0; a < 4; a++) {
+      const r0 = pts[i], r1 = pts[i + 1], a0 = -1 + a / 2, a1 = a0 + 0.5, w = W + 1;
+      const P = (r, aa) => { const y = Math.max(-8.5, p535Ws(r)) + (1 - aa * aa) * 1.2; return [cx * r + px * aa * w, y, cz * r + pz * aa * w]; };
+      const s0 = R * 1.16 - r0, s1 = R * 1.16 - r1;
+      for (const [r, aa, s] of [[r0, a0, s0], [r0, a1, s0], [r1, a1, s1], [r0, a0, s0], [r1, a1, s1], [r1, a0, s1]]) { const p = P(r, aa); eau.v.push(p[0], p[1], p[2], 0, 1, 0, s, aa, dir); }
+    }
+  }
+  // bassin du sommet : tourbillon
+  const n = 28; for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) {
+    const a0 = i / n * 6.2832, a1 = (i + 1) / n * 6.2832, q0 = j / 3, q1 = (j + 1) / 3, y = P535.Hm - 5.5, rr = rb + 3;
+    const P = (a, q) => [Math.cos(a) * q * rr, y, Math.sin(a) * q * rr];
+    for (const [a, q] of [[a0, q0], [a1, q0], [a1, q1], [a0, q0], [a1, q1], [a0, q1]]) { const p = P(a, q); eau.v.push(p[0], p[1], p[2], 0, 1, 0, a * rr, q, 9); }
+  }
+  const flux = eau.build();
+  const nu = new G3Geo(); nu.sph(0, 0, 0, 1, 0.5, 1, 9, [1, 1, 1]); nu.sph(0.75, -0.08, 0.25, 0.62, 0.42, 0.6, 7, [0.97, 0.98, 1]); nu.sph(-0.7, -0.05, -0.25, 0.66, 0.44, 0.6, 7, [0.95, 0.96, 1]); nu.sph(0.1, 0.25, -0.1, 0.5, 0.4, 0.5, 7, [1, 1, 1]);
+  const ec = new G3Geo(); ec.q([-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1], [0, 1, 0], [1, 1, 1]);
+  return P535.m = { mont, flux, nuage: nu.build(), plaque: ec.build() };
+}
+const P535_VS = `attribute vec3 aP; attribute vec3 aC; uniform mat4 uVP; uniform mat4 uM; uniform float uT; uniform vec3 uCam; uniform vec2 uFog;
+varying vec3 vC; varying float vF; varying vec3 vW;
+void main(){ vec3 p = aP; float dir = aC.z; if (dir < 5.0) p.y += 0.9*sin(aC.x*0.11 - uT*7.0*dir)*(1.0-abs(aC.y)) + 0.5*sin(aC.x*0.31 + aC.y*3.0 - uT*11.0*dir);
+ p = (uM*vec4(p,1.0)).xyz; vC = aC; vW = p; gl_Position = uVP*vec4(p,1.0); vF = clamp((length(p - uCam) - uFog.x)/(uFog.y - uFog.x), 0.0, 1.0); }`;
+const P535_FS = `uniform float uT; uniform vec3 uFogC; uniform vec3 uK; uniform vec3 uCam; varying vec3 vC; varying float vF; varying vec3 vW;
+float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h2(i), h2(i+vec2(1.0,0.0)), f.x), mix(h2(i+vec2(0.0,1.0)), h2(i+vec2(1.0,1.0)), f.x), f.y); }
+void main(){ float dir = vC.z, a = vC.y, s, e;
+ if (dir > 5.0) { s = vC.x*0.05 + uT*2.2*(1.2 - a); e = smoothstep(0.82, 1.0, a); a = a*2.0 - 1.0; }
+ else { s = vC.x*0.045 - uT*3.2*dir; e = smoothstep(0.66, 0.97, abs(a)); }
+ float n1 = vn(vec2(a*3.0, s*1.6)), n2 = vn(vec2(a*7.0 + 5.0, s*4.2 + n1*1.5)), n3 = vn(vec2(a*13.0, s*9.0 + 2.0));
+ float st = smoothstep(0.6, 0.82, n1*0.55 + n2*0.45) + smoothstep(0.74, 0.9, n3)*0.5;
+ vec3 deep = vec3(0.04, 0.3, 0.55), light = vec3(0.2, 0.66, 0.86);
+ vec3 c = mix(deep, light, n1*0.8 + 0.2*n2);
+ float fr = pow(1.0 - abs(normalize(uCam - vW).y), 3.0); c = mix(c, vec3(0.7, 0.85, 0.95), fr*0.35);
+ float foam = clamp(max(st*0.8, e) + 0.25*sin(s*6.0 + a*4.0)*e, 0.0, 1.0);
+ c = mix(c, vec3(0.94, 0.98, 1.0), foam); c *= uK;
+ c = floor(c*24.0+0.5)/24.0; gl_FragColor = vec4(mix(c, uFogC, vF*vF), 1.0); }`;
+const P535_I = M4.trs(0, 0, 0);
+function p535Flux(me, t, K, Mm) {
+  const gl = G3.gl, E = G3.env;
+  if (!P535.prog) P535.prog = g3Prog(P535_VS, P535_FS);
+  const P = P535.prog; gl.useProgram(P.p); gl.bindBuffer(gl.ARRAY_BUFFER, me.b);
+  gl.enableVertexAttribArray(P.a.aP); gl.vertexAttribPointer(P.a.aP, 3, gl.FLOAT, false, 36, 0);
+  gl.enableVertexAttribArray(P.a.aC); gl.vertexAttribPointer(P.a.aC, 3, gl.FLOAT, false, 36, 24);
+  gl.uniformMatrix4fv(P.u.uVP, false, E.VP); gl.uniformMatrix4fv(P.u.uM, false, Mm || P535_I); gl.uniform1f(P.u.uT, t); gl.uniform3fv(P.u.uCam, E.cam); gl.uniform2fv(P.u.uFog, E.fog); gl.uniform3fv(P.u.uFogC, E.fogC); gl.uniform3fv(P.u.uK, K);
+  gl.drawArrays(gl.TRIANGLES, 0, me.n);
+}
+// trajectoire : renvoie {x,y,z,pitch,ph}
+const P535T = { T1: 3.4, T2: 8.8, T3: 10.8, T4: 13.0 };
+function p535Traj(t) {
+  const { R1, rb } = P535, { T1, T2, T3, T4 } = P535T, D = P535.D, eps = 4;
+  let z, y, pitch = 0, ph, r = null, sgn = 1;
+  if (t < T1) { ph = 0; const u = t / T1; z = R1 + 640 - 640 * (u * (0.55 + 0.45 * u)); y = 0; }
+  else if (t < T2) { ph = 1; const u = (t - T1) / (T2 - T1); r = R1 - (R1 - rb) * (0.5 * u + 0.5 * u * u); }
+  else if (t < T3) { ph = 2; const u = (t - T2) / (T3 - T2); z = rb * (1 - 2 * u); y = P535.Hm - 5.5 + 9; }
+  else if (t < T4) { ph = 3; const u = (t - T3) / (T4 - T3); r = rb + (R1 - rb) * Math.pow(u, 1.5); sgn = -1; }
+  else { ph = 4; const u = Math.min(1, (t - T4) / (D - T4)); z = -R1 - 400 * (1 - Math.pow(1 - u, 2.2)); y = 0; }
+  if (r != null) { z = sgn * r; y = p535Ws(r) + 9; const y2 = p535Ws(r - eps); pitch = Math.atan2(y2 - p535Ws(r), eps) * sgn; }
+  return { x: 0, y, z, pitch, ph, r };
+}
+function p535RMDessiner(C, W, H, dpr) {
+  if (!g3Actif()) { p535Som2D(Object.assign(C, { t2: C.t }), W, H, dpr, true); return; }
+  const U = g3Unit(), MD = n3Modeles(), M = p535Geo(), B = p98RMGeo(), now = performance.now() / 1000;
+  const dt = Math.min(0.05, Math.max(0.001, now - (C.tp || now))); C.tp = now;
+  if (E3.tier < 0) E3.tier = e3Tier0(); if (window.__e3fixe != null) E3.tier = window.__e3fixe;
+  const TR = E3_TIERS[Math.max(0, E3.tier)]; let RW = Math.round(W / dpr), RH = Math.round(H / dpr); { const f = Math.sqrt(TR.px / (RW * RH)); if (f < 1) { RW = Math.round(RW * f); RH = Math.round(RH * f); } }
+  RW = Math.max(160, RW); RH = Math.max(120, RH);
+  const asp = RW / RH, port = asp < 1, t = C.t, D = P535.D, { T1, T2, T3, T4 } = P535T, { R, R1, Hm, rb } = P535;
+  const ease = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u), lerp = (a, b, u) => a + (b - a) * u, L3 = (a, b, u) => [lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)];
+  const S = p535Traj(t), hou = (x, z) => 1.6 * (Math.sin(x * 0.045 + t * 1.1) + 0.7 * Math.sin(z * 0.06 - t * 0.8 + x * 0.02));
+  if (S.ph === 0 || S.ph === 4) S.y = hou(S.x, S.z) * 0.7;
+  const roll = Math.sin(t * 2.3) * (S.ph === 1 || S.ph === 3 ? 0.08 : 0.05);
+  // ---------- caméra ----------
+  let eye, tgt, fov = port ? 1.12 : 0.88, sh = 0;
+  const ahead = (d, sg) => { const r = Math.max(rb, S.r - d); return [0, p535Ws(r) + 9, sg * r]; };
+  if (S.ph === 0) { const u = ease(t / T1); eye = L3([port ? 300 : 360, 60, R1 + 980], [70, 24, S.z + 150], u); tgt = L3([0, Hm * 0.62, 0], [0, 80, S.z - 260], u); }
+  else if (S.ph === 1) {
+    const u = (t - T1) / (T2 - T1); sh = 0.9;
+    if (u < 0.4) { const v = u / 0.4, rb2 = Math.min(R1 + 120, S.r + 175 - v * 25); eye = [16 - v * 6, Math.max(p535Ws(rb2) + 62, S.y + 44) - v * 4, rb2]; tgt = ahead(170, 1); tgt[1] += 24; }
+    else if (u < 0.75) { const v = (u - 0.4) / 0.35, ra = Math.max(rb + 10, S.r - 150 + v * 40); eye = [22 - v * 10, p535Ws(ra) + 44, ra]; tgt = [0, S.y + 2, S.z + 30]; }
+    else { const v = (u - 0.75) / 0.25; eye = [40 - v * 20, S.y + 90 + v * 30, S.z + 120]; tgt = [0, S.y + 6, S.z - 40]; }
+  }
+  else if (S.ph === 2) { const u = (t - T2) / (T3 - T2), a = 0.6 + u * 1.3, rr = port ? 330 : 300; eye = [Math.cos(a) * rr, Hm + 190 - u * 40, Math.sin(a) * rr]; tgt = [0, Hm - 10, S.z * 0.4]; }
+  else if (S.ph === 3) {
+    const u = (t - T3) / (T4 - T3); sh = 1.6;
+    if (u < 0.38) { const v = u / 0.38; eye = [0, S.y + 78 - v * 10, S.z + 115]; tgt = [0, S.y - 50, S.z - 110]; fov *= 1.05; }
+    else { const v = (u - 0.38) / 0.62; eye = [-70 - v * 20, 26 + v * 4, -R1 - 220 + v * 30]; tgt = [0, S.y + 10, S.z]; }
+  }
+  else { const u = ease((t - T4) / (D - T4)); eye = L3([150, 34, -R1 - 40], [port ? 260 : 300, 120, -R1 - 300], u); tgt = L3([S.x - 20, 14, S.z - 20], [-60, 40, -R1 - 560], u); }
+  if (sh) { eye[0] += (Math.random() - 0.5) * sh; eye[1] += (Math.random() - 0.5) * sh; }
+  const V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 2, 5200), VP = M4.mul(Pm, V);
+  // ---------- lumière : jour → doré au sommet → Grand Line ----------
+  const dor = t < T2 - 1 ? 0 : t < T3 ? ease((t - T2 + 1) / 2) : 1 - 0.55 * ease((t - T3) / 3);
+  const hor = [0.8 + dor * 0.14, 0.86 - dor * 0.08, 0.95 - dor * 0.3], top = [0.24 + dor * 0.12, 0.47 - dor * 0.05, 0.86 - dor * 0.14];
+  let Ld = [0.45, 0.62 - dor * 0.25, 0.5]; { const l = Math.hypot(...Ld); Ld = Ld.map(v => v / l); }
+  const sun = [0.7 + dor * 0.18, 0.64 - dor * 0.02, 0.56 - dor * 0.16];
+  g3Debut(RW, RH, { VP, cam: eye, fov, L: Ld, amb: [0.55, 0.57, 0.64], sun, fog: [1100, 4200], fogC: hor, ciel: [hor, top], hz: 0.5 });
+  // soleil
+  try { e3Lueur(-1500, 520 - dor * 260, -2300, 95, [1, 0.86 - dor * 0.2, 0.6 - dor * 0.3], 0.55 + dor * 0.3); } catch (_) { }
+  // mer
+  const deep = g3RGB(S.z < 0 ? "#163c78" : "#1a4a8a"), shal = g3RGB("#3ab8c8");
+  g3Eau(MD.large, { cr: 0.12, t, amp: 2.2, off: [Math.round(eye[0] / 64) * 64, Math.round(eye[2] / 64) * 64], y: -9, deep, shal, ciel: hor });
+  // montagne + courant
+  const I = M4.trs(0, 0, 0); g3Mesh(M.mont, I);
+  p535Flux(M.flux, t, [0.94 + dor * 0.12, 0.98, 1.02 - dor * 0.16]);
+  // courant de surface qui converge vers l'entrée
+  if (S.ph <= 1) for (let i = 0; i < 26; i++) {
+    const f = ((i * 0.137 + t * 0.32) % 1), x0 = ((i * 53) % 21 - 10) * 26, z = R1 + 40 + (1 - f) * 620, x = x0 * (1 - f) * 0.9 + x0 * 0.1 * f;
+    g3Mesh(M.plaque, M4.trs(x, -8.2 + hou(x, z) * 0.6, z, 0, 0, 0, 1.6, 1, 9 + f * 8), { tint: [0.95, 0.98, 1, 1], a: 0.5 * Math.sin(f * Math.PI), e: 1 });
+  }
+  // navire
+  const ang = -Math.PI / 2;
+  if (S.ph === 0 || S.ph === 4) g3Mesh(U.ombre, M4.trs(S.x, -8.6, S.z, -ang, 0, 0, 30, 1, 12), { a: 0.25, tint: [0, 0.01, 0.03, 1] });
+  g3Mesh(MD.merry, M4.trs(S.x, S.y + 3, S.z, -ang, roll, S.pitch, 1));
+  // baleine qui attend à Grand Line
+  { const bz = -R1 - 560, rise = S.ph === 4 ? ease((t - T4 - 0.4) / 1.6) : S.ph === 3 ? 0.1 : 0, by = -42 + rise * 36 + Math.sin(t * 0.9) * 2.5;
+    if (S.ph >= 2) { g3Mesh(B.baleine, M4.trs(-80, by, bz, -0.35, 0, Math.sin(t * 0.7) * 0.03, 1)); if (rise > 0.6 && Math.random() < 0.8) for (let i = 0; i < 3; i++) g3Part(-80 + Math.cos(-0.35) * 70 + (Math.random() - 0.5) * 6, by + 54, bz - Math.sin(-0.35) * 70, (Math.random() - 0.5) * 14, 70 + Math.random() * 50, (Math.random() - 0.5) * 14, 1.3, 3.2, "#eaf6ff", { g: 40, add: false }); } }
+  // écume, embruns
+  const fz = S.ph === 3 ? -1 : 1;
+  if (S.ph === 1 || S.ph === 3) { for (let i = 0; i < 5; i++) g3Part(S.x + (Math.random() - 0.5) * 2 * P535.W, S.y - 6, S.z + fz * (10 + Math.random() * 30), (Math.random() - 0.5) * 30, 18 + Math.random() * 30, fz * (Math.random() * 30), 0.7, 3.2, "#f4fbff", { g: 40, add: false });
+    for (const s of [-1, 1]) if (Math.random() < 0.7) g3Part(s * (P535.W - 2), S.y - 6, S.z + (Math.random() - 0.5) * 30, s * 10, 20 + Math.random() * 20, 0, 0.6, 2.6, "#ffffff", { g: 40, add: false }); }
+  else if (Math.random() < 0.7) for (let i = 0; i < 2; i++) g3Part(S.x + (Math.random() - 0.5) * 24, -6, S.z - 20, (Math.random() - 0.5) * 20, 10 + Math.random() * 14, -Math.random() * 10, 0.8, 2.6, "#f4fbff", { g: 30, add: false });
+  if (S.ph === 4 && t - T4 < 0.5) for (let i = 0; i < 7; i++) g3Part(S.x + (Math.random() - 0.5) * 60, 0, S.z + (Math.random() - 0.5) * 50, (Math.random() - 0.5) * 80, 50 + Math.random() * 80, (Math.random() - 0.5) * 80, 1.1, 3.4, "#ffffff", { g: 70, add: false });
+  if (S.ph === 2 && Math.random() < 0.5) for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28; g3Part(Math.cos(a) * rb * 0.9, Hm, Math.sin(a) * rb * 0.9, -Math.sin(a) * 30, 10 + Math.random() * 20, Math.cos(a) * 30, 0.8, 3, "#ffffff", { g: 30, add: false }); }
+  g3MajParts(dt); g3DessinerParts(RH);
+  // nuages : collier autour de la montagne + mer de nuages lointaine
+  let brume = 0;
+  for (let k = 0; k < 24; k++) {
+    const a = k / 24 * 6.2832 + t * 0.025 + 0.13, r = 150 + (k * 47 % 120), y = Hm * 0.6 + (k % 4) * 22, x = Math.cos(a) * r, z = Math.sin(a) * r, s = 42 + (k % 5) * 9;
+    const dd = Math.hypot(x - S.x, (y - S.y) * 1.6, z - S.z); if (dd < s * 1.1) brume = Math.max(brume, 1 - dd / (s * 1.1));
+    const de = Math.hypot(x - eye[0], y - eye[1], z - eye[2]); if (de < s * 2.6) continue;
+    g3Mesh(M.nuage, M4.trs(x, y, z, a, 0, 0, s, s * 0.42, s * 0.8), { tint: [1, 0.97 - dor * 0.08, 0.93 - dor * 0.18, 0.18 + dor * 0.12] });
+  }
+  for (let k = 0; k < 16; k++) { const a = k / 16 * 6.2832 + 0.4, r = 1300 + (k * 131 % 700), s = 150 + (k % 4) * 50, cx = Math.cos(a) * r, cz = Math.sin(a) * r; if (Math.hypot(cx - eye[0], cz - eye[2]) < s * 2.2) continue; g3Mesh(M.nuage, M4.trs(Math.cos(a) * r, Hm * 0.5 + (k % 3) * 30, Math.sin(a) * r, a, 0, 0, s, s * 0.3, s * 0.7), { tint: [1, 0.96 - dor * 0.1, 0.92 - dor * 0.2, 0.2 + dor * 0.15] }); }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(G3.cv, 0, 0, W, H); ctx.restore();
+  try { e3Bloom(W, H); } catch (_) { }
+  // ---------- surcouches 2D : brume, lignes de vitesse, flash, bandes, textes ----------
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (S.ph === 1 && (t - T1) / (T2 - T1) > 0.75) brume = Math.max(brume, 0.3 * Math.sin(((t - T1) / (T2 - T1) - 0.75) / 0.25 * Math.PI));
+  if (brume > 0.02) { ctx.fillStyle = "rgba(255,255,255," + Math.min(0.7, brume * 0.75).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+  if (S.ph === 3 || (S.ph === 1 && (t - T1) / (T2 - T1) > 0.4)) { ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = Math.max(1, dpr); ctx.beginPath();
+    for (let i = 0; i < 14; i++) { const a = (i * 2.399 + Math.floor(t * 12) * 0.7) % 6.283, r0 = Math.min(W, H) * (0.42 + ((i * 37) % 10) / 40), r1 = r0 + Math.min(W, H) * 0.18; ctx.moveTo(W / 2 + Math.cos(a) * r0, H / 2 + Math.sin(a) * r0); ctx.lineTo(W / 2 + Math.cos(a) * r1, H / 2 + Math.sin(a) * r1); } ctx.stroke(); }
+  if (S.ph === 4 && t - T4 < 0.45) { ctx.fillStyle = "rgba(255,255,255," + (0.6 * (1 - (t - T4) / 0.45)).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+  const fe = Math.min(1, t / 0.6, (D - t) / 0.5); bandesNoires(W, H, dpr, fe);
+  const txt = S.ph === 0 ? "Le courant emporte le Vogue Merry…" : S.ph === 1 ? "On remonte Reverse Mountain !" : S.ph === 2 ? "Au sommet, les quatre mers se rejoignent" : S.ph === 3 ? "Ça descend !!" : "Une baleine géante nous attend…";
+  p535Txt(txt, W, H, dpr, fe);
+  if (S.ph === 2 || t > D - 2.4) { const a = S.ph === 2 ? Math.sin((t - T2) / (T3 - T2) * Math.PI) : Math.min(1, (t - (D - 2.4)) * 2); p535Titre(S.ph === 2 ? "REVERSE MOUNTAIN" : "GRAND LINE", W, H, dpr, a); }
+  ctx.restore();
+  if (!C.s1 && S.ph >= 1) { C.s1 = 1; try { son.jouer("orbe"); } catch (_) { } }
+  if (!C.s3 && S.ph >= 3) { C.s3 = 1; jeu.tremble = 0.25; }
+  if (!C.s4 && S.ph >= 4) { C.s4 = 1; try { son.jouer("plouf"); } catch (_) { } }
+}
+function p535Txt(txt, W, H, dpr, a) {
+  const port = H > W; let fs = Math.round(Math.min(W, H) * (port ? 0.05 : 0.05)); ctx.font = "800 " + fs + "px system-ui,sans-serif";
+  const maxW = W * 0.78, w = ctx.measureText(txt).width; if (w > maxW) { fs = Math.max(10, Math.floor(fs * maxW / w)); ctx.font = "800 " + fs + "px system-ui,sans-serif"; }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = Math.max(3, fs * 0.16); ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fillStyle = "#fff"; ctx.lineJoin = "round";
+  const ty = H - Math.min(H * 0.1, 46 * dpr) - fs * 1.4 - 48 * dpr; ctx.globalAlpha = Math.max(0, Math.min(1, a * 1.4)); ctx.strokeText(txt, W / 2, ty); ctx.fillText(txt, W / 2, ty); ctx.globalAlpha = 1;
+}
+function p535Titre(s, W, H, dpr, a) {
+  let big = Math.round(Math.min(W, H) * 0.09); ctx.font = "900 " + big + "px system-ui,sans-serif"; const w = ctx.measureText(s).width; if (w > W * 0.88) { big = Math.floor(big * W * 0.88 / w); ctx.font = "900 " + big + "px system-ui,sans-serif"; }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.lineWidth = big * 0.14; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(20,10,12,0.85)"; ctx.fillStyle = "#ffe070";
+  ctx.strokeText(s, W / 2, H * 0.3); ctx.fillText(s, W / 2, H * 0.3); ctx.globalAlpha = 1;
+}
+P98RM.D = P535.D;
+p98RMDessiner = p535RMDessiner;
+
+// Reverse Mountain vue depuis la mer (navigation 3D) : la même montagne sculptée, à l'échelle de la carte
+{ const r0 = e3Reverse;
+  e3Reverse = function (U, M, A) {
+    if (window.__p535vieuxRM) return r0.apply(this, arguments);
+    let R = null; try { R = rmCourant(); } catch (_) { } if (!R) return;
+    const d = Math.hypot(R.x - M.x, R.y - M.y), D = Math.max(0, R.y - 60 - R.y0); if (d > 3050 + Math.min(900, D * 0.5)) return;
+    const G = p535Geo(), K = e3RMMeshes(), nuit = A.nu || 0, tn = nuit > 0.1 ? [0.05, 0.1, 0.2, nuit * 0.5] : undefined, E0 = G3.env, fog0 = E0.fog; E0.fog = [900, 4200];
+    const Mm = M4.trs(R.x, -2, R.y, 0, 0, 0, 0.5, 0.5, 0.34);
+    g3Mesh(G.mont, Mm, { tint: tn });
+    const kk = 1 - nuit * 0.55; p535Flux(G.flux, performance.now() / 1000, [kk, kk, kk * 1.05], Mm);
+    for (let z = R.y - 60 - 100; z > R.y0 - 100; z -= 200) { if (Math.hypot(R.x - M.x, z - M.y) > 3300) continue; g3Mesh(K.wall, M4.trs(R.x, 0, z, 0, 0, 0, 1, 1, 1), { tint: tn }); }
+    // collier de nuages
+    const t = performance.now() / 1000;
+    for (let k = 0; k < 10; k++) { const a = k / 10 * 6.2832 + t * 0.02, r = 95 + (k * 37 % 50); g3Mesh(G.nuage, M4.trs(R.x + Math.cos(a) * r, 150 + (k % 3) * 12, R.y + Math.sin(a) * r * 0.7, a, 0, 0, 26 + (k % 3) * 6, 10, 20), { tint: [1, 1, 1, 0.15 + nuit * 0.5] }); }
+    E0.fog = fog0; N3.rmDraw = null;
+  };
+}
+
+/* ===== v53.5 — Reverse Mountain en 2D : même séquence que la 3D (montée, sommet des 4 mers, descente, baleine) ===== */
+const P535S = { D: 11, nu: null };
+function p535MerryProfil(x, y, s, ang, t, dir) {
+  // le Merry vu de profil (dir = 1 : vers la droite)
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(dir * s, s);
+  ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect(-22, 3, 44, 2);
+  ctx.fillStyle = "#6a3c1c"; ctx.beginPath(); ctx.moveTo(-20, -4); ctx.lineTo(18, -4); ctx.lineTo(13, 4); ctx.lineTo(-16, 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#a8682e"; ctx.fillRect(-19, -5, 36, 3); ctx.fillStyle = "#f4f0e4"; ctx.fillRect(-12, -2, 22, 1.2);
+  ctx.fillStyle = "#f6f2e6"; ctx.beginPath(); ctx.arc(19, -7, 3.6, 0, 6.283); ctx.fill(); ctx.fillStyle = "#e6dcc4"; ctx.fillRect(16, -9, 2, 3);
+  ctx.fillStyle = "#4a2a14"; ctx.fillRect(-1, -30, 2, 26); ctx.fillRect(-14, -14, 2, 10);
+  const g = Math.sin(t * 4) * 1.2; ctx.fillStyle = "#f8f4ea"; ctx.beginPath(); ctx.moveTo(-9, -27); ctx.quadraticCurveTo(1 + g, -19, -9, -8); ctx.lineTo(9, -8); ctx.quadraticCurveTo(13 + g, -19, 9, -27); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(1, -18, 3.2, 0, 6.283); ctx.fill(); ctx.fillStyle = "#f8f4ea"; ctx.fillRect(-0.6, -19, 1.2, 1.2); ctx.fillRect(1.6, -19, 1.2, 1.2);
+  ctx.fillStyle = "#e8c040"; ctx.fillRect(-2.5, -22, 7, 1.5);
+  ctx.fillStyle = "#111"; ctx.fillRect(1, -35, 8, 5); ctx.fillStyle = "#c83020"; ctx.fillRect(-6, -8, 3, 3);
+  ctx.restore();
+}
+function p535Nuages() {
+  if (P535S.nu) return P535S.nu;
+  const cv = document.createElement("canvas"); cv.width = 128; cv.height = 56; const c = cv.getContext("2d");
+  const b = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill(); };
+  for (const [x, y, r] of [[30, 34, 18], [56, 26, 24], [84, 30, 20], [104, 36, 14], [18, 40, 12]]) b(x, y + 3, r, "#c8d4ec");
+  for (const [x, y, r] of [[30, 32, 17], [56, 24, 23], [84, 28, 19], [104, 34, 13], [18, 38, 11]]) b(x, y, r, "#ffffff");
+  c.fillStyle = "#c8d4ec"; c.fillRect(10, 44, 108, 6);
+  return P535S.nu = cv;
+}
+function p535Som2D(C, W, H, dpr, depuis3D) {
+  const D = P535S.D, t = depuis3D ? Math.min(D - 0.05, C.t * D / P535.D) : C.t, u = Math.min(W, H) / 220, port = H > W;
+  const ease = q => q <= 0 ? 0 : q >= 1 ? 1 : q * q * (3 - 2 * q), NU = p535Nuages();
+  const ph = t < 2.6 ? 0 : t < 5 ? 1 : t < 7.3 ? 2 : 3;
+  ctx.save(); ctx.imageSmoothingEnabled = true;
+  const sh = ph === 2 || ph === 0 ? (Math.random() - 0.5) * 2 * u : 0; ctx.translate(sh, sh * 0.5);
+  const dor = ph === 0 ? 0 : ph === 1 ? ease((t - 2.6) / 1.4) : ph === 2 ? 1 : 1 - 0.5 * ease((t - 7.3) / 2);
+  const ciel = (y0, y1) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, dor > 0.5 ? "#4a5cb0" : "#3a7ad8"); g.addColorStop(0.6, dor > 0.5 ? "#e8a070" : "#8ec0f0"); g.addColorStop(1, dor > 0.5 ? "#ffd8a0" : "#d4ecfc"); ctx.fillStyle = g; ctx.fillRect(-10, y0, W + 20, y1 - y0); };
+  if (ph === 0 || ph === 2) {
+    // ---- vue de profil : la montagne, le canal, le courant ----
+    const k = ph === 0 ? t / 2.6 : (t - 5) / 2.3, montee = ph === 0, dir = montee ? 1 : -1;
+    const hor = H * (port ? 0.64 : 0.72), cx = W / 2, top = H * (port ? 0.2 : 0.08), lw = port ? W * 0.56 : Math.max(W * 0.62, H * 0.5);
+    ciel(0, hor);
+    ctx.drawImage(NU, (t * 12 * u) % W - 40 * u, top + 20 * u, 70 * u, 30 * u); ctx.drawImage(NU, W - ((t * 8 * u) % W), top + 60 * u, 90 * u, 38 * u);
+    // la montagne
+    const pic = x => { const d = Math.abs(x - cx) / lw; return top + (hor - top) * Math.pow(Math.min(1, d), 0.9) + Math.sin(x * 0.05) * 4 * u * d; };
+    ctx.fillStyle = "#5c4636"; ctx.beginPath(); ctx.moveTo(cx - lw * 1.1, hor); for (let x = cx - lw; x <= cx + lw; x += 6 * u) ctx.lineTo(x, pic(x)); ctx.lineTo(cx + lw * 1.1, hor); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = "#3e6a34"; ctx.beginPath(); ctx.moveTo(0, hor); for (let x = 0; x <= W; x += 8 * u) ctx.lineTo(x, hor - (hor - top) * 0.32 + Math.sin(x * 0.08) * 6 * u); ctx.lineTo(W, hor); ctx.fill();
+        ctx.fillStyle = "#f4f6fc"; ctx.beginPath(); ctx.moveTo(cx - lw, top - 10); for (let x = cx - lw * 0.4; x <= cx + lw * 0.4; x += 5 * u) ctx.lineTo(x, pic(x) + (hor - top) * 0.16 + (((x / u) | 0) % 14 < 7 ? 5 : -3) * u); ctx.lineTo(cx + lw, top - 10); ctx.fill();
+    ctx.restore();
+    // le canal : de la mer (côté départ) au sommet
+    const base = montee ? cx + lw * 0.95 : cx - lw * 0.95, P = f => ({ x: base + (cx - base) * f, y: hor - (hor - top - 8 * u) * Math.pow(f, 1.25) });
+    const wC = 9 * u;
+    ctx.lineCap = "round"; ctx.strokeStyle = "#cfc6b4"; ctx.lineWidth = wC * 2.2; ctx.beginPath(); for (let f = 0; f <= 1.0001; f += 0.04) { const q = P(f); f ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); } ctx.stroke();
+    ctx.strokeStyle = "#2a74c8"; ctx.lineWidth = wC * 1.5; ctx.stroke(); ctx.strokeStyle = "#4ab0e0"; ctx.lineWidth = wC * 0.8; ctx.stroke();
+    ctx.fillStyle = "#ffffff"; for (let i = 0; i < 34; i++) { const f = ((i * 0.071 + t * (montee ? 0.55 : -0.9)) % 1 + 1) % 1, q = P(f), o = ((i * 37) % 9 - 4) * wC * 0.12; ctx.fillRect(q.x + o - 2 * u, q.y - u, 4 * u, 1.4 * u); }
+    // mer + écume au pied
+    const gm = ctx.createLinearGradient(0, hor, 0, H); gm.addColorStop(0, montee ? "#2a6ad0" : "#1c3e8a"); gm.addColorStop(1, montee ? "#163e8a" : "#0e2050"); ctx.fillStyle = gm; ctx.fillRect(-10, hor, W + 20, H - hor + 10);
+    ctx.fillStyle = "rgba(255,255,255,0.7)"; for (let i = 0; i < 30; i++) { const x = ((i * 53 + t * 20 * (i & 1 ? 1 : -1)) % W + W) % W, y = hor + 4 * u + (i * 29) % Math.max(1, H - hor - 8 * u); ctx.fillRect(x, y, 6 * u, u); }
+    const pb = P(0); ctx.fillStyle = "#fff"; for (let i = 0; i < 10; i++) { const a = t * 6 + i; ctx.beginPath(); ctx.arc(pb.x + Math.cos(a) * 10 * u, pb.y - Math.abs(Math.sin(a * 1.3)) * 8 * u, 2.5 * u, 0, 6.283); ctx.fill(); }
+    // collier de nuages (devant la montagne)
+    for (let i = 0; i < 5; i++) { const x = ((i * 0.23 + t * 0.04) % 1.3 - 0.15) * W, y = top + (hor - top) * (0.36 + (i % 2) * 0.08); ctx.globalAlpha = 0.92; ctx.drawImage(NU, x, y, 80 * u, 34 * u); }
+    ctx.globalAlpha = 1;
+    // le Merry
+    const f = montee ? Math.min(0.99, 0.15 + 0.85 * ease(k) * 0.95 + k * 0.04) : Math.max(0.0, 1 - Math.pow(k, 1.5)), q = P(f), q2 = P(Math.min(1, f + 0.02));
+    const a = Math.atan2(q2.y - q.y, q2.x - q.x) + (montee ? 0 : Math.PI);
+    p535MerryProfil(q.x, q.y - 3 * u, u * (port ? 1.0 : 0.75) * (0.8 + 0.3 * (1 - f)), a + Math.PI, t, -1);
+    ctx.fillStyle = "rgba(255,255,255,0.9)"; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(q.x + (Math.random() - 0.5) * 14 * u, q.y + (Math.random() - 0.2) * 6 * u, 1.6 * u, 0, 6.283); ctx.fill(); }
+    if (!montee) { ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = u; ctx.beginPath(); for (let i = 0; i < 12; i++) { const y = ((i * 41 + t * 600) % H); ctx.moveTo((i * 67) % W, y); ctx.lineTo((i * 67) % W, y + 18 * u); } ctx.stroke(); }
+  } else if (ph === 1) {
+    // ---- vue du ciel : les quatre mers se rejoignent au sommet ----
+    const k = (t - 2.6) / 2.4, cx = W / 2, cy = H * 0.5, R = Math.min(W, H) * 0.46;
+    const mers = [["#2f6ad6", "MER DU SUD"], ["#3a8ae0", "MER DE L'EST"], ["#1c3e8a", "GRAND LINE"], ["#2a5cc0", "MER DE L'OUEST"]];
+    ctx.fillStyle = "#e8eef8"; ctx.fillRect(-10, -10, W + 20, H + 20);
+    const qd = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    for (let i = 0; i < 4; i++) { const [dx, dy] = qd[i]; ctx.fillStyle = mers[i][0]; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, Math.max(W, H), Math.atan2(dy, dx) - 0.78, Math.atan2(dy, dx) + 0.78); ctx.fill(); }
+    ctx.fillStyle = "#6a5444"; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#86705e"; ctx.beginPath(); ctx.arc(cx, cy, R * 0.72, 0, 6.283); ctx.fill(); ctx.fillStyle = "#f2f4fa"; ctx.beginPath(); ctx.arc(cx, cy, R * 0.42, 0, 6.283); ctx.fill();
+    for (let i = 0; i < 4; i++) { const [dx, dy] = qd[i]; ctx.strokeStyle = "#cfc6b4"; ctx.lineWidth = 15 * u; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + dx * R * 1.15, cy + dy * R * 1.15); ctx.stroke(); ctx.strokeStyle = "#3a90d8"; ctx.lineWidth = 10 * u; ctx.stroke();
+      ctx.fillStyle = "#fff"; for (let j = 0; j < 8; j++) { const f = ((j / 8 + t * (i === 2 ? 0.5 : -0.5)) % 1 + 1) % 1; ctx.fillRect(cx + dx * R * 1.1 * f - 2 * u, cy + dy * R * 1.1 * f - 2 * u, 4 * u, 4 * u); } }
+    ctx.fillStyle = "#3a90d8"; ctx.beginPath(); ctx.arc(cx, cy, 16 * u, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.6 * u; for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.arc(cx, cy, (5 + j * 4) * u, t * 5 + j * 2, t * 5 + j * 2 + 3.6); ctx.stroke(); }
+    for (let i = 0; i < 4; i++) { const [dx, dy] = qd[i]; textePixel(ctx, mers[i][1], Math.round(cx + dx * Math.min(R * 0.95, W * 0.3)), Math.round(cy + dy * R * 1.12 + (dy ? 0 : 14 * u)), Math.max(2, Math.round(u * 0.7)), i === 2 ? "#ffe070" : "#ffffff", "#0a1430", 0.5); }
+    // le Merry : arrive du sud, tourne dans le tourbillon, repart au nord
+    let x, y, a;
+    if (k < 0.35) { const v = k / 0.35; x = cx; y = cy + R * 1.1 * (1 - v) + 16 * u * v; a = -Math.PI / 2; }
+    else if (k < 0.7) { const v = (k - 0.35) / 0.35, an = Math.PI / 2 + v * Math.PI * 2; x = cx + Math.cos(an) * 14 * u; y = cy + Math.sin(an) * 14 * u; a = an + Math.PI / 2; }
+    else { const v = (k - 0.7) / 0.3; x = cx; y = cy - 16 * u - R * 0.9 * v; a = -Math.PI / 2; }
+    const e = Math.max(1, Math.round(u * 0.5)); dessinerNavire("merry", x / e, y / e, a, { x: 0, y: 0 }, e, t);
+    // nuages qui défilent (on est au-dessus)
+    for (let i = 0; i < 6; i++) { const x2 = ((i * 0.21 + t * 0.06) % 1.3 - 0.15) * W, y2 = ((i * 0.37) % 1) * H; ctx.globalAlpha = 0.55; ctx.drawImage(NU, x2, y2, 100 * u, 42 * u); }
+    ctx.globalAlpha = 1;
+    const fl = Math.max(0, 1 - (t - 2.6) * 2.5); if (fl > 0) { ctx.fillStyle = "rgba(255,255,255," + fl + ")"; ctx.fillRect(-10, -10, W + 20, H + 20); }
+  } else {
+    // ---- arrivée : Grand Line, la baleine, le phare ----
+    const k = (t - 7.3) / (D - 7.3), hor = H * (port ? 0.52 : 0.48);
+    ciel(0, hor);
+    ctx.fillStyle = "rgba(255,230,170,0.9)"; ctx.beginPath(); ctx.arc(W * 0.2, hor - 20 * u, 18 * u, 0, 6.283); ctx.fill();
+    ctx.drawImage(NU, W * 0.5 - (t * 6 * u) % (W * 0.6), hor - 70 * u, 90 * u, 38 * u);
+    const gm = ctx.createLinearGradient(0, hor, 0, H); gm.addColorStop(0, "#2a4c9a"); gm.addColorStop(1, "#0e2050"); ctx.fillStyle = gm; ctx.fillRect(-10, hor, W + 20, H - hor + 10);
+    ctx.fillStyle = "rgba(255,220,160,0.6)"; for (let i = 0; i < 14; i++) ctx.fillRect(W * 0.2 - (8 + i) * u + Math.sin(t * 3 + i) * 4 * u, hor + (3 + i * 3) * u, (16 + i * 2) * u, u);
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; for (let i = 0; i < 26; i++) { const x = ((i * 61 + t * 14 * (i & 1 ? 1 : -1)) % W + W) % W, y = hor + 6 * u + (i * 31) % Math.max(1, H - hor - 8 * u); ctx.fillRect(x, y, 7 * u, u); }
+    // phare sur le cap (droite)
+    const lx = W * 0.84, ly = hor + 6 * u; ctx.fillStyle = "#4a4038"; ctx.beginPath(); ctx.moveTo(lx - 40 * u, ly + 6 * u); ctx.lineTo(lx - 18 * u, ly - 8 * u); ctx.lineTo(lx + 30 * u, ly - 10 * u); ctx.lineTo(lx + 60 * u, ly + 6 * u); ctx.fill();
+    for (let i = 0; i < 5; i++) { ctx.fillStyle = i & 1 ? "#d03028" : "#f4f2ea"; ctx.fillRect(lx - (5 - i * 0.4) * u, ly - 10 * u - (i + 1) * 7 * u, (10 - i * 0.8) * u, 7 * u); }
+    ctx.fillStyle = "#ffe8a0"; ctx.fillRect(lx - 4 * u, ly - 52 * u, 8 * u, 6 * u); ctx.fillStyle = "#333"; ctx.fillRect(lx - 5 * u, ly - 55 * u, 10 * u, 3 * u);
+    // la baleine qui émerge
+    const rise = ease(k * 1.6), bx = W * 0.42, by = hor + 30 * u - rise * 22 * u, bw = Math.min(W * 0.42, 120 * u), bh = bw * 0.34;
+    ctx.fillStyle = "#4a5c82"; ctx.beginPath(); ctx.ellipse(bx, by, bw, bh, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#6a7ca6"; ctx.beginPath(); ctx.ellipse(bx - bw * 0.1, by - bh * 0.5, bw * 0.7, bh * 0.35, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(bx + bw * 0.72, by - bh * 0.35, 5 * u, 0, 6.283); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(bx + bw * 0.73, by - bh * 0.35, 2.4 * u, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#a04848"; for (let i = 0; i < 4; i++) ctx.fillRect(bx + bw * (0.3 + i * 0.07), by - bh * (0.92 - (i & 1) * 0.08), 2 * u, 9 * u);
+    if (rise > 0.6) { ctx.fillStyle = "rgba(235,246,255,0.9)"; for (let i = 0; i < 9; i++) { const v = ((t * 1.4 + i / 9) % 1); ctx.beginPath(); ctx.arc(bx - bw * 0.05 + Math.sin(i * 2.1) * v * 14 * u, by - bh - v * 60 * u, (2 + v * 3) * u, 0, 6.283); ctx.fill(); } }
+    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.fillRect(bx - bw, by - u, bw * 2, 2 * u);
+    // le Merry (de profil, au premier plan)
+    p535MerryProfil(W * (0.2 + k * 0.1), hor + (port ? 70 : 46) * u + Math.sin(t * 2) * 2 * u, u * (port ? 1.3 : 0.95), Math.sin(t * 1.6) * 0.05, t, 1);
+    const sp = Math.max(0, 1 - k * 4); if (sp > 0) { ctx.fillStyle = "rgba(255,255,255," + sp + ")"; for (let i = 0; i < 18; i++) { const a = i / 18 * 3.14; ctx.beginPath(); ctx.arc(W * 0.16 + Math.cos(a) * 40 * u * (1 - sp * 0.5), hor + 46 * u - Math.sin(a) * 40 * u * (1 - sp * 0.4), 4 * u, 0, 6.283); ctx.fill(); } }
+  }
+  ctx.restore();
+  // surcouches : bandes, bulles, titres
+  bandesNoires(W, H, dpr, Math.min(1, t * 2, (D - t) * 2));
+  const lignes = [[0.3, 2.4, "Usopp : On monte une montagne… en bateau !?"], [2.9, 4.8, "Luffy : Shishishi ! Les quatre mers !"], [5.1, 7.1, "Nami : Accrochez-vous, ça descend !"], [8.6, 10.8, "Zoro : Enfin, de vrais adversaires…"]];
+  for (const [a, b, txt] of lignes) if (t >= a && t < b) bulle(txt, Math.round(W / 2), Math.round(H * (port ? 0.15 : 0.17)), Math.min(1, (t - a) * 4, (b - t) * 4));
+  if (ph === 1 && t > 3) p535Titre("REVERSE MOUNTAIN", W, H, dpr, Math.min(1, (t - 3) * 2, (5 - t) * 2) * 0.95);
+  if (ph === 3) { p535Titre("GRAND LINE", W, H, dpr, Math.min(1, (t - 7.6) * 2)); }
+}
+// la cinématique 2D du sommet utilise ce nouveau rendu (plus long : 11 s)
+dessinerSommet = function (C, W, H, dpr) { return p535Som2D(C, W, H, dpr, false); };
+{ const s0 = lancerCineSommet; lancerCineSommet = function () { const r = s0.apply(this, arguments); const C = AV.cine; if (C && C.type === "sommet") C.maj = function () { if (this.t >= P535S.D) finCine(); }; return r; }; }
+// mini-jeu 2D de la traversée : nuages qui passent à l'approche du sommet
+{ const d0 = dessinerTraversee;
+  dessinerTraversee = function (C, W, H, dpr) {
+    d0.apply(this, arguments);
+    try {
+      const f = C.prog / TRAV.LONG, t = C.t, k = Math.min(W / 230, H / 330);
+      if (f > 0.5) { const NU = p535Nuages(), a = Math.min(0.7, (f - 0.5) * 1.8); ctx.save(); ctx.globalAlpha = a;
+        for (let i = 0; i < 4; i++) { const x = ((i * 0.31 + t * 0.05) % 1.4 - 0.2) * W, y = H * (0.2 + i * 0.16); ctx.drawImage(NU, x, y, 66 * k, 28 * k); } ctx.restore(); }
+    } catch (_) { }
+  };
+}
+
+/* ===== v53.5 — mer de Luffy : houle plus vivante, dauphins qui sautent, bancs de poissons, baleine au loin (2D + 3D) ===== */
+const P535M = { dau: null, gl: null };
+function p535Profond(x, y) { try { return jeu.monde.niveauPx(Math.floor(x), Math.floor(y)) === NIV.PROFOND; } catch (_) { return false; } }
+function p535Dauphins(t) {
+  // 2 dauphins qui accompagnent le Merry (sauts en arc de part et d'autre), positions relatives au navire
+  const M = AV.merry; if (!M || !AV.nav) return [];
+  const v = Math.min(1, Math.abs(AV.nav.v || 0) / 80), out = [], fx = Math.cos(M.ang), fy = Math.sin(M.ang);
+  for (let i = 0; i < 2; i++) {
+    const per = 2.6 + i * 0.5, ph = ((t + i * 1.3) / per) % 1, cyc = Math.floor((t + i * 1.3) / per), s = i ? 1 : -1;
+    if (p40H(cyc, i + 3) < 0.35 - v * 0.25) continue;                       // pas à chaque fois
+    const av = 40 + p40H(cyc, i + 7) * 50 + ph * 34, lat = s * (46 + p40H(cyc, i + 9) * 26);
+    const a2 = M.ang + s * 0.75, x = M.x + fx * av - fy * lat + Math.cos(a2) * (ph - 0.5) * 44, y = M.y + fy * av + fx * lat + Math.sin(a2) * (ph - 0.5) * 44;
+    if (!p535Profond(x, y)) continue;
+    out.push({ x, y, ph, ang: a2, i });
+  }
+  return out;
+}
+function p535Mer2D(o, e, t) {
+  const vw = ecran.width / e, vh = ecran.height / e, k = Math.max(1, Math.round(e));
+  // 1) houle : longues crêtes courbes qui roulent (en plus des moutons existants)
+  const G = 90, x0 = Math.floor(o.x / G), y0 = Math.floor(o.y / G), x1 = Math.ceil((o.x + vw) / G), y1 = Math.ceil((o.y + vh) / G);
+  if ((x1 - x0) * (y1 - y0) < 700) for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) {
+    let h = (gx * 92837111) ^ (gy * 689287499); h = (h ^ (h >>> 13)) * 1274126177; h ^= h >>> 16;
+    if ((h & 7) > 1) continue;
+    const ph = (t * 0.22 + ((h >>> 5) & 255) / 255) % 1, a = Math.sin(ph * Math.PI); if (a < 0.2) continue;
+    const x = gx * G + ((h >>> 11) & 63), y = gy * G + ((h >>> 17) & 63) - ph * 6;
+    if (!p535Profond(x, y) || !p535Profond(x + 24, y)) continue;
+    const X = (x - o.x) * e, Y = (y - o.y) * e, L = (14 + a * 12) * e;
+    ctx.fillStyle = "rgba(20,60,150,0.22)"; ctx.fillRect(Math.round(X - L * 0.1), Math.round(Y + 2 * k), Math.round(L * 1.2), 2 * k);
+    ctx.fillStyle = "rgba(170,215,255," + (0.35 * a).toFixed(2) + ")"; ctx.fillRect(Math.round(X), Math.round(Y), Math.round(L), k); ctx.fillRect(Math.round(X + L * 0.2), Math.round(Y - k), Math.round(L * 0.6), k);
+  }
+  // 2) bancs de poissons (ombres sous l'eau)
+  const C = 420, cx0 = Math.floor(o.x / C), cy0 = Math.floor(o.y / C);
+  for (let i = 0; i <= Math.ceil(vw / C); i++) for (let j = 0; j <= Math.ceil(vh / C); j++) {
+    const ci = cx0 + i, cj = cy0 + j; if (p40H(ci * 7 + 1, cj * 3 + 2) < 0.5) continue;
+    const bx = ci * C + C / 2 + Math.sin(t * 0.3 + ci) * 80, by = cj * C + C / 2 + Math.cos(t * 0.25 + cj) * 60; if (!p535Profond(bx, by)) continue;
+    ctx.fillStyle = "rgba(10,30,80,0.35)";
+    for (let f = 0; f < 9; f++) { const a = t * 0.9 + f * 0.7, fx = bx + Math.cos(a) * (10 + (f % 3) * 6), fy = by + Math.sin(a * 1.3) * (6 + (f % 2) * 5); ctx.fillRect(Math.round((fx - o.x) * e), Math.round((fy - o.y) * e), 3 * k, k + 1); }
+  }
+  // 3) dauphins qui sautent près du Merry
+  for (const D of p535Dauphins(t)) {
+    const X = (D.x - o.x) * e, Y = (D.y - o.y) * e, hgt = Math.sin(D.ph * Math.PI) * 14 * e, s = e;
+    ctx.fillStyle = "rgba(10,30,70,0.25)"; ctx.beginPath(); ctx.ellipse(X, Y, 8 * s, 3 * s, D.ang, 0, 6.283); ctx.fill();
+    ctx.save(); ctx.translate(X, Y - hgt); ctx.rotate(D.ang + (D.ph - 0.5) * 1.4 * (Math.cos(D.ang) >= 0 ? 1 : -1) * 0); const fl = Math.cos(D.ang) >= 0 ? 1 : -1; ctx.scale(fl, 1); ctx.rotate((D.ph - 0.5) * 1.3);
+    ctx.fillStyle = "#5a84b8"; ctx.beginPath(); ctx.ellipse(0, 0, 9 * s, 3.2 * s, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#d4e4f4"; ctx.beginPath(); ctx.ellipse(1 * s, 1.2 * s, 6 * s, 1.6 * s, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#4a6c9c"; ctx.beginPath(); ctx.moveTo(-1 * s, -2.6 * s); ctx.lineTo(2 * s, -6 * s); ctx.lineTo(3 * s, -2.4 * s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-8 * s, 0); ctx.lineTo(-12 * s, -3 * s); ctx.lineTo(-11 * s, 0); ctx.lineTo(-12 * s, 3 * s); ctx.fill();
+    ctx.fillStyle = "#14182a"; ctx.fillRect(5 * s, -1 * s, s, s);
+    ctx.restore();
+    if (D.ph < 0.12 || D.ph > 0.88) { ctx.fillStyle = "rgba(255,255,255,0.85)"; for (let q = 0; q < 5; q++) ctx.fillRect(Math.round(X + (q - 2) * 3 * s), Math.round(Y - Math.abs(Math.sin(t * 9 + q)) * 5 * s), 2 * k, 2 * k); }
+  }
+}
+{ const b = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    b.apply(this, arguments);
+    try { const t = AV.temps || performance.now() / 1000; if (!window.__p535noMer && !(typeof g3Actif === "function" && g3Actif())) items.push({ y: -1e9 + 3, dessiner: () => { try { p535Mer2D(o, e, t); } catch (_) { } } }); } catch (_) { }
+  };
+}
+// ---------- 3D ----------
+function p535DauGeo() {
+  if (P535M.dau && P535M.gl === G3.gl) return P535M.dau; P535M.gl = G3.gl;
+  const g = new G3Geo(), b = [0.36, 0.52, 0.74], v = [0.86, 0.9, 0.95], f = [0.28, 0.42, 0.62];
+  g.sph(0, 0, 0, 13, 4.6, 4.8, 10, b); g.sph(2, -1.6, 0, 10, 2.8, 3.6, 8, v); g.sph(13, -0.5, 0, 4, 1.6, 1.6, 6, b);
+  g.box(-1, 3.4, 0, 6, 5, 1.2, f); g.box(-14, 0, 0, 4, 1, 10, f); g.box(3, -3, 3.8, 5, 1, 3, f); g.box(3, -3, -3.8, 5, 1, 3, f);
+  g.sph(9, 1, 3.4, 0.8, 0.8, 0.5, 5, [0.05, 0.05, 0.08]); g.sph(9, 1, -3.4, 0.8, 0.8, 0.5, 5, [0.05, 0.05, 0.08]);
+  const w = new G3Geo(); w.sph(0, 0, 0, 60, 12, 26, 10, [0.32, 0.38, 0.5]); w.box(-62, 2, 0, 10, 2, 50, [0.28, 0.32, 0.44]);
+  return P535M.dau = { d: g.build(), w: w.build() };
+}
+{ const d0 = e3MerDecor;
+  e3MerDecor = function (U, M, A, t, now, dt, houle, vit, fx, fz) {
+    d0.apply(this, arguments);
+    if (window.__p535noMer) return;
+    try {
+      const G = p535DauGeo(), nuit = A.nu || 0, tn = nuit > 0.1 ? [0.05, 0.1, 0.2, nuit * 0.5] : undefined;
+      for (const D of p535Dauphins(now)) {
+        const y = -10 + Math.sin(D.ph * Math.PI) * 24, pitch = Math.cos(D.ph * Math.PI) * 0.9;
+        g3Mesh(G.d, M4.trs(D.x, y, D.y, -D.ang, 0, pitch, 1), { tint: tn });
+        if ((D.ph < 0.1 || D.ph > 0.9) && Math.random() < 0.6) for (let i = 0; i < 2; i++) g3Part(D.x + (Math.random() - 0.5) * 8, -2, D.y + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 16, 20 + Math.random() * 20, (Math.random() - 0.5) * 16, 0.6, 2.4, "#f4fbff", { g: 40, add: false });
+      }
+      // baleine qui souffle au loin (de temps en temps)
+      const cyc = Math.floor(now / 14), ph = (now / 14) % 1;
+      if (ph < 0.45 && p40H(cyc, 5) < 0.55) {
+        const a = p40H(cyc, 6) * 6.283, r = 520 + p40H(cyc, 8) * 260, x = M.x + Math.cos(a) * r, z = M.y + Math.sin(a) * r;
+        if (p535Profond(x, z)) { const up = Math.sin(ph / 0.45 * Math.PI); g3Mesh(G.w, M4.trs(x, -20 + up * 12, z, a + 1.2, 0, 0, 1), { tint: tn });
+          if (up > 0.5 && Math.random() < 0.8) for (let i = 0; i < 2; i++) g3Part(x + 30 * Math.cos(a + 1.2), 4, z - 30 * Math.sin(a + 1.2), (Math.random() - 0.5) * 10, 60 + Math.random() * 40, (Math.random() - 0.5) * 10, 1.2, 3.4, "#eef6ff", { g: 40, add: false }); }
+      }
+    } catch (e) { if (!P535M.err) { P535M.err = 1; console.warn("mer v53.5", e); } }
+  };
+}
+
+/* ===== v53.5 — monde de Luffy : correctifs ===== */
+// accès à Grand Line : la mission « Aider Luffy » est aussi exigée en 3D (le raccourci 3D la sautait)
+{ const t0 = lancerTraversee; lancerTraversee = function () { try { if (typeof p60Acces === "function" && !p60Acces(2)) { RM.arme = false; p60Refus(2); return; } } catch (_) { } return t0.apply(this, arguments); }; }
+// cinématiques plein écran : rien du HUD DOM par-dessus (notifications, barre de navigation, sauvegarde)
+{ const st = document.createElement("style"); st.textContent = `body.p535plein #p105n, body.p535plein #gbInfo, body.p535plein #p98sauve, body.p535plein #v52nord { visibility: hidden !important; }`; document.head.appendChild(st);
+  setInterval(() => { try { document.body.classList.toggle("p535plein", !!(AV.cine && AV.cine.plein && AV.cine.type !== "tbcombat" && AV.cine.type !== "pkcombat")); } catch (_) { } }, 150); }
+// bulles de l'équipage : elles suivent le Vogue Merry (plus de bulles « collées » sur l'eau derrière lui), pas de doublons ni d'empilement
+{ const b0 = bulleMonde;
+  bulleMonde = function (x, y, txt, d = 2.2) {
+    try {
+      const M = AV.merry;
+      if (AV.nav && M && Math.hypot(x - M.x, y - M.y) < 160) {
+        for (let i = AV.bulles.length - 1; i >= 0; i--) if (AV.bulles[i].txt === txt) AV.bulles.splice(i, 1);
+        const att = AV.bulles.filter(B => B.suit); while (att.length >= 2) { const o = att.shift(); AV.bulles.splice(AV.bulles.indexOf(o), 1); }
+        const dx = x - M.x, dy = y - M.y - (att.length ? 30 : 0), B = { txt, t: d, suit: 1, h3: att.length ? 72 : 0 };
+        Object.defineProperty(B, "x", { get() { return AV.merry ? AV.merry.x + dx : x; }, set(v) { }, enumerable: true });
+        Object.defineProperty(B, "y", { get() { return AV.merry ? AV.merry.y + dy : y; }, set(v) { }, enumerable: true });
+        AV.bulles.push(B); if (AV.bulles.length > 6) AV.bulles.shift(); return;
+      }
+      for (const B of AV.bulles) if (B.txt === txt && Math.hypot(B.x - x, B.y - y) < 80) { B.t = Math.max(B.t, d); return; }
+      let yy = y; for (let k = 0; k < 4; k++) { if (!AV.bulles.some(B => Math.abs(B.x - x) < 90 && Math.abs(B.y - yy) < 22)) break; yy -= 24; }
+      return b0.call(this, x, yy, txt, d);
+    } catch (_) { return b0.apply(this, arguments); }
+  };
+}
+// arène v53 : décor « plage » pour les combats sur les îles de Luffy, pont de navire en mer
+function p535OnePiece() {
+  try {
+    if (typeof ILE !== "undefined" && ILE.dedans) return "plage";
+    if (AV.nav) return "pont";
+    if ((AV.monde || 1) === 1 && AV.iles && AV.iles.some(I => Math.hypot(I.x - perso.x, I.y - perso.y) < I.r + 220)) return "plage";
+  } catch (_) { }
+  return null;
+}
+{ const t0 = p104Theme; p104Theme = function (C) { const r = t0.apply(this, arguments); if (r === "pont" || r === "budokai") { const o = p535OnePiece(); if (o && !(C && (C.fond === "pont" || (C.o && C.o.fond === "pont")))) return o; } return r; }; }
+
 
 </script>
 </body>
