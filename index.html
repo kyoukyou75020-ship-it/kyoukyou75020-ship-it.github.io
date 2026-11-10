@@ -39019,7 +39019,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "53.1", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "53.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40665,6 +40665,10 @@ function p107Liste() {
   for (const Y of KNG.RUES.slice(0, 3)) for (let x = KNG.X0 + 60; x < KNG.X1 - 160; x += 220) { const x1 = x + 150; if (Math.abs(x - KNG.CX) < 40 || Math.abs(x1 - KNG.CX) < 40) continue; add({ t: "guirlande", x, x1, y: Y + 26, r: 0, nobs: 1 }); }
   // chemins de pierres sinueux dans les bandes vertes
   for (const yb of [7420, 7660]) { let px = KNG.X0 + 40; while (px < KNG.X1 - 40) { const py = yb + Math.sin(px * 0.011) * 22 + Math.sin(px * 0.031) * 6; if (p107Libre(px, py, 2)) add({ t: "dalle", x: px + (p107H(py, px) - 0.5) * 4, y: py + (p107H(px, 7) - 0.5) * 5, r: 3, h: p107H(px, py), nobs: 1 }); px += 11 + p107H(px, 3) * 6; } }
+  // v53.2 : pots de fleurs devant certaines portes, lanternes de pierre dans les parcs, bannières de Konoha sur l'avenue
+  for (const B of KN_BAT) { if (B.type !== "maison" && B.type !== "boutique") continue; const hh = p107H(B.y, B.x); if (hh < 0.3) continue; for (const s of [-1, 1]) add({ t: "pots", x: B.x + s * 15, y: B.y + 4, r: 0, h: p107H(B.x + s, hh), nobs: 1 }); }
+  for (const [x, y] of [[7720, 7420], [8400, 7420], [7600, 7660], [8700, 7660], [7980, 7420], [8250, 7660], [8800, 7420]]) { let ok = null; for (let d = 0; d < 70 && !ok; d += 10) for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) if (!ok && p107Libre(x + dx, y + dy, 9)) ok = [x + dx, y + dy]; if (ok) add({ t: "toro", x: ok[0], y: ok[1], r: 9 }); }
+  for (let y = KNG.Y1 - 230; y < KNG.Y1 - 50; y += 60) { if (KNG.RUES.some(Y => Math.abs(y - Y) < 14)) continue; for (const s of [-1, 1]) add({ t: "banniere", x: KNG.CX + s * 46, y, r: 0, h: (s > 0 ? 0.3 : 0.05) + ((y / 60) & 1) * 0.0, nobs: 1 }); }
   // buissons, touffes fleuries et petites buttes pour casser les grands aplats
   for (let gx = KNG.X0 + 40; gx < KNG.X1 - 30; gx += 46) for (let gy = KNG.Y0 + 340; gy < KNG.Y1 - 40; gy += 42) { const u = p107H(gx, gy), x = gx + (p107H(gy, gx) - 0.5) * 30, y = gy + (u - 0.5) * 26; if (u < 0.26 && p107Libre(x, y, 7)) add({ t: u < 0.12 ? "fleurs" : "buisson", x, y, r: u < 0.24 ? 7 : 4, h: p107H(x, y), nobs: 1 }); }
   // terrain d'entraînement : clôture de rondins, porte vers le village, tas de bûches, cible
@@ -40673,18 +40677,18 @@ function p107Liste() {
     add({ t: "buches", x: cx - 56, y: cy + 30, r: 12, camp: 1 }); add({ t: "cible", x: cx + 58, y: cy + 20, r: 8, camp: 1 }); }
   return L;
 }
-/* obstacles (seulement si la 3D est disponible : sinon ils seraient invisibles en 2D) */
+/* obstacles (v53.2 : aussi en 2D, où ce décor est maintenant dessiné) */
 (() => {
   const ov = knObstaclesVillage, oc = typeof knObstaclesCampagne === "function" ? knObstaclesCampagne : null;
   const ok3 = () => { try { return typeof g3Actif === "function" && g3Actif(); } catch (_) { return false; } };
   knObstaclesVillage = function (m) {
     const r = ov.apply(this, arguments);
-    try { if (ok3()) for (const D of p107Liste()) { if (D.nobs || D.camp) continue; if (D.t === "etal") obstacle(m, D.x - 18, D.y - 10, D.x + 18, D.y + 2); else if (D.t === "puits") obstacle(m, D.x - 11, D.y - 9, D.x + 11, D.y + 3); else obstacle(m, D.x - 8, D.y - 6, D.x + 8, D.y + 2); } } catch (e) { p107Err("obsV", e); }
+    try { for (const D of p107Liste()) { if (D.nobs || D.camp) continue; if (D.t === "etal") obstacle(m, D.x - 18, D.y - 10, D.x + 18, D.y + 2); else if (D.t === "puits") obstacle(m, D.x - 11, D.y - 9, D.x + 11, D.y + 3); else obstacle(m, D.x - 8, D.y - 6, D.x + 8, D.y + 2); } } catch (e) { p107Err("obsV", e); }
     return r;
   };
   if (oc) knObstaclesCampagne = function (m) {
     const r = oc.apply(this, arguments);
-    try { if (ok3()) for (const D of p107Liste()) if (D.camp && D.t !== "pieu") obstacle(m, D.x - 10, D.y - 6, D.x + 10, D.y + 2); } catch (e) { p107Err("obsC", e); }
+    try { for (const D of p107Liste()) if (D.camp && D.t !== "pieu") obstacle(m, D.x - 10, D.y - 6, D.x + 10, D.y + 2); } catch (e) { p107Err("obsC", e); }
     return r;
   };
 })();
@@ -40757,6 +40761,13 @@ function p107Cell(key) {
     } else if (D.t === "buches") {
       for (let k = 0; k < 6; k++) { const row = k < 3 ? 0 : k < 5 ? 1 : 2, i2 = k < 3 ? k : k < 5 ? k - 3 : 0, bx = x - 6 + i2 * 6 + row * 3; g.box(bx, h + row * 4.6, z, 4.6, 4.4, 18, k & 1 ? bois : boisC); g.box(bx, h + row * 4.6 + 0.6, z + 9.1, 3.4, 3.2, 0.3, H("#e0c090")); }
       g.box(x + 14, h, z + 4, 6, 4, 6, boisF); g.box(x + 14, h + 4, z + 4, 0.8, 6, 0.8, H("#8a9aa8"));
+    } else if (D.t === "pots") {
+      g.cyl(x, h, z, 2.4, 1.9, 3.6, 6, H("#a8583a")); g.sph(x, h + 5.4, z, 3.2, 2.8, 3.2, 5, H(D.h < 0.5 ? "#3a8a3a" : "#4a9a3a")); if (D.h > 0.5) { g.sph(x + 1, h + 7.6, z + 1, 1.2, 1, 1.2, 4, H("#f05a7a")); g.sph(x - 1.2, h + 7, z - 0.6, 1, 0.9, 1, 4, H("#f0d040")); }
+    } else if (D.t === "toro") {
+      g.box(x, h, z, 7, 3, 7, pierreF); g.box(x, h + 3, z, 3.4, 6, 3.4, pierre); g.box(x, h + 9, z, 8, 1.4, 8, pierre); l.box(x, h + 10.4, z, 5, 4.4, 5, lanterne); g.box(x, h + 14.8, z, 11, 1.6, 11, pierreF); g.box(x, h + 16.4, z, 5, 1.4, 5, pierre);
+    } else if (D.t === "banniere") {
+      const bc = (Math.floor(D.h * 4) & 1) ? H("#e8701a") : H("#2a6a3a"), mk = (Math.floor(D.h * 4) & 1) ? H("#1a1010") : H("#f0e8d0");
+      g.cyl(x, h, z, 0.8, 0.8, 34, 5, boisF); g.box(x + 4.5, h + 31, z, 8.5, 0.8, 0.8, boisF); g.box(x + 4.5, h + 13.5, z, 8, 17, 0.5, bc); g.box(x + 4.5, h + 21, z + 0.4, 4, 4, 0.3, mk);
     } else if (D.t === "cible") {
       g.cyl(x, h, z, 1.4, 1.4, 14, 5, boisF); for (const [r, c, k] of [[7, blanc, 0], [5.2, rouge, 1], [3.4, blanc, 2], [1.6, rouge, 3]]) g.sph(x, h + 17, z + 1 + k * 0.35, r, r, 0.5, 10, c);
     }
@@ -42079,6 +42090,336 @@ function m53Lecon() {
 try { const st = document.createElement("style"); st.textContent = "#panneau button:disabled, #panneau button[disabled], #boutique button:disabled { opacity: .5; filter: grayscale(.85); cursor: not-allowed; }"; document.head.appendChild(st); } catch (_) { }
 
 if (!window.MODE_APERCU) demarrer();
+/* ===== v53.2 (lot 3) — Konoha : décor visible en 2D, plus varié et vivant, personnages, animaux, quêtes, boutiques ===== */
+const P532 = { err: [], an: null, img: new Map(), t: 0 };
+function p532Err(k, e) { if (P532.err.length < 12) P532.err.push(k + ": " + (e && e.message || e)); }
+const p532_3D = () => { try { return typeof g3Actif === "function" && g3Actif(); } catch (_) { return false; } };
+function p532Img(key, w, h, f, contour = true) {
+  let c = P532.img.get(key); if (c) return c;
+  c = nouveauCanvas(w, h); const g = c.getContext("2d"); f(pinceau(g), g); if (contour) knOutline(c); P532.img.set(key, c); return c;
+}
+function p532Miroir(im) {
+  const k = "M"; if (im[k]) return im[k];
+  const c = nouveauCanvas(im.width, im.height), g = c.getContext("2d"); g.translate(im.width, 0); g.scale(-1, 1); g.drawImage(im, 0, 0); im[k] = c; return c;
+}
+/* ---------- 1. personnages : traits distinctifs (même gabarit 16×24) ---------- */
+(() => {
+  try {
+    const X = (id, o) => { if (KN_LOOKS[id]) Object.assign(KN_LOOKS[id], o); };
+    X("iruka", { cicatrice: true });
+    X("kakashi", { oeilCache: true });
+    X("lee", { bol: true, sourcils: true, bandeau: false, ceinture: true, nCol: "#c83a2a", jambieres: true, yCol: "#f08a20" });
+    X("konohamaru", { echarpe: true, xCol: "#3a6ad8" });
+    X("choji", { spirales: true, joues: false, colBlanc: true });
+    X("shikamaru", { ananas: true, queue: false });
+    X("tsume", { crocs: true, joues: false });
+    X("hinata", { yeuxPales: true });
+    X("ino", { meche: 1, queueLongue: true, queue: false });
+    X("izumo", { meche: -1 });
+    X("tenten", { macarons: true, chignon: false, c: "#f4a8bc", p: "#2a5a3a" });
+    X("ermite", { cornes: true, yCol: "#aab2be", traits: true });
+    X("kotetsu", { pansement: true });
+    X("tazuna", { lunettes: true });
+    const base = spriteKPNJ;
+    spriteKPNJ = function (L, vue, f) {
+      const p = base.apply(this, arguments);
+      try {
+        const o = OSC[f & 3] || 0, F = vue === 0, S = vue === 2, B = vue === 1;
+        if (L.bol) { if (F) { p.rect(3, 3, 12, 6, "h"); p.rect(3, 5, 3, 9, "h"); p.rect(12, 5, 12, 9, "h"); } else if (S) { p.rect(3, 3, 10, 6, "h"); p.rect(3, 5, 5, 9, "h"); } else p.rect(3, 3, 12, 10, "h"); }
+        if (L.sourcils) { if (F) { p.rect(4, 7, 6, 7, "e"); p.rect(9, 7, 11, 7, "e"); } else if (S) p.rect(9, 7, 11, 7, "e"); }
+        if (L.ceinture) { if (S) p.rect(5, 16, 10, 16, "n"); else p.rect(4, 16, 11, 16, "n"); }
+        if (L.jambieres) { if (S) { p.rect(6 + o, 19, 7 + o, 20, "y"); p.rect(8 - o, 19, 9 - o, 20, "y"); } else { p.rect(5, 19, 7, 20, "y"); p.rect(8, 19, 10, 20, "y"); } }
+        if (L.cicatrice) { if (F) p.rect(5, 9, 10, 9, "m"); else if (S) p.rect(10, 9, 12, 9, "m"); }
+        if (L.oeilCache && F) { p.rect(9, 7, 11, 7, "n"); p.rect(10, 8, 11, 8, "n"); }
+        if (L.echarpe) { if (F) { p.rect(4, 11, 11, 12, "x"); p.rect(10, 13, 11, 18, "x"); } else if (S) { p.rect(5, 11, 10, 12, "x"); p.rect(1 - o, 12, 4, 13, "x"); p.px(0, 14 + o, "x"); } else { p.rect(4, 11, 11, 12, "x"); p.rect(6, 13, 8, 19, "x"); } }
+        if (L.colBlanc && !B) p.rect(S ? 5 : 4, 11, S ? 10 : 11, 11, "N");
+        if (L.spirales && F) { p.px(4, 9, "j"); p.px(5, 10, "j"); p.px(11, 9, "j"); p.px(10, 10, "j"); }
+        if (L.spirales && S) { p.px(9, 9, "j"); p.px(10, 10, "j"); }
+        if (L.ananas) { if (S) { p.rect(2, 1, 3, 3, "h"); p.px(1, 0, "h"); p.px(3, 0, "h"); p.px(2, 0, "h"); } else { p.rect(7, 0, 8, 2, "h"); p.px(6, 0, "h"); p.px(9, 0, "h"); } }
+        if (L.crocs) { if (F) { p.px(4, 9, "j"); p.px(4, 10, "j"); p.px(11, 9, "j"); p.px(11, 10, "j"); } else if (S) { p.px(9, 9, "j"); p.px(9, 10, "j"); } }
+        if (L.yeuxPales) { if (F) { p.px(5, 8, "N"); p.px(10, 8, "N"); } else if (S) p.px(10, 8, "N"); }
+        if (L.meche && F) { if (L.meche > 0) { p.rect(9, 6, 11, 7, "h"); p.px(10, 8, "h"); } else { p.rect(4, 6, 6, 7, "h"); p.px(5, 8, "h"); } }
+        if (L.queueLongue) { if (B) p.rect(7, 4, 8, 17, "h"); else if (S) { p.rect(1, 5, 2, 15, "h"); p.px(3, 5, "h"); } else { p.px(2, 3, "h"); p.px(13, 3, "h"); } }
+        if (L.macarons) { p.ell(3.5, 2.6, 2.5, 2.4, "h"); p.ell(11.5, 2.6, 2.5, 2.4, "h"); }
+        if (L.traits) { if (F) { p.rect(5, 9, 5, 10, "j"); p.rect(10, 9, 10, 10, "j"); } else if (S) p.rect(10, 9, 10, 10, "j"); }
+        if (L.pansement) { if (F) p.rect(5, 9, 10, 9, "N"); else if (S) p.rect(9, 9, 12, 9, "N"); }
+        if (L.lunettes) { if (F) { p.px(4, 8, "N"); p.px(6, 8, "N"); p.px(9, 8, "N"); p.px(11, 8, "N"); } else if (S) p.px(11, 8, "N"); }
+      } catch (e) { p532Err("sprite", e); }
+      return p;
+    };
+    CACHE_KPNJ.clear();
+  } catch (e) { p532Err("looks", e); }
+})();
+/* ---------- 2. décor P107 dessiné en 2D (avant : seulement en 3D) ---------- */
+const P532_PROD = [["#e04030", "#f0a020", "#80c040"], ["#f0e0b0", "#d0b080", "#a07040"], ["#60a0e0", "#e0e0f0", "#4070b0"], ["#e07aa0", "#f0f0a0", "#a0e0a0"]];
+function p532ImgDeco(D) {
+  const q = Math.floor((D.h || 0) * 4) & 3, bois = "#8a5a30", boisF = "#4a2a14", boisC = "#b8864a";
+  switch (D.t) {
+    case "etal": { const k = "etal" + D.c + q; let c = P532.img.get(k); if (!c) { c = imageEtal(D.c, mulberry32(hacherGraine(k)), P532_PROD[q]); P532.img.set(k, c); } return c; }
+    case "puits": return p532Img("puits", 30, 34, (P, g) => g.drawImage(imagePuits(), 0, 0), false);
+    case "caisses": return p532Img("caisses" + q, 24, 18, P => { P.r(9, 6, 12, 11, boisC); P.r(9, 6, 12, 2, "#d8a868"); P.r(14, 6, 1, 11, bois); P.r(9, 11, 12, 1, bois); P.r(12, 1, 8, 6, boisC); P.r(12, 1, 8, 1, "#d8a868"); P.r(15, 1, 1, 6, bois);
+      P.r(1, 7, 7, 10, bois); P.r(1, 8, 7, 1, boisF); P.r(1, 14, 7, 1, boisF); P.r(2, 6, 5, 1, boisC); if (q & 1) { P.r(13, 2, 2, 2, "#e04030"); P.r(16, 3, 2, 2, "#f0a020"); } });
+    case "tonneaux": return p532Img("tonneaux" + q, 22, 20, P => { for (const [x, y] of [[1, 5], [11, 5], [6, 9]]) { P.r(x, y, 9, 10, bois); P.r(x, y + 2, 9, 1, boisF); P.r(x, y + 7, 9, 1, boisF); P.r(x + 1, y, 7, 1, boisC); P.r(x + 2, y + 1, 1, 8, "#a87040"); } });
+    case "jardin": return p532Img("jardin" + q, 28, 18, P => { P.r(2, 4, 24, 10, "#7a5230"); const fl = ["#e84a6a", "#f0d040", "#ffffff", "#a050d0", "#ff8a30"];
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 5; b++) { const x = 4 + b * 5, y = 4 + a * 3; P.r(x, y + 1, 1, 2, "#3a8a3a"); P.r(x - 1, y, 3, 2, fl[(a * 5 + b + q) % 5]); }
+      for (let x = 1; x < 27; x += 4) P.r(x, 12, 1, 6, boisC); P.r(1, 13, 26, 1, boisC); P.r(1, 16, 26, 1, boisC); });
+    case "buisson": return p532Img("buisson" + q, 18, 13, P => { P.ell(8, 8, 7, 5, q < 2 ? "#2f7a34" : "#3c8a3a"); P.ell(12, 8, 5, 4, "#4a9a40"); P.ell(6, 6, 3, 2, "#5ab04a"); if (q === 3) { P.p(5, 8, "#e04050"); P.p(11, 6, "#e04050"); } });
+    case "fleurs": return p532Img("fleurs" + q, 16, 9, P => { const fl = ["#f05a7a", "#f0d040", "#ffffff", "#b060e0"]; for (let k = 0; k < 7; k++) { const x = 2 + (k * 5 + q * 3) % 12, y = 2 + (k * 3) % 5; P.r(x, y + 1, 1, 3, "#3a8a3a"); P.r(x - 1, y, 3, 2, fl[(k + q) % 4]); } }, false);
+    case "dalle": return p532Img("dalle" + q, 12, 7, P => { const w = 7 + q, h = 4 + (q >> 1); P.ell(6, 3.5, w / 2, h / 2, "#6a645a"); P.ell(6, 3, w / 2 - 0.5, h / 2 - 0.6, q < 2 ? "#a39b8b" : "#8e877a"); }, false);
+    case "buches": return p532Img("buches", 30, 18, P => { for (let k = 0; k < 6; k++) { const row = k < 3 ? 0 : k < 5 ? 1 : 2, i = k < 3 ? k : k < 5 ? k - 3 : 0, x = 2 + i * 6 + row * 3, y = 12 - row * 5; P.r(x, y, 6, 5, k & 1 ? bois : boisC); P.ell(x + 3, y + 2.5, 2, 2, "#e0c090"); } P.r(22, 11, 6, 5, boisF); P.r(24, 4, 1, 7, "#8a9aa8"); P.r(23, 3, 4, 2, "#b0bcc8"); });
+    case "cible": return p532Img("cible", 16, 26, P => { P.r(7, 12, 2, 14, boisF); P.ell(8, 8, 7, 7, "#f4ecdc"); P.ell(8, 8, 5, 5, "#d8382a"); P.ell(8, 8, 3.4, 3.4, "#f4ecdc"); P.ell(8, 8, 1.6, 1.6, "#d8382a"); });
+    case "pieu": return p532Img("pieu", 5, 14, P => { P.r(1, 2, 3, 12, bois); P.r(1, 2, 3, 1, boisC); P.r(2, 1, 1, 1, boisC); P.r(3, 3, 1, 10, boisF); }, false);
+    case "pots": return p532Img("pots" + q, 10, 13, P => { P.r(2, 8, 6, 5, "#a8583a"); P.r(1, 8, 8, 1, "#c86a44"); P.ell(5, 5, 4, 4, q & 1 ? "#3a8a3a" : "#4a9a3a"); if (q > 1) { P.p(3, 3, "#f05a7a"); P.p(6, 2, "#f0d040"); P.p(7, 5, "#f05a7a"); } });
+    case "toro": return p532Img("toro", 14, 22, P => { P.r(3, 18, 8, 4, "#8e877a"); P.r(5, 12, 4, 6, "#a39b8b"); P.r(2, 6, 10, 6, "#a39b8b"); P.r(4, 7, 6, 4, "#ffb050"); P.r(0, 3, 14, 3, "#7a7468"); P.r(3, 1, 8, 2, "#8e877a"); P.r(6, 0, 2, 1, "#7a7468"); });
+    case "banniere": return p532Img("banniere" + q, 12, 36, P => { P.r(1, 0, 2, 36, boisF); P.r(3, 2, 8, 1, boisF); P.r(3, 3, 8, 17, q & 1 ? "#e8701a" : "#2a6a3a"); P.r(3, 20, 3, 3, q & 1 ? "#e8701a" : "#2a6a3a"); P.r(8, 20, 3, 3, q & 1 ? "#e8701a" : "#2a6a3a");
+      // feuille de Konoha stylisée
+      const m = q & 1 ? "#1a1010" : "#f0e8d0"; P.r(5, 8, 4, 1, m); P.r(5, 8, 1, 5, m); P.r(5, 12, 4, 1, m); P.r(8, 9, 1, 3, m); P.r(7, 10, 1, 1, m); P.r(9, 13, 1, 3, m); });
+  }
+  return null;
+}
+function p532Facade(D) {
+  const k = "fac" + D.x + "," + D.y; let c = P532.img.get(k); if (c) return c;
+  const w = D.w, W = w + 12, H = 50, cx = W / 2, B = KN_BAT.find(b => b.x === D.x && b.y === D.y) || {};
+  c = nouveauCanvas(W, H); const g = c.getContext("2d"), P = pinceau(g), yb = H - 1;   // yb = sol (B.y)
+  const lant = D.k === "ichiraku" ? "#ffb04a" : "#e83a2a";
+  // lanternes de part et d'autre de la porte (comme en 3D)
+  for (const s of [-1, 1]) { const lx = Math.round(cx + s * 10.5) - 2; P.r(lx + 1, yb - 23, 1, 2, "#3a2a1a"); P.r(lx, yb - 21, 4, 1, "#4a2a14"); P.r(lx, yb - 20, 4, 5, lant); P.r(lx, yb - 20, 1, 5, "#ff9a70"); P.r(lx, yb - 15, 4, 1, "#4a2a14"); }
+  // auvent de toile au-dessus de la porte
+  const ac = ["#c8a070", "#8aa0b0", "#c86a4a", "#a0b070"][Math.floor(D.h * 4) & 3];
+  if (D.k !== "ichiraku") { P.r(cx - 9, yb - 25, 18, 1, melange(ac, "#000", 0.35)); P.r(cx - 9, yb - 24, 18, 3, ac); P.r(cx - 9, yb - 24, 18, 1, melange(ac, "#fff", 0.3)); for (let i = 0; i < 18; i += 3) P.r(cx - 9 + i, yb - 21, 2, 1, ac); }
+  // enseigne verticale
+  if (D.k !== "immeuble" && D.k !== "ichiraku") { const ex = Math.round(cx + (D.h < 0.5 ? 1 : -1) * (w / 2 - 5)) - 2, col = D.k === "maison" ? ["#2a5a9a", "#9a2a2a", "#2a7a4a", "#6a3a8a"][Math.floor(D.h * 4) & 3] : "#f4ecdc";
+    P.r(ex, yb - 20, 5, 15, "#4a2a14"); P.r(ex + 1, yb - 19, 3, 13, col); for (let i = 0; i < 3; i++) P.r(ex + 2, yb - 17 + i * 4, 1, 2, D.k === "maison" ? "#f4ecdc" : "#4a2a14"); }
+  // balcon à pots de fleurs (maisons larges, immeuble) — placé sous les fenêtres en 2D
+  if ((D.k === "maison" && w >= 64 && D.h < 0.7) || D.k === "immeuble") {
+    const bw = Math.min(w - 16, 40), bx = Math.round(cx + (D.h < 0.35 ? -1 : 1) * (w / 2 - bw / 2 - 6) - bw / 2), by = yb - 31;
+    P.r(bx, by + 5, bw, 2, "#8a5a30"); for (let i = 0; i <= 6; i++) P.r(bx + Math.round(i * (bw - 1) / 6), by, 1, 5, "#4a2a14"); P.r(bx, by, bw, 1, "#b8864a");
+    if (D.h > 0.2) for (let i = 0; i < 3; i++) { const px = bx + 4 + i * Math.floor((bw - 8) / 3); P.r(px, by + 1, 4, 3, "#a8583a"); P.r(px - 1, by - 2, 6, 3, ["#d84a7a", "#f0c040", "#5ab0e0"][i]); P.r(px, by - 3, 4, 1, "#3a8a3a"); }
+  }
+  // variété : lierre grimpant ou corde à linge sous l'avant-toit selon la maison
+  if (D.k === "maison") {
+    if (D.h > 0.6) { const side = D.h > 0.8 ? 1 : -1, lx = Math.round(cx + side * (w / 2 - 6)); for (let j = 0; j < 30; j++) { const xx = lx + Math.round(Math.sin(j * 0.7 + D.h * 9) * 2); P.r(xx, yb - j - 2, 2, 1, j % 5 === 0 ? "#5ab04a" : "#2f7a34"); if (j % 3 === 0) P.r(xx + (j & 1 ? 2 : -2), yb - j - 2, 2, 2, "#3c8a3a"); } }
+    else if (D.h < 0.25) { P.r(cx - w / 2 + 6, yb - 34, w - 12, 1, "#3a2a1a"); const cl = ["#f4f0e4", "#5a8ad8", "#e86a4a", "#f0d050", "#8ac06a"]; for (let i = 0; i < 5; i++) { const lx = Math.round(cx - w / 2 + 9 + i * (w - 20) / 5); P.r(lx, yb - 33, 5, 4 + (i & 1) * 2, cl[(i + Math.floor(D.h * 20)) % 5]); } }
+  }
+  P532.img.set(k, c); return c;
+}
+(() => {
+  const base = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    base(items, o, e, visible);
+    try {
+      if (!knIci() || typeof p107Liste !== "function") return;
+      const t = AV.temps || 0, d3 = p532_3D();
+      if (!d3) for (const D of p107Liste()) {
+        if (D.t === "guirlande") { if (visible((D.x + D.x1) / 2, D.y - 20, (D.x1 - D.x) / 2 + 20)) items.push({ y: D.y, dessiner: () => p532Guirlande(D, o, e, t) }); continue; }
+        if (!visible(D.x, D.y - 10, 50)) continue;
+        if (D.t === "facade") { const im = p532Facade(D); items.push({ y: D.y + 0.5, dessiner: () => poserImg(im, D.x, D.y, im.width / 2, im.height - 1, o, e) }); continue; }
+        if (D.t === "pieu") { const im = p532ImgDeco(D); items.push({ y: D.y, dessiner: () => p532Pieu(D, im, o, e) }); continue; }
+        const im = p532ImgDeco(D); if (!im) continue;
+        const sol = D.t === "dalle" || D.t === "fleurs";
+        items.push({ y: sol ? D.y - 4000 : D.y, dessiner: () => poserImg(im, D.x, D.y, im.width / 2, im.height - 1, o, e) });
+      }
+      // détails vivants 2D : fumée d'Ichiraku et des cheminées, pétales de cerisier
+      if (!d3) {
+        const I = KN_BAT.find(b => b.type === "ichiraku");
+        if (I && visible(I.x, I.y - 70, 60)) items.push({ y: I.y + 1, dessiner: () => p532Fumee(I.x + 18, I.y - 58, o, e, t) });
+      }
+      p532Animaux(items, o, e, visible, t);
+      p532Marques(items, o, e, visible, t);
+    } catch (er) { p532Err("2d", er); }
+  };
+})();
+function p532Guirlande(D, o, e, t) {
+  const k = Math.max(1, e), X = x => Math.round((x - o.x) * e), Y = y => Math.round((y - o.y) * e), h0 = 30;
+  ctx.fillStyle = "#4a2a14"; for (const x of [D.x, D.x1]) ctx.fillRect(X(x) - k, Y(D.y - h0), 2 * k, h0 * k);
+  const N = 14;
+  for (let i = 0; i < N; i++) { const u = i / N, u2 = (i + 1) / N, x = D.x + (D.x1 - D.x) * u, y = D.y - h0 + 1 + Math.sin(u * Math.PI) * 6, y2 = D.y - h0 + 1 + Math.sin(u2 * Math.PI) * 6; ctx.fillStyle = "#3a2a1a"; ctx.fillRect(X(x), Y(Math.min(y, y2)), Math.ceil((D.x1 - D.x) / N * e) + 1, k); }
+  for (let i = 1; i < N; i += 2) { const u = i / N, x = D.x + (D.x1 - D.x) * u, y = D.y - h0 + 1 + Math.sin(u * Math.PI) * 6, sw = Math.sin(t * 2 + i) * 1.2;
+    ctx.fillStyle = "#3a2a1a"; ctx.fillRect(X(x), Y(y), k, 2 * k);
+    ctx.fillStyle = "#1a1010"; ctx.fillRect(X(x + sw - 2), Y(y + 2), 5 * k, 5 * k);
+    ctx.fillStyle = i % 4 === 1 ? "#ff9a50" : "#fff0b0"; ctx.fillRect(X(x + sw - 1.5), Y(y + 2.5), 4 * k, 4 * k); }
+}
+function p532Pieu(D, im, o, e) {
+  const k = Math.max(1, e), a2 = D.a + Math.PI * 2 / 28, nx = D.cx + Math.cos(a2) * D.R, ny = D.cy + Math.sin(a2) * D.R * 0.8;
+  ctx.fillStyle = "#b8864a";
+  for (const hh of [4, 8]) { const n = Math.max(2, Math.ceil(Math.hypot(nx - D.x, ny - D.y) / 3)); for (let i = 0; i < n; i++) { const u = i / n; ctx.fillRect(Math.round((D.x + (nx - D.x) * u - o.x) * e), Math.round((D.y + (ny - D.y) * u - hh - o.y) * e), 3 * k, k); } }
+  poserImg(im, D.x, D.y, 2.5, 13, o, e);
+}
+function p532Fumee(x, y, o, e, t) {
+  const k = Math.max(1, e);
+  for (let i = 0; i < 5; i++) { const u = (t * 0.35 + i / 5) % 1, px = x + Math.sin(u * 6 + i) * 4 * u, py = y - u * 34, s = (2 + u * 5) * k;
+    ctx.globalAlpha = 0.5 * (1 - u); ctx.fillStyle = "#f4f4f4"; ctx.fillRect(Math.round((px - o.x) * e - s / 2), Math.round((py - o.y) * e - s / 2), Math.round(s), Math.round(s)); }
+  ctx.globalAlpha = 1;
+}
+/* ---------- 3. animaux de Konoha, animés (2D, et repris en volume par la 3D) ---------- */
+function p532ImgAnimal(type, f, v) {
+  const d3 = p532_3D(), key = "an:" + type + ":" + f + ":" + (v || 0) + (d3 ? ":3" : "");
+  const W = { chat: 14, chien: 18, akamaru: 22, pakkun: 14, pigeon: 9, crapaud: 11, papillon: 7 }[type] || 12, H = { chat: 11, chien: 13, akamaru: 16, pakkun: 11, pigeon: 8, crapaud: 9, papillon: 6 }[type] || 10;
+  return p532Img(key, W, H, P => {
+    if (type === "chat") {
+      const C = [["#e8903a", "#c86a1a"], ["#8a8a92", "#5a5a64"], ["#2a2a30", "#14141a"], ["#f4f0e8", "#d8a060"], ["#f4f0e8", "#2a2a30"]][v % 5];   // pas de chat brun : on ne le confond pas avec Tora
+      if (f === 4) { P.ell(7, 8, 6, 3, C[0]); P.ell(3, 7, 3, 2.6, C[0]); P.p(1, 5, C[0]); P.p(4, 5, C[0]); P.r(9, 9, 5, 1, C[1]); P.r(2, 7, 2, 1, "#1a1010"); return; }   // couché, dort
+      if (f >= 2) { P.ell(7, 7, 3.2, 3.6, C[0]); P.ell(6, 3.5, 2.8, 2.5, C[0]); P.p(4, 1, C[0]); P.p(8, 1, C[0]); P.p(5, 3, "#1a1010"); P.p(7, 3, "#30a030"); const q = f === 3 ? 1 : 0; P.r(10, 6 - q, 1, 4, C[1]); P.p(11, 5 - q * 2, C[1]); P.r(5, 10, 4, 1, C[1]); return; } // assis, queue qui bat
+      const pa = f & 1; P.ell(7, 6, 5, 2.6, C[0]); P.ell(2.8, 4, 2.6, 2.4, C[0]); P.p(1, 1, C[0]); P.p(4, 1, C[0]); P.p(2, 4, "#1a1010"); P.r(11, 3, 1, 3, C[1]); P.p(12, 2, C[1]);
+      if (v === 4) { P.r(6, 4, 3, 2, C[1]); P.p(3, 3, C[1]); }
+      P.r(3 + pa, 8, 1, 3, C[1]); P.r(5 - pa, 8, 1, 3, C[0]); P.r(9 + pa, 8, 1, 3, C[1]); P.r(11 - pa, 8, 1, 3, C[0]);
+    } else if (type === "chien" || type === "akamaru" || type === "pakkun") {
+      const big = type === "akamaru", pk = type === "pakkun", c0 = big ? "#f4f0e8" : pk ? "#c8a070" : "#a86a3a", c1 = big ? "#c8c0b4" : pk ? "#7a5a3a" : "#6a3a1a", s = big ? 1.25 : pk ? 0.85 : 1, pa = f & 1;
+      if (f >= 2) { // assis, remue la queue
+        P.ell(8 * s, 8 * s, 4 * s, 4 * s, c0); P.ell(6 * s, 4 * s, 3.6 * s, 3 * s, c0); P.r(Math.round(3 * s), Math.round(2 * s), 2, 4, c1); P.p(Math.round(4 * s), Math.round(4 * s), "#1a1010"); P.p(Math.round(2.6 * s), Math.round(5 * s), "#1a1010");
+        P.r(Math.round(12 * s), Math.round((f === 3 ? 4 : 6) * s), 2, 3, c1); if (pk) { P.r(4, 7, 5, 1, "#3a5aa0"); } if (big) { P.r(2, 3, 2, 1, "#c03030"); }
+        P.r(Math.round(5 * s), Math.round(11 * s), 2, 2, c1); P.r(Math.round(9 * s), Math.round(11 * s), 2, 2, c1); return; }
+      P.ell(9 * s, 6.5 * s, 6 * s, 3.2 * s, c0); P.ell(3.4 * s, 4.5 * s, 3.2 * s, 3 * s, c0); P.r(Math.round(2 * s), Math.round(2 * s), 2, 3, c1); P.p(Math.round(2.4 * s), Math.round(4 * s), "#1a1010"); P.p(0, Math.round(5 * s), "#1a1010");
+      P.r(Math.round(15 * s), Math.round(3 * s), 2, 2, c1); if (pk) P.r(4, 7, 4, 1, "#3a5aa0"); if (big) P.r(2, 4, 2, 1, "#c03030");
+      for (const [lx, ph] of [[4, pa], [7, 1 - pa], [11, pa], [14, 1 - pa]]) P.r(Math.round(lx * s), Math.round(9 * s), 2, Math.round((3 + ph) * s) - 1, ph ? c1 : c0);
+    } else if (type === "pigeon") {
+      if (f >= 2) { const a = f === 2 ? 0 : 3; P.ell(4.5, 4, 2.6, 2, "#8a92a0"); P.p(4, 3, "#c8d0dc"); P.r(0, a, 4, 2, "#a8b0bc"); P.r(5, a, 4, 2, "#a8b0bc"); P.p(6, 3, "#e07030"); return; } // vol
+      const b = f & 1; P.ell(4, 5, 3.4, 2.4, "#8a92a0"); P.ell(6, 4, 1.4, 1.2, "#6a7a8a"); P.ell(b ? 7 : 6.5, b ? 5 : 2.6, 1.6, 1.5, "#5a6a80"); P.p(b ? 8 : 7, b ? 6 : 3, "#e0a030"); P.p(b ? 7 : 6, b ? 4 : 2, "#1a1010"); P.r(0, 4, 2, 2, "#5a6270"); P.p(3, 7, "#e07030"); P.p(5, 7, "#e07030");
+    } else if (type === "crapaud") {
+      const c0 = v ? "#e8902a" : "#5a9a3a", c1 = v ? "#a85a1a" : "#3a6a2a";
+      if (f === 1) { P.ell(5.5, 4, 4.5, 2.6, c0); P.r(0, 5, 3, 1, c1); P.r(8, 5, 3, 1, c1); P.p(3, 2, "#f0f0a0"); P.p(7, 2, "#f0f0a0"); P.p(3, 2, "#1a1010"); return; }
+      P.ell(5.5, 6, 4.5, 3, c0); P.ell(3, 3.4, 1.6, 1.6, c0); P.ell(8, 3.4, 1.6, 1.6, c0); P.p(3, 3, "#1a1010"); P.p(8, 3, "#1a1010"); P.r(1, 8, 3, 1, c1); P.r(7, 8, 3, 1, c1); P.r(4, 7, 3, 1, f === 2 ? "#f0d0a0" : c0);
+      if (v) { P.r(4, 5, 3, 1, "#4a6ab0"); }
+    } else if (type === "papillon") {
+      const c = ["#f0d040", "#f07ab0", "#7ab0f0", "#ffffff"][v % 4]; if (f & 1) { P.r(1, 1, 2, 4, c); P.r(4, 1, 2, 4, c); } else { P.r(0, 0, 3, 3, c); P.r(4, 0, 3, 3, c); P.r(1, 3, 2, 2, c); P.r(4, 3, 2, 2, c); } P.r(3, 1, 1, 4, "#2a1a10");
+    }
+  }, !d3);   // en 3D : pas de contour noir (sinon le volume devient une coque sombre)
+}
+function p532CreerAnimaux() {
+  const L = [], add = (type, x, y, o = {}) => L.push(Object.assign({ type, x, y, hx: x, hy: y, z: 0, vx: 0, vy: 0, dir: Math.random() < 0.5 ? 1 : -1, etat: "pause", t: Math.random() * 3, f: 0, v: 0, ph: Math.random() * 6 }, o));
+  const libre = (x, y) => { try { return !jeu.monde.bloque(Math.round(x), Math.round(y)); } catch (_) { return true; } };
+  const pres = (x, y, r = 40) => { for (let i = 0; i < 24; i++) { const a = i * 2.4, d = (i % 6) * r / 6, px = x + Math.cos(a) * d, py = y + Math.sin(a) * d; if (libre(px, py)) return [px, py]; } return [x, y]; };
+  // chats (5 couleurs) près des maisons et des bancs
+  const spots = [[7600, 7330], [8480, 7320], [7700, 7560], [8640, 7790], [8120, 7560], [7950, 7800]];
+  spots.forEach(([x, y], i) => { const [px, py] = pres(x, y); add("chat", px, py, { v: i % 5, dort: i === 3 }); });
+  // chiens : Akamaru près de Tsume, Pakkun près de la tour, un chien errant au marché
+  const Ts = KN_NOMMES.find(n => n.id === "tsume"); if (Ts) { const [px, py] = pres(Ts.x + 18, Ts.y + 6); add("akamaru", px, py); }
+  { const [px, py] = pres(8236, 7318); add("pakkun", px, py); }
+  { const [px, py] = pres(7840, 7640); add("chien", px, py); }
+  // pigeons en petites bandes sur les places
+  for (const [x, y] of [[8060, 7450], [7800, 7640], [8420, 7560], [8180, 7860]]) for (let k = 0; k < 5; k++) { const [px, py] = pres(x + (k - 2) * 7, y + (k & 1) * 6, 12); add("pigeon", px, py, { r: 18 }); }
+  // crapauds près de la cascade de l'Ermite et des étangs
+  try { const C = KNG.zones.cascade, cx = T2P(C.tx), cy = T2P(C.ty); for (let k = 0; k < 4; k++) { const [px, py] = pres(cx - 30 + k * 22, cy + 40 + (k & 1) * 10, 30); add("crapaud", px, py, { v: k === 0 ? 1 : 0, r: 40 }); } } catch (_) { }
+  // papillons dans les parcs
+  for (let k = 0; k < 8; k++) { const x = KNG.X0 + 120 + k * ((KNG.X1 - KNG.X0 - 240) / 7), y = k & 1 ? 7420 : 7660; add("papillon", x, y, { v: k, z: 10, r: 70 }); }
+  return L;
+}
+function p532MajAnimaux(dt) {
+  if (!P532.an) P532.an = p532CreerAnimaux();
+  if (window.__p532gel) return;
+  const libre = (x, y) => { try { return !jeu.monde.bloque(Math.round(x), Math.round(y)); } catch (_) { return true; } };
+  const px = perso.x, py = perso.y, court = Math.hypot(perso.vx || 0, perso.vy || 0) > 90 || (typeof perso.course !== "undefined" && perso.course);
+  for (const a of P532.an) {
+    if (Math.abs(a.x - px) > 600 || Math.abs(a.y - py) > 700) continue;
+    a.t -= dt; a.ph += dt; const d = Math.hypot(a.x - px, a.y - py);
+    if (a.type === "pigeon") {
+      if (a.etat !== "vol" && d < 34) { a.etat = "vol"; a.vx = (a.x - px) / (d || 1) * 90 + (Math.random() - 0.5) * 40; a.vy = (a.y - py) / (d || 1) * 60 - 20; a.t = 2 + Math.random(); }
+      if (a.etat === "vol") { a.x += a.vx * dt; a.y += a.vy * dt; a.z = Math.min(46, a.z + dt * 50); a.dir = a.vx < 0 ? -1 : 1; if (a.t <= 0) { a.etat = "retour"; } }
+      else if (a.etat === "retour") { const dx = a.hx - a.x, dy = a.hy - a.y, l = Math.hypot(dx, dy); if (l < 3) { a.etat = "pause"; a.z = 0; a.t = 2; } else { a.x += dx / l * 70 * dt; a.y += dy / l * 70 * dt; a.dir = dx < 0 ? -1 : 1; a.z = Math.max(0, Math.min(40, l * 0.5)); } if (d < 50 && l < 30) { a.t = 1; a.etat = "vol"; a.vx = (a.x - px) / (d || 1) * 90; a.vy = -30; } }
+      else { if (a.t <= 0) { a.t = 0.6 + Math.random() * 2; const nx = a.x + (Math.random() - 0.5) * 10, ny = a.y + (Math.random() - 0.5) * 6; if (Math.hypot(nx - a.hx, ny - a.hy) < a.r && libre(nx, ny)) { a.dir = nx < a.x ? -1 : 1; a.x = nx; a.y = ny; } } }
+      a.f = a.etat === "pause" ? (Math.sin(a.ph * 7) > 0.3 ? 1 : 0) : (Math.floor(a.ph * 12) & 1) + 2;
+      continue;
+    }
+    if (a.type === "papillon") { a.x = a.hx + Math.sin(a.ph * 0.6 + a.v) * a.r + Math.sin(a.ph * 1.7) * 8; a.y = a.hy + Math.cos(a.ph * 0.45 + a.v) * 24; a.z = 10 + Math.sin(a.ph * 3) * 4; a.dir = Math.cos(a.ph * 0.6 + a.v) > 0 ? 1 : -1; a.f = Math.floor(a.ph * 10) & 1; continue; }
+    if (a.type === "crapaud") {
+      if (a.etat === "saut") { a.x += a.vx * dt; a.y += a.vy * dt; a.z = Math.max(0, Math.sin(Math.min(1, 1 - a.t / 0.45) * Math.PI) * 8); if (a.t <= 0) { a.etat = "pause"; a.z = 0; a.t = 1 + Math.random() * 3; } a.f = 1; continue; }
+      if (a.t <= 0 || d < 22) { const ang = d < 22 ? Math.atan2(a.y - py, a.x - px) : Math.random() * 6.28, nx = a.x + Math.cos(ang) * 16, ny = a.y + Math.sin(ang) * 12; if (Math.hypot(nx - a.hx, ny - a.hy) < a.r && libre(nx, ny)) { a.etat = "saut"; a.t = 0.45; a.vx = (nx - a.x) / 0.45; a.vy = (ny - a.y) / 0.45; a.dir = a.vx < 0 ? -1 : 1; } else a.t = 0.8; }
+      a.f = Math.sin(a.ph * 3) > 0.85 ? 2 : 0; continue;
+    }
+    // chats et chiens
+    const chien = a.type !== "chat", vit = chien ? 46 : 34;
+    if (a.dort && d > 30) { a.f = 4; continue; }
+    if (a.etat === "marche") {
+      const dx = a.cx - a.x, dy = a.cy - a.y, l = Math.hypot(dx, dy);
+      if (l < 2 || a.t <= 0) { a.etat = "pause"; a.t = 1.5 + Math.random() * 4; }
+      else { const nx = a.x + dx / l * vit * dt, ny = a.y + dy / l * vit * dt; if (libre(nx, ny)) { a.x = nx; a.y = ny; a.dir = dx < 0 ? -1 : 1; } else { a.etat = "pause"; a.t = 1; } }
+      a.f = Math.floor(a.ph * 8) & 1;
+    } else {
+      if (!chien && d < 22 && court) { const ang = Math.atan2(a.y - py, a.x - px); a.cx = a.x + Math.cos(ang) * 40; a.cy = a.y + Math.sin(ang) * 30; a.etat = "marche"; a.t = 1.2; }
+      else if (chien && d < 70 && d > 20) { a.cx = px + (a.x < px ? -16 : 16); a.cy = py + 4; a.etat = "marche"; a.t = 0.8; }
+      else if (a.t <= 0) { const ang = Math.random() * 6.28, r = 20 + Math.random() * 30; a.cx = a.hx + Math.cos(ang) * r; a.cy = a.hy + Math.sin(ang) * r * 0.7; a.etat = "marche"; a.t = 3; }
+      a.f = 2 + ((chien && d < 60) || Math.sin(a.ph * 2.2) > 0.6 ? (Math.floor(a.ph * (chien ? 10 : 4)) & 1) : 0);
+      if (chien && d <= 70) a.dir = px < a.x ? -1 : 1;
+    }
+  }
+}
+(() => {
+  const base = majAventure;
+  majAventure = function (dt) {
+    base(dt);
+    try { if (knIci() && jeu.scene === sceneMonde && !jeu.pause) p532MajAnimaux(Math.min(0.1, dt || 0)); } catch (e) { p532Err("anim", e); }
+    // quête D1 reprise depuis une sauvegarde : Tora n'était recréé qu'à l'acceptation → objectif impossible après rechargement
+    try { if (knIci() && KN.q && knActive("D1") && !knE("D1").o && !KN.tora) knCreerTora(); } catch (e) { p532Err("tora", e); }
+  };
+})();
+function p532Animaux(items, o, e, visible, t) {
+  if (!P532.an) return;
+  for (const a of P532.an) {
+    if (!visible(a.x, a.y - a.z, 20)) continue;
+    let im = p532ImgAnimal(a.type, a.f, a.v); if (a.dir > 0) im = p532Miroir(im);
+    const ombre = a.z > 2;
+    items.push({ y: a.y, dessiner: () => {
+      if (ombre && !p532_3D()) { ctx.globalAlpha = 0.25; ctx.fillStyle = "#000"; const k = Math.max(1, e); ctx.fillRect(Math.round((a.x - 3 - o.x) * e), Math.round((a.y - 1 - o.y) * e), 6 * k, 2 * k); ctx.globalAlpha = 1; }
+      poserImg(im, a.x, a.y - a.z, im.width / 2, im.height - 1, o, e);
+      if (a.f === 4 && a.dort && !p532_3D()) { const k = Math.max(1, e), u = (t * 0.5) % 1; ctx.globalAlpha = 1 - u; textePixel(ctx, "z", Math.round((a.x + 4 - o.x) * e), Math.round((a.y - 12 - u * 10 - o.y) * e), Math.max(1, Math.round(k * 0.8)), "#ffffff", "#140a0c", 0.5); ctx.globalAlpha = 1; }
+    } });
+  }
+}
+/* ---------- 4. quêtes : « ! » sur le tableau des missions et la porte de la tour du Hokage ---------- */
+function p532MarqueTableau() { for (const id in KN_MIS) { const M = KN_MIS[id]; if (M.donneur === "tableau" && (knDispo(id) || (knActive(id) && knObjectifFait(id)))) return id; } return null; }
+function p532MarqueHokage() { for (const id in KN_MIS) { const M = KN_MIS[id]; if (M.donneur === "kakashi" && (knDispo(id) || (knActive(id) && knObjectifFait(id)))) return id; } return null; }
+function p532Marques(items, o, e, visible, t) {
+  if (!KN.transforme || !KN.q) return;
+  // en 3D les éléments « y = 1e8 » ne sont jamais dessinés : on appelle directement marqueExclam (qui, en 3D, mémorise le « ! » pour v52Exclam)
+  const d3 = (() => { try { return !!(E3 && E3.actif && E3.VP); } catch (_) { return false; } })();
+  if (d3) { const push0 = items.push; items = { push: it => { if (it.y >= 1e8) { try { it.dessiner(); } catch (_) { } } else push0.call(arguments[0], it); } }; items.__d3 = 1;
+    for (const q of KN.pnj || []) { if (q.cache || !q.fixe || !visible(q.x, q.y, 30)) continue; const dq = knQueteDispo(q.id); if (dq) marqueExclam(q.x, q.y - 30, o, e, t); } }
+  const TB = KN_DECO.find(D => D.type === "tableau");
+  if (TB && visible(TB.x, TB.y - 30, 30) && p532MarqueTableau()) items.push({ y: 1e8, dessiner: () => marqueExclam(TB.x, TB.y - 34, o, e, t) });
+  const T = KN_BAT.find(b => b.id === "tour");
+  if (T && visible(T.x, T.y - 40, 40) && (p532MarqueHokage() || p532MarqueTableau())) items.push({ y: 1e8, dessiner: () => marqueExclam(T.x, T.y - 36, o, e, t) });
+}
+/* ---------- 5. boutiques de Konoha : gain avant → après ---------- */
+function p532AvAp(id) {
+  const A = KN_ART[id]; if (!A) return null;
+  const pv = Math.round(perso.pv), pvM = perso.pvMax, ch = Math.round(KN.ch || 0), chM = knChMax(), dg = x => Math.round(x * 10) / 10;
+  switch (id) {
+    case "miso": return `PV ${pv} → ${Math.min(pvM, pv + 40)} · Chakra ${ch} → ${Math.min(chM, ch + 30)}`;
+    case "porc": return `PV ${pv} → ${pvM} · Chakra ${ch} → ${chM}`;
+    case "geant": return `PV ${pv} → ${pvM} · Chakra ${ch} → ${chM} · Dégâts ${dg(knDeg())} → ${dg(knDeg() * (KN.buff > 0 ? 1 : 1.25))} (2 min)`;
+    case "shuriken": return `Shuriken ${KN.inv.shuriken} → ${KN.inv.shuriken + 20}`;
+    case "explosif": return `Parchemins ${KN.inv.explosif} → ${KN.inv.explosif + 3}`;
+    case "kunai": case "gants": return `Dégâts ${dg(knDeg())} → ${dg(knDeg() + 3 * (KN.buff > 0 ? 1.25 : 1))}`;
+    case "bandeau": return `PV max ${knPvMax()} → ${knPvMax() + 20}`;
+    case "fuma": { const s = (6 + 1.2 * KN.niv) * (KN.buff > 0 ? 1.25 : 1); return `Dégâts shuriken ${dg(s)} → ${dg(s * 1.5)} · transperçants`; }
+    case "pilule": return `Pilules ${KN.inv.pilule} → ${KN.inv.pilule + 1}`;
+    case "onguent": return `Onguents ${KN.inv.onguent} → ${KN.inv.onguent + 1}`;
+    case "bouquet": return `Bouquets ${KN.inv.bouquet || 0} → ${(KN.inv.bouquet || 0) + 1}`;
+  }
+  return null;
+}
+(() => {
+  const base = knBoutique;
+  knBoutique = function (type, msg) {
+    const r = base.apply(this, arguments);
+    try {
+      const pan = document.getElementById("panneau"); if (!pan) return r;
+      pan.querySelectorAll('button[data-action="knAch"]').forEach(b => {
+        const id = b.dataset.id, A = KN_ART[id], av = p532AvAp(id); if (!A) return;
+        if (av) b.insertAdjacentHTML("beforeend", `<br><span class="petit">📈 ${echapHTML(av)}</span>`);
+        if (prog.argent < A.prix) b.insertAdjacentHTML("beforeend", `<br><span class="petit">Il te manque ${A.prix - prog.argent} Z</span>`);
+      });
+      for (const b of pan.querySelectorAll("button[disabled]")) {
+        const tx = b.textContent; const A = Object.values(KN_ART).find(a => tx.includes(a.nom)); if (!A || b.querySelector(".p532")) continue;
+        if (A.u && KN.eq[A.u]) { const av = p532AvAp(Object.keys(KN_ART).find(k => KN_ART[k] === A)); if (av) b.insertAdjacentHTML("beforeend", `<br><span class="petit p532">✔ Bonus déjà actif</span>`); }
+        else if (A.rang && KN.rang < A.rang) b.insertAdjacentHTML("beforeend", `<br><span class="petit p532">📈 ${echapHTML(p532AvAp(Object.keys(KN_ART).find(k => KN_ART[k] === A)) || "")}</span>`);
+      }
+      if (type === "tenues") pan.querySelectorAll('button[data-action="knAchT"],button[data-action="knTenue"]').forEach(b => { if (!b.querySelector(".p532")) b.insertAdjacentHTML("beforeend", `<br><span class="petit p532">📈 Apparence seulement (aucun bonus de stats)</span>`); });
+    } catch (e) { p532Err("boutique", e); }
+    return r;
+  };
+})();
+
 </script>
 </body>
 </html>
