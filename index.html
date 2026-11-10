@@ -29693,6 +29693,12 @@ function e3T(g, a, b, c, col) {
   g.t(a, b, c, [nx, ny, nz], col);
 }
 const e3Sombre = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+/* v52.3 : herbe moins fluo en 3D (verts saturés adoucis, un peu plus chauds) */
+function v52Herbe(c) {
+  const r = c[0], g = c[1], b = c[2]; if (!(g > r * 1.08 && g > b * 1.08)) return c;
+  const L = r * 0.3 + g * 0.59 + b * 0.11, s = Math.min(1, (g - Math.max(r, b)) / Math.max(0.05, g)) * 0.55;
+  return [(r + (L - r) * s) + 0.015, (g + (L - g) * s) * 0.93, (b + (L - b) * s) * 0.88];
+}
 function e3CoulSol(m, tx, ty, l, T) {
   const i = ty * T + tx; let c;
   if (l === NIV.SABLE) c = PAL.sable; else if (l === NIV.HERBE) c = (m.secA && m.secA(tx + 0.5, ty + 0.5) ? PAL.herbeSeche : PAL.herbe)[0];
@@ -29702,7 +29708,7 @@ function e3CoulSol(m, tx, ty, l, T) {
   if (z === 2) { const px = tx * 16 + 8, py = ty * 16 + 8; let col = [0.78, 0.7, 0.52]; for (const L of m.lieux) if (px >= L.x0 && px < L.x1 && py >= L.y0 && py < L.y1) col = L.type === "village" ? [0.78, 0.69, 0.5] : L.type === "futur" ? [0.52, 0.56, 0.68] : [0.34, 0.36, 0.5]; v = col; }
   else if (z === 1 && m.lieux && m.lieux.length) { try { if (distanceChemin(m, tx * 16 + 8, ty * 16 + 8) < 5.6) v = n3U32(INFO_CHEMIN.style === "route" ? PAL_ROUTE.bordF : PAL_CHEMIN.base, 1); } catch (_) { } }
   else if (s === 1) v = n3U32(PAL_CHEMIN.base, 1); else if (s === 2) v = [0.82, 0.74, 0.55];
-  return v;
+  return v52Herbe(v);
 }
 /* ---------- morceau de terrain 16×16 tuiles : relief doux, falaises, eau, arbres, rochers, fleurs ---------- */
 function e3Morceau(cx, cy, lod) {
@@ -29852,15 +29858,18 @@ function e3Vox(im) {
   const w = im.width, h = im.height; let d;
   try { const g = im.getContext ? im.getContext("2d") : null; if (g) d = g.getImageData(0, 0, w, h).data; else { const c = nouveauCanvas(w, h), x = c.getContext("2d"); x.drawImage(im, 0, 0); d = x.getImageData(0, 0, w, h).data; } } catch (_) { return null; }
   let hs = 2166136261 ^ w ^ (h << 12); for (let i = 0; i < d.length; i += 4) hs = Math.imul(hs ^ d[i] ^ (d[i + 1] << 8) ^ (d[i + 2] << 16) ^ (d[i + 3] << 24), 16777619);
-  const cle = w + "x" + h + ":" + (hs >>> 0) + (E3.sc && jeu.scene && !jeu.scene.ile && w >= 40 ? "i" : ""); m = E3.vc.get(cle);
+  const cle = w + "x" + h + ":" + (hs >>> 0) + (E3.sc && jeu.scene && !jeu.scene.ile && w >= 40 ? "i" : "") + (im.__v52f ? "b" : ""); m = E3.vc.get(cle);
   if (m) { E3.vox.set(im, m); return m; }
   const A = new Uint8Array(w * h); let n = 0, minx = w, maxx = 0, miny = h, maxy = 0;
   for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 90) { A[i] = 1; n++; const x = i % w, y = (i / w) | 0; if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y; }
-  const bw = maxx - minx + 1, bh = maxy - miny + 1, dep = Math.max(2.2, Math.min(bw >= 40 ? bw * 0.55 : bw * 0.42, E3.sc && jeu.scene && !jeu.scene.ile && bw >= 40 ? 12 : 34)), cxm = (minx + maxx) / 2;
+  const bw = maxx - minx + 1, bh = maxy - miny + 1, dep = Math.max(2.2, Math.min(bw >= 40 ? bw * 0.55 : bw * 0.42, im.__v52f && bw >= 40 ? 19 : E3.sc && jeu.scene && !jeu.scene.ile && bw >= 40 ? 17 : 34)), cxm = (minx + maxx) / 2;
   const T = (x, y) => { const u = (x + 0.5 - cxm - 0.5) / (bw / 2), prof = Math.sqrt(Math.max(0.12, 1 - u * u * (bw >= 40 ? 0.15 : 0.55))); const v = (y - miny) / Math.max(1, bh); return Math.max(1.1, dep * prof * (bw >= 40 ? 1 : (v < 0.25 ? 0.7 : 1))); };
   const op = (x, y) => x >= 0 && y >= 0 && x < w && y < h && A[y * w + x];
   let avT = [0.5, 0.5, 0.5];
   if (bw >= 40) { let r = 0, gg = 0, bb = 0, n2 = 0; for (let y = miny + 2; y < Math.min(h, miny + 9); y++) for (let x = minx; x <= maxx; x++) { const i = y * w + x; if (A[i]) { r += d[i * 4]; gg += d[i * 4 + 1]; bb += d[i * 4 + 2]; n2++; } } if (n2) avT = [Math.min(1, r / n2 / 255 * 1.2), Math.min(1, gg / n2 / 255 * 1.2), Math.min(1, bb / n2 / 255 * 1.2)]; }
+  let rowC = null;   // v52.3 : arrière / côtés des bâtiments = couleur moyenne de la ligne (pas de porte ni fenêtres dans le dos)
+  if (bw >= 40) { rowC = []; let last = avT; for (let y = 0; y < h; y++) { let r = 0, gg = 0, bb = 0, n2 = 0; for (let x = minx; x <= maxx; x++) { const i = y * w + x; if (!A[i]) continue; const R = d[i * 4], G = d[i * 4 + 1], B = d[i * 4 + 2]; if (Math.max(R, G, B) < 70) continue; r += R; gg += G; bb += B; n2++; } if (n2) last = [r / n2 / 255, gg / n2 / 255, bb / n2 / 255]; rowC.push(last); } }
+  const rc = (y, k) => { const c = rowC[y]; return [Math.min(1, c[0] * k), Math.min(1, c[1] * k), Math.min(1, c[2] * k)]; };
   const g = new G3Geo(), x0 = -w / 2, col = (i, k) => [Math.min(1, d[i * 4] / 255 * k), Math.min(1, d[i * 4 + 1] / 255 * k), Math.min(1, d[i * 4 + 2] / 255 * k)];
   for (let y = 0; y < h; y++) {
     let x = 0;
@@ -29869,12 +29878,13 @@ function e3Vox(im) {
       let e = x + 1; while (e < w && A[y * w + e] && d[(y * w + e) * 4] === d[i * 4] && d[(y * w + e) * 4 + 1] === d[i * 4 + 1] && d[(y * w + e) * 4 + 2] === d[i * 4 + 2] && Math.abs(T(e, y) - T(x, y)) < 0.5) e++;
       const th = T(x, y), Y0 = h - y - 1, Y1 = h - y, X0 = x0 + x, X1 = x0 + e;
       g.q([X0, Y0, th], [X1, Y0, th], [X1, Y1, th], [X0, Y1, th], [0, 0, 1], col(i, 1));
-      g.q([X1, Y0, -th], [X0, Y0, -th], [X0, Y1, -th], [X1, Y1, -th], [0, 0, -1], col(i, 0.7));
+      if (!rowC) g.q([X1, Y0, -th], [X0, Y0, -th], [X0, Y1, -th], [X1, Y1, -th], [0, 0, -1], col(i, 0.7));
       x = e;
     }
+    if (rowC) { let x = 0; while (x < w) { if (!A[y * w + x]) { x++; continue; } let e = x + 1; while (e < w && A[y * w + e] && Math.abs(T(e, y) - T(x, y)) < 0.5) e++; const th = T(x, y), Y0 = h - y - 1, Y1 = h - y; g.q([x0 + e, Y0, -th], [x0 + x, Y0, -th], [x0 + x, Y1, -th], [x0 + e, Y1, -th], [0, 0, -1], rc(y, 0.72)); x = e; } }
     for (let x = 0; x < w; x++) {
       const i = y * w + x; if (!A[i]) continue;
-      const th = T(x, y), Y0 = h - y - 1, Y1 = h - y, X0 = x0 + x, X1 = X0 + 1, cs = col(i, 0.82);
+      const th = T(x, y), Y0 = h - y - 1, Y1 = h - y, X0 = x0 + x, X1 = X0 + 1, cs = rowC ? rc(y, 0.84) : col(i, 0.82);
       const tn = (xx, yy) => op(xx, yy) ? T(xx, yy) : 0;
       const side = (nt, f) => { if (nt >= th - (nt > 0 ? 1.5 : 0)) return; f(Math.max(0, nt), th); f(-th, -Math.max(0, nt)); };
       side(tn(x - 1, y), (a, b) => g.q([X0, Y0, a], [X0, Y0, b], [X0, Y1, b], [X0, Y1, a], [-1, 0, 0], cs));
@@ -29883,7 +29893,8 @@ function e3Vox(im) {
       if (!op(x, y + 1)) g.q([X0, Y0, -th], [X1, Y0, -th], [X1, Y0, th], [X0, Y0, th], [0, -1, 0], col(i, 0.6));
     }
   }
-  m = g.build(); m.w = w; m.h = h; m.bw = bw; E3.vox.set(im, m); E3.vc.set(cle, m);
+  m = g.build(); m.w = w; m.h = h; m.bw = bw; m.dep = dep;
+  if (bw >= 40) { let nv = 0, nt = 0; for (let i = 0; i < w * h; i++) if (A[i]) { nt++; const R = d[i * 4], G = d[i * 4 + 1], B = d[i * 4 + 2]; if (G > R * 1.12 && G > B * 1.05) nv++; } m.veg = nt > 0 && nv / nt > 0.45; }   /* feuillage : reste face caméra */ E3.vox.set(im, m); E3.vc.set(cle, m);
   if (E3.vc.size > 140) { const k = E3.vc.keys().next().value, o = E3.vc.get(k); E3.vc.delete(k); try { G3.gl.deleteBuffer(o.b); } catch (_) { } o.n = 0; }
   E3.nVox++;
   return m;
@@ -30096,8 +30107,8 @@ function e3Rendu() {
     const v = e3Vox(b.im); if (!v) continue; if (Math.hypot(b.x - px, b.y - pz) > TR.R * 0.95) continue;
     const g0 = e3Sol(b.x, b.y - 2); nb++;
     if (TR.ombre && !shDone && !b.proj && b.lift < 30) g3Mesh(U.ombre, M4.trs(b.x + 2, g0 + 0.5, b.y + 1, 0, 0, 0, Math.min(26, v.bw * 0.5 + 2), 1, Math.min(20, v.bw * 0.34 + 2)), { a: 0.34, tint: [0, 0.02, 0.05, 1] });
-    const zO = (E3.sc || b.im.__v52f) && v.bw >= 40 && !ILs ? (b.im.__v52f ? -28 : -11) * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
-    const yA = E3.camA || 0;
+    const zO = (E3.sc || b.im.__v52f) && v.bw >= 40 && !ILs ? -Math.max(8, (v.dep || 12) - 1) * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
+    const yA = v.bw >= 40 && !v.veg ? 0 : (E3.camA || 0);   // v52.3 : bâtiments fixes (vrais côtés / arrière), personnages et petits objets face caméra
     g3Mesh(v, M4.trs(b.x + zO * Math.sin(yA), g0 + b.lift, b.y + zO * Math.cos(yA), yA, 0, 0, b.s * (b.mir ? -1 : 1), b.sy, b.s), { a: b.a < 1 ? b.a : null, e: b.proj ? 0.8 : 0 });
   }
   if (typeof v52Lueurs === "function") { try { v52Lueurs(U); } catch (e) { if (!E3.luErr) { E3.luErr = 1; console.warn('lueurs', e); } } }
@@ -30663,7 +30674,7 @@ function e3SceneMesh(sc) {
     let r = 0, gg = 0, b = 0; for (const [ox, oy] of [[2, 2], [6, 2], [2, 6], [6, 6]]) { const p = px(x + ox, y + oy); r += p[0]; gg += p[1]; b += p[2]; }
     const col = [r / 1020, gg / 1020, b / 1020], mur = y < 50 || x < 24 || x >= W - 24 || (y >= H - 32 && (x + C / 2 < po[0] || x + C / 2 >= po[1]));
     if (mur) w.box(x + C / 2, 0, y + C / 2, C, 26, C, col);
-    else g.q([x, 0, y + C], [x + C, 0, y + C], [x + C, 0, y], [x, 0, y], [0, 1, 0], col);
+    else g.q([x, 0, y + C], [x + C, 0, y + C], [x + C, 0, y], [x, 0, y], [0, 1, 0], v52Herbe(col));
   }
   g.q([-1800, -1, H + 1800], [W + 1800, -1, H + 1800], [W + 1800, -1, -1800], [-1800, -1, -1800], [0, 1, 0], [0.2, 0.3, 0.16]);
   return (sc.__m3 = { g: g.build(), w: w.build() });
@@ -31408,7 +31419,7 @@ class SceneIle extends SceneLieu {
     const g = new G3Geo(), w = new G3Geo(), land = new Uint8Array(nx * ny), col = [];
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
       let r = 0, gg = 0, b = 0, n = 0; for (const [ox, oy] of [[4, 4], [12, 4], [4, 12], [12, 12]]) { const k = ((j * C + oy) * W + i * C + ox) * 4; if (d[k + 3] > 254) { r += d[k]; gg += d[k + 1]; b += d[k + 2]; n++; } }
-      if (n >= 2) { land[j * nx + i] = 1; col[j * nx + i] = [r / n / 255, gg / n / 255, b / n / 255]; }
+      if (n >= 2) { land[j * nx + i] = 1; col[j * nx + i] = v52Herbe([r / n / 255, gg / n / 255, b / n / 255]); }
     }
     const L = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && land[j * nx + i];
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
@@ -38995,7 +39006,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "52.2", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "52.3", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -40504,7 +40515,7 @@ if (typeof messageRM === "function") messageRM = function (txt) { p105Aide(txt, 
 /* suivi de mission : fond propre, taille lisible, retour à la ligne */
 function p105Suivi(x, y, s, txt) {
   try {
-    const dpr = DPR(), land = estPaysage(), p = Math.max(2, Math.round(1.45 * dpr)), maxW = Math.min(ecran.width * (land ? 0.27 : 0.6), 300 * dpr);
+    const dpr = DPR(), land = estPaysage(), p = Math.max(2, Math.round((land ? 1.45 : 1.1) * dpr)), maxW = Math.min(ecran.width * (land ? 0.27 : 0.56), 300 * dpr);   // v52.3 : plus discret en portrait
     const coupe = (t, pp, col) => { const mots = String(t).split(/\s+/), L = []; let c = ""; for (const m of mots) { const e = c ? c + " " + m : m; if (c && imageTexte(e, col, "#140a0c").width * pp > maxW) { L.push(c); c = m; } else c = e; } if (c) L.push(c); const n = land ? 2 : 3; if (L.length > n) { L.length = n; L[n - 1] += "..."; } return L; };
     const L = coupe(String(txt).toUpperCase(), p, "#fff4d8");
     const h = P105.hint && P105.hint.fin > performance.now() ? P105.hint.txt : null, ph = Math.max(2, p - 1), LH = h ? coupe(h.toUpperCase(), ph, "#bff0c0").slice(0, land ? 1 : 2) : [];
@@ -41429,6 +41440,43 @@ function v52BrMaisonProche() {
 }
 /* Britannia : les maisons et boutiques de la carte sont alignées sur leur base en 3D (le héros n'est plus caché devant la porte) */
 { const f = brImgBat; brImgBat = function (B) { const c = f.apply(this, arguments); try { if (c && B && B.type !== "chateau") c.__v52f = 1; } catch (_) { } return c; }; }
+/* ===== v52.3 — « ! » de quête visibles en 3D (Pokémon, Konoha, Britannia, One Piece…) + donneurs des îles ===== */
+const V52X = [];
+{
+  const mx = marqueExclam;
+  marqueExclam = function (x, y, o, e, t) {
+    try { if (E3 && E3.actif && E3.VP) { V52X.push({ x, z: y + 30, t: performance.now() }); return; } } catch (_) { }
+    return mx.apply(this, arguments);
+  };
+}
+function v52Exclam() {
+  if (!V52X.length || !E3.VP) return;
+  const now = performance.now(), k = Math.max(2, Math.round(DPR() * 1.3)), vus = new Set();
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  for (let i = V52X.length - 1; i >= 0; i--) {
+    const m = V52X[i]; if (now - m.t > 150) { V52X.splice(i, 1); continue; }
+    const key = Math.round(m.x / 4) + "," + Math.round(m.z / 4); if (vus.has(key)) continue; vus.add(key);
+    const q = e3Ecran(m.x, e3Sol(m.x, m.z) + 37, m.z); if (!q) continue;
+    const sx = Math.round(q[0]), sy = Math.round(q[1] - Math.abs(Math.sin(now / 250)) * 3 * k);
+    ctx.fillStyle = "#1a1008"; ctx.fillRect(sx - 3 * k, sy - 12 * k, 6 * k, 12 * k);
+    ctx.fillStyle = "#ffe040"; ctx.fillRect(sx - 2 * k, sy - 11 * k, 4 * k, 6 * k); ctx.fillRect(sx - 2 * k, sy - 4 * k, 4 * k, 3 * k);
+  }
+  ctx.restore();
+  if (V52X.length > 200) V52X.splice(0, V52X.length - 200);
+}
+{ const h1 = e3Haut2D; e3Haut2D = function () { h1.apply(this, arguments); try { v52Exclam(); } catch (e) { if (!E3.exclErr) { E3.exclErr = 1; console.warn("v52 « ! »", e); } } }; }
+/* îles One Piece : « ! » sur le donneur de quête (quête à prendre ou à rendre) */
+{
+  const el = SceneIle.prototype.elements;
+  SceneIle.prototype.elements = function (liste, o, e) {
+    const r = el.apply(this, arguments);
+    try {
+      const I = this.ile, st = ILE.q[I.id] | 0;
+      if (st === 0 || st === 2) { const q = (this.pnj || []).find(p => p.role === "donneur"); if (q) liste.push({ y: 1e8, dessiner: () => marqueExclam(q.x, q.y - 30, o, e, AV.temps) }); }
+    } catch (_) { }
+    return r;
+  };
+}
 if (!window.MODE_APERCU) demarrer();
 </script>
 </body>
