@@ -1,5 +1,5 @@
-/* Mondes Ouverts — service worker (version 56.1) */
-const VERSION = "56.1";
+/* Mondes Ouverts — service worker (version 60.0) */
+const VERSION = "60.0";
 const CACHE = "mondes-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-180.png"];
 self.addEventListener("install", e => {
@@ -12,6 +12,9 @@ self.addEventListener("message", e => { if (e.data === "SKIP_WAITING") self.skip
 self.addEventListener("fetch", e => {
   const req = e.request; if (req.method !== "GET") return;
   const url = new URL(req.url); if (url.origin !== location.origin) return;
+  // seulement le jeu : rien sous un autre dossier du site (ex. /echecs/), sauf ses icônes
+  const base = new URL("./", self.registration.scope).pathname, rel = url.pathname.startsWith(base) ? url.pathname.slice(base.length) : null;
+  if (rel === null || (rel.includes("/") && !rel.startsWith("icons/"))) return;
   if (url.pathname.endsWith("/version.json") || url.pathname.endsWith("/sw.js")) return;
   if (req.mode === "navigate") {
     e.respondWith(caches.open(CACHE).then(c => c.match("./index.html").then(r => r || fetch(req).then(n => { if (n.ok) c.put("./index.html", n.clone()); return n; }))));
