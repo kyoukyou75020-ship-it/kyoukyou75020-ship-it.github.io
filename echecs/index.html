@@ -16,7 +16,7 @@ button{font:inherit;border:1px solid #3b404a;background:#262a31;color:#eceae6;bo
 input[type=text]{width:100%;font:13px ui-monospace,monospace;background:#14161a;color:#ddd;border:1px solid #3b404a;border-radius:8px;padding:8px}
 #promo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:16px}#promo[hidden]{display:none}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#30343c;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .25s;pointer-events:none}#toast.on{opacity:1}
-small{color:#8f8b85}
+small{color:#8f8b85}select{font:inherit;background:#262a31;color:#eceae6;border:1px solid #3b404a;border-radius:10px;padding:9px 10px}[hidden]{display:none!important}
 .equipes{display:flex;flex-wrap:wrap;gap:8px}.equipe{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;width:96px;font-size:12px;line-height:1.2;text-align:center}
 .equipe canvas{width:56px;height:84px}.equipe .classique{font-size:52px;line-height:84px;height:84px}.equipe.active{border-color:#3a7bf2;background:#1f2f4f;box-shadow:0 0 0 2px #3a7bf2 inset}
 .plateaux{display:flex;flex-wrap:wrap;gap:6px}.plateau-btn{display:flex;align-items:center;gap:6px;padding:6px 9px;font-size:12px}.plateau-btn.active{border-color:#3a7bf2;background:#1f2f4f;box-shadow:0 0 0 2px #3a7bf2 inset}.nuancier{width:22px;height:22px;border-radius:4px;border:3px solid;background-size:100% 100%;display:inline-block}
@@ -36,6 +36,14 @@ small{color:#8f8b85}
     <label class="interrupteur"><input type="checkbox" id="cine-accueil" checked> Cinématiques d'attaque</label>
     <div class="rangee" style="margin-top:14px"><button class="primaire" id="creer">Créer la partie</button></div>
     <p><small>Ensuite, envoyez le lien d'invitation à votre ami (SMS, WhatsApp…). Il n'a rien à installer.</small></p>
+    <hr style="border:none;border-top:1px solid #30343c;margin:16px 0">
+    <p style="color:#eceae6;font-weight:600">Pas d'ami sous la main ? Jouez contre l'IA (hors ligne)</p>
+    <p><small>Votre couleur, votre équipe et votre plateau sont ceux choisis ci-dessus.</small></p>
+    <p style="color:#eceae6;margin-top:10px">Équipe de l'IA :</p>
+    <div class="equipes petit" id="equipes-ia-accueil"></div>
+    <p style="color:#eceae6;margin-top:10px">Niveau :</p>
+    <div class="rangee choix"><label><input type="radio" name="niveau" value="facile"> Facile</label><label><input type="radio" name="niveau" value="moyen" checked> Moyen</label><label><input type="radio" name="niveau" value="difficile"> Difficile</label></div>
+    <div class="rangee" style="margin-top:14px"><button class="primaire" id="jouer-ia">Jouer contre l’IA</button></div>
   </div>
 </section>
 <section id="jeu" hidden>
@@ -51,12 +59,17 @@ small{color:#8f8b85}
     </div>
     <div>
       <div class="carte"><b>Équipes</b>
-        <p style="margin-top:8px"><small>Mon équipe (votre ami la voit aussi) :</small></p>
+        <p style="margin-top:8px"><small id="equipe-aide">Mon équipe (votre ami la voit aussi) :</small></p>
         <div class="equipes petit" id="equipes-jeu"></div>
         <p><small id="mon-equipe"></small></p>
-        <p style="color:#eceae6"><small>Équipe de mon ami :</small><br><small id="equipe-ami"></small></p>
+        <p style="color:#eceae6"><small id="ami-titre">Équipe de mon ami :</small><br><small id="equipe-ami"></small></p>
         <p><small>Personnages dessinés par le code, en hommage de fan : non officiel, sans image ni logo d'origine.</small></p>
       </div>
+      <div class="carte" id="ia-attente" hidden><b>Personne ne vient ?</b><p><small>Jouez contre l'IA en attendant (la partie continue sur ce téléphone, sans réseau).</small></p>
+        <div class="rangee"><select id="niveau-attente"><option value="facile">Facile</option><option value="moyen">Moyen</option><option value="difficile">Difficile</option></select><button id="ia-maintenant">Jouer contre l’IA</button></div></div>
+      <div class="carte" id="carte-ia" hidden><b>Contre l'IA</b>
+        <div class="rangee" style="margin-top:8px"><label>Niveau <select id="niveau-jeu"><option value="facile">Facile</option><option value="moyen">Moyen</option><option value="difficile">Difficile</option></select></label></div>
+        <p style="margin-top:8px"><small>Équipe de l'IA :</small></p><div class="equipes petit" id="equipes-ia-jeu"></div></div>
       <div class="carte"><b>Plateau &amp; effets</b>
         <p style="margin-top:8px"><small>Décor de l'échiquier (sur votre téléphone uniquement) :</small></p>
         <div class="plateaux" id="plateaux-jeu"></div>
@@ -64,8 +77,8 @@ small{color:#8f8b85}
         <p><small>Pendant une cinématique, touchez l'échiquier pour la passer.</small></p>
       </div>
       <div class="carte"><b>Coups joués</b><pre id="coups"></pre></div>
-      <div class="carte"><b>Lien pour votre ami</b><input id="lien" type="text" readonly onclick="this.select()"><div class="rangee" style="margin-top:8px"><button id="partager2">Copier / partager</button></div><p><small>Gardez ce lien privé : toute personne qui l'a peut voir la partie.</small></p></div>
-      <div class="rangee"><button id="nouvelle">Nouvelle partie</button><button id="abandon">Abandonner</button></div>
+      <div class="carte" id="carte-lien"><b>Lien pour votre ami</b><input id="lien" type="text" readonly onclick="this.select()"><div class="rangee" style="margin-top:8px"><button id="partager2">Copier / partager</button></div><p><small>Gardez ce lien privé : toute personne qui l'a peut voir la partie.</small></p></div>
+      <div class="rangee"><button id="annuler-coup" hidden>Annuler le coup</button><button id="nouvelle">Nouvelle partie</button><button id="abandon">Abandonner</button></div>
     </div>
   </div>
 </section>
@@ -298,6 +311,44 @@ function bestMove(s       , depth        , noise        )              {
   return best;
 }
 
+/* ===== IA : recherche alpha-bêta à approfondissement itératif, limitée en temps ===== */
+const AI_LEVELS = { facile: { name: "Facile", depth: 1, time: 300, noise: 140, random: 0.25 }, moyen: { name: "Moyen", depth: 3, time: 900, noise: 18, random: 0 }, difficile: { name: "Difficile", depth: 6, time: 2200, noise: 0, random: 0 } };
+function aiThink(s, levelKey, keys) {
+  const lv = AI_LEVELS[levelKey] || AI_LEVELS.moyen; const legal = legalMoves(s); if (!legal.length) return null;
+  if (lv.random && Math.random() < lv.random) return legal[Math.floor(Math.random() * legal.length)];
+  const seen = {}; for (const k of keys || []) seen[k] = (seen[k] || 0) + 1;
+  const deadline = Date.now() + lv.time; const cnt = { n: 0 }; const TO = {};
+  function nm(st, depth, alpha, beta, ply) {
+    if ((++cnt.n & 511) === 0 && Date.now() > deadline) throw TO;
+    const ms = legalMoves(st); if (!ms.length) return inCheck(st) ? -100000 + ply : 0;
+    if (st.half >= 100) return 0;
+    if (depth <= 0) return inCheck(st) && ply < 8 ? nm2(st, ms, 1, alpha, beta, ply) : quiesce(st, alpha, beta, 4, cnt);
+    return nm2(st, ms, depth, alpha, beta, ply);
+  }
+  function nm2(st, ms, depth, alpha, beta, ply) {
+    for (const m of order(ms)) { const v = -nm(makeMove(st, m), depth - 1, -beta, -alpha, ply + 1); if (v >= beta) return beta; if (v > alpha) alpha = v; }
+    return alpha;
+  }
+  let root = order(legal), best = root[0];
+  for (let d = 1; d <= lv.depth; d++) {
+    try {
+      let bestV = -Infinity, bestM = null; const sc = [];
+      for (const m of root) {
+        const ns = makeMove(s, m); let v;
+        if ((seen[posKey(ns)] || 0) >= 2) v = 0; // répétition : nulle
+        else v = -nm(ns, d - 1, -Infinity, -(bestV - lv.noise), 1);
+        if (lv.noise) v += Math.random() * lv.noise;
+        sc.push([m, v]); if (v > bestV) { bestV = v; bestM = m; }
+        if (d > 1 && Date.now() > deadline) throw TO;
+      }
+      best = bestM; root = sc.sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+      if (bestV > 90000) break;
+    } catch (e) { if (e !== TO) throw e; break; }
+  }
+  return best;
+}
+
+const AI_WORKER_SRC = "                              \n                               \n                                                                                                           \n                                                                                                                       \n\nconst START = \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\";\nfunction parseFen(fen        )        {\n  const [pl, turn, castle, ep, half, full] = fen.split(\" \");\n  const board       = new Array(64).fill(null);\n  const rows = pl.split(\"/\");\n  for (let i = 0; i < 8; i++) {\n    const rank = 7 - i; let file = 0;\n    for (const ch of rows[i]) {\n      if (ch >= \"1\" && ch <= \"8\") { file += Number(ch); continue; }\n      const c        = ch === ch.toUpperCase() ? \"w\" : \"b\";\n      board[rank * 8 + file] = c + ch.toLowerCase(); file++;\n    }\n  }\n  const epSq = ep === \"-\" ? -1 : (ep.charCodeAt(0) - 97) + (Number(ep[1]) - 1) * 8;\n  return { board, turn: turn         , castle: castle === \"-\" ? \"\" : castle, ep: epSq, half: Number(half || 0), full: Number(full || 1) };\n}\nfunction initialState()        { return parseFen(START); }\n\nconst KN = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];\nconst KG = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];\nconst DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];\nconst ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];\nconst fileOf = (s        ) => s & 7;\nconst rankOf = (s        ) => s >> 3;\nconst on = (f        , r        ) => f >= 0 && f < 8 && r >= 0 && r < 8;\n\nfunction attacked(board      , sq        , by       )          {\n  const f = fileOf(sq), r = rankOf(sq);\n  const pr = by === \"w\" ? r - 1 : r + 1;\n  for (const df of [-1, 1]) { if (on(f + df, pr) && board[pr * 8 + f + df] === by + \"p\") return true; }\n  for (const [df, dr] of KN) { if (on(f + df, r + dr) && board[(r + dr) * 8 + f + df] === by + \"n\") return true; }\n  for (const [df, dr] of KG) { if (on(f + df, r + dr) && board[(r + dr) * 8 + f + df] === by + \"k\") return true; }\n  for (const [df, dr] of DIAG) {\n    let ff = f + df, rr = r + dr;\n    while (on(ff, rr)) { const p = board[rr * 8 + ff]; if (p) { if (p[0] === by && (p[1] === \"b\" || p[1] === \"q\")) return true; break; } ff += df; rr += dr; }\n  }\n  for (const [df, dr] of ORTH) {\n    let ff = f + df, rr = r + dr;\n    while (on(ff, rr)) { const p = board[rr * 8 + ff]; if (p) { if (p[0] === by && (p[1] === \"r\" || p[1] === \"q\")) return true; break; } ff += df; rr += dr; }\n  }\n  return false;\n}\nfunction kingSq(board      , c       )         { for (let i = 0; i < 64; i++) if (board[i] === c + \"k\") return i; return -1; }\nfunction inCheck(s       )          { const k = kingSq(s.board, s.turn); return k >= 0 && attacked(s.board, k, s.turn === \"w\" ? \"b\" : \"w\"); }\n\nfunction pseudo(s       )         {\n  const out         = []; const b = s.board; const me = s.turn; const opp        = me === \"w\" ? \"b\" : \"w\";\n  const add = (from        , to        , flag        , promo = \"\") => {\n    out.push({ from, to, piece: b[from]          , captured: flag === \"ep\" ? opp + \"p\" : b[to], promo, flag });\n  };\n  for (let sq = 0; sq < 64; sq++) {\n    const p = b[sq]; if (!p || p[0] !== me) continue;\n    const t = p[1], f = fileOf(sq), r = rankOf(sq);\n    if (t === \"p\") {\n      const dir = me === \"w\" ? 1 : -1, last = me === \"w\" ? 7 : 0, startR = me === \"w\" ? 1 : 6;\n      const pushP = (from        , to        , flag        ) => {\n        if (rankOf(to) === last) { for (const pr of [\"q\", \"r\", \"b\", \"n\"]) add(from, to, flag, pr); } else add(from, to, flag);\n      };\n      if (on(f, r + dir) && !b[(r + dir) * 8 + f]) {\n        pushP(sq, (r + dir) * 8 + f, \"n\");\n        if (r === startR && !b[(r + 2 * dir) * 8 + f]) add(sq, (r + 2 * dir) * 8 + f, \"2\");\n      }\n      for (const df of [-1, 1]) {\n        if (!on(f + df, r + dir)) continue;\n        const to = (r + dir) * 8 + f + df; const q = b[to];\n        if (q && q[0] === opp) pushP(sq, to, \"c\");\n        else if (to === s.ep) add(sq, to, \"ep\");\n      }\n    } else if (t === \"n\" || t === \"k\") {\n      for (const [df, dr] of t === \"n\" ? KN : KG) {\n        if (!on(f + df, r + dr)) continue; const to = (r + dr) * 8 + f + df; const q = b[to];\n        if (!q) add(sq, to, \"n\"); else if (q[0] === opp) add(sq, to, \"c\");\n      }\n      if (t === \"k\") {\n        const home = me === \"w\" ? 4 : 60;\n        if (sq === home && !attacked(b, sq, opp)) {\n          const K = me === \"w\" ? \"K\" : \"k\", Q = me === \"w\" ? \"Q\" : \"q\";\n          if (s.castle.includes(K) && b[home + 3] === me + \"r\" && !b[home + 1] && !b[home + 2] && !attacked(b, home + 1, opp) && !attacked(b, home + 2, opp)) add(sq, home + 2, \"k\");\n          if (s.castle.includes(Q) && b[home - 4] === me + \"r\" && !b[home - 1] && !b[home - 2] && !b[home - 3] && !attacked(b, home - 1, opp) && !attacked(b, home - 2, opp)) add(sq, home - 2, \"q\");\n        }\n      }\n    } else {\n      const dirs = t === \"b\" ? DIAG : t === \"r\" ? ORTH : DIAG.concat(ORTH);\n      for (const [df, dr] of dirs) {\n        let ff = f + df, rr = r + dr;\n        while (on(ff, rr)) {\n          const to = rr * 8 + ff; const q = b[to];\n          if (!q) add(sq, to, \"n\"); else { if (q[0] === opp) add(sq, to, \"c\"); break; }\n          ff += df; rr += dr;\n        }\n      }\n    }\n  }\n  return out;\n}\n\nfunction makeMove(s       , m      )        {\n  const b = s.board.slice(); const me = s.turn; const opp        = me === \"w\" ? \"b\" : \"w\";\n  b[m.from] = null;\n  b[m.to] = m.promo ? me + m.promo : m.piece;\n  if (m.flag === \"ep\") b[m.to + (me === \"w\" ? -8 : 8)] = null;\n  if (m.flag === \"k\") { b[m.to + 1] = null; b[m.to - 1] = me + \"r\"; }\n  if (m.flag === \"q\") { b[m.to - 2] = null; b[m.to + 1] = me + \"r\"; }\n  let c = s.castle;\n  const strip = (sq        ) => {\n    if (sq === 0) c = c.replace(\"Q\", \"\"); if (sq === 7) c = c.replace(\"K\", \"\");\n    if (sq === 56) c = c.replace(\"q\", \"\"); if (sq === 63) c = c.replace(\"k\", \"\");\n  };\n  if (m.piece[1] === \"k\") c = me === \"w\" ? c.replace(\"K\", \"\").replace(\"Q\", \"\") : c.replace(\"k\", \"\").replace(\"q\", \"\");\n  strip(m.from); strip(m.to);\n  return {\n    board: b, turn: opp, castle: c,\n    ep: m.flag === \"2\" ? (m.from + m.to) / 2 : -1,\n    half: m.piece[1] === \"p\" || m.captured ? 0 : s.half + 1,\n    full: me === \"b\" ? s.full + 1 : s.full,\n  };\n}\n\nfunction legalMoves(s       )         {\n  return pseudo(s).filter((m) => { const n = makeMove(s, m); const k = kingSq(n.board, s.turn); return !attacked(n.board, k, n.turn); });\n}\n\nconst FR                         = { k: \"R\", q: \"D\", r: \"T\", b: \"F\", n: \"C\", p: \"\" };\nconst sqName = (sq        ) => \"abcdefgh\"[fileOf(sq)] + (rankOf(sq) + 1);\nfunction san(s       , m      , legal        )         {\n  let out = \"\";\n  if (m.flag === \"k\") out = \"O-O\"; else if (m.flag === \"q\") out = \"O-O-O\";\n  else {\n    const t = m.piece[1];\n    if (t === \"p\") { if (m.captured) out = \"abcdefgh\"[fileOf(m.from)] + \"x\"; out += sqName(m.to); if (m.promo) out += \"=\" + FR[m.promo]; }\n    else {\n      out = FR[t];\n      const amb = legal.filter((o) => o.piece === m.piece && o.to === m.to && o.from !== m.from);\n      if (amb.length) {\n        const sameF = amb.some((o) => fileOf(o.from) === fileOf(m.from)), sameR = amb.some((o) => rankOf(o.from) === rankOf(m.from));\n        if (!sameF) out += \"abcdefgh\"[fileOf(m.from)]; else if (!sameR) out += rankOf(m.from) + 1; else out += sqName(m.from);\n      }\n      if (m.captured) out += \"x\"; out += sqName(m.to);\n    }\n  }\n  const n = makeMove(s, m);\n  if (inCheck(n)) out += legalMoves(n).length ? \"+\" : \"#\";\n  return out;\n}\n\nfunction posKey(s       )         { return s.board.map((p) => p || \"-\").join(\"\") + s.turn + s.castle + s.ep; }\nfunction insufficient(b      )          {\n  const minors                               = [];\n  for (let i = 0; i < 64; i++) { const p = b[i]; if (!p || p[1] === \"k\") continue; if (p[1] === \"b\" || p[1] === \"n\") minors.push({ t: p[1], sqc: (fileOf(i) + rankOf(i)) & 1 }); else return false; }\n  if (minors.length <= 1) return true;\n  return minors.every((m) => m.t === \"b\") && minors.every((m) => m.sqc === minors[0].sqc);\n}\n                                                                            \nfunction outcome(states         )          {\n  const s = states[states.length - 1]; const legal = legalMoves(s); const chk = inCheck(s);\n  const side = (c       ) => (c === \"w\" ? \"Blancs\" : \"Noirs\");\n  if (!legal.length) {\n    if (chk) { const w        = s.turn === \"w\" ? \"b\" : \"w\"; return { over: true, text: \"Échec et mat ! Victoire des \" + side(w), winner: w }; }\n    return { over: true, text: \"Pat : partie nulle\", winner: null };\n  }\n  if (s.half >= 100) return { over: true, text: \"Partie nulle (règle des 50 coups)\", winner: null };\n  if (insufficient(s.board)) return { over: true, text: \"Partie nulle (matériel insuffisant)\", winner: null };\n  const k = posKey(s); let n = 0; for (const t of states) if (posKey(t) === k) n++;\n  if (n >= 3) return { over: true, text: \"Partie nulle (triple répétition)\", winner: null };\n  return { over: false, text: (chk ? \"Échec ! \" : \"\") + \"Aux \" + side(s.turn) + \" de jouer\", winner: null };\n}\n\n// ---- IA ----\nconst VAL                         = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };\nconst PST                           = {\n  p: [0,0,0,0,0,0,0,0, 5,10,10,-20,-20,10,10,5, 5,-5,-10,0,0,-10,-5,5, 0,0,0,20,20,0,0,0, 5,5,10,25,25,10,5,5, 10,10,20,30,30,20,10,10, 50,50,50,50,50,50,50,50, 0,0,0,0,0,0,0,0],\n  n: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,5,5,0,-20,-40, -30,5,10,15,15,10,5,-30, -30,0,15,20,20,15,0,-30, -30,5,15,20,20,15,5,-30, -30,0,10,15,15,10,0,-30, -40,-20,0,0,0,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],\n  b: [-20,-10,-10,-10,-10,-10,-10,-20, -10,5,0,0,0,0,5,-10, -10,10,10,10,10,10,10,-10, -10,0,10,10,10,10,0,-10, -10,5,5,10,10,5,5,-10, -10,0,5,10,10,5,0,-10, -10,0,0,0,0,0,0,-10, -20,-10,-10,-10,-10,-10,-10,-20],\n  r: [0,0,0,5,5,0,0,0, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 5,10,10,10,10,10,10,5, 0,0,0,0,0,0,0,0],\n  q: [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,5,0,0,0,0,-10, -10,5,5,5,5,5,0,-10, 0,0,5,5,5,5,0,-5, -5,0,5,5,5,5,0,-5, -10,0,5,5,5,5,0,-10, -10,0,0,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],\n  k: [20,30,10,0,0,10,30,20, 20,20,0,0,0,0,20,20, -10,-20,-20,-20,-20,-20,-20,-10, -20,-30,-30,-40,-40,-30,-30,-20, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30],\n};\nfunction evaluate(s       )         {\n  let sc = 0;\n  for (let i = 0; i < 64; i++) {\n    const p = s.board[i]; if (!p) continue;\n    const t = p[1]; const idx = p[0] === \"w\" ? i : (7 - rankOf(i)) * 8 + fileOf(i);\n    const v = VAL[t] + PST[t][idx]; sc += p[0] === \"w\" ? v : -v;\n  }\n  return s.turn === \"w\" ? sc : -sc;\n}\nfunction order(ms        )         {\n  return ms.map((m) => ({ m, k: (m.captured ? 10 * VAL[m.captured[1]] - VAL[m.piece[1]] + 1000 : 0) + (m.promo ? 800 : 0) }))\n    .sort((a, b) => b.k - a.k).map((x) => x.m);\n}\nfunction quiesce(s       , alpha        , beta        , d        , cnt               )         {\n  cnt.n++;\n  const stand = evaluate(s); if (stand >= beta) return beta; if (alpha < stand) alpha = stand; if (d <= 0) return alpha;\n  for (const m of order(legalMoves(s).filter((x) => x.captured || x.promo))) {\n    const v = -quiesce(makeMove(s, m), -beta, -alpha, d - 1, cnt);\n    if (v >= beta) return beta; if (v > alpha) alpha = v;\n  }\n  return alpha;\n}\nfunction negamax(s       , depth        , alpha        , beta        , ply        , cnt               )         {\n  cnt.n++;\n  const ms = legalMoves(s);\n  if (!ms.length) return inCheck(s) ? -100000 + ply : 0;\n  if (s.half >= 100) return 0;\n  if (depth <= 0) return quiesce(s, alpha, beta, 4, cnt);\n  for (const m of order(ms)) {\n    const v = -negamax(makeMove(s, m), depth - 1, -beta, -alpha, ply + 1, cnt);\n    if (v >= beta) return beta; if (v > alpha) alpha = v;\n  }\n  return alpha;\n}\nfunction bestMove(s       , depth        , noise        )              {\n  const ms = order(legalMoves(s)); if (!ms.length) return null;\n  let best       = ms[0], bestV = -Infinity; const cnt = { n: 0 };\n  for (const m of ms) {\n    const v = -negamax(makeMove(s, m), depth - 1, -Infinity, -bestV + noise, 1, cnt) + (noise ? Math.random() * noise : 0);\n    if (v > bestV) { bestV = v; best = m; }\n  }\n  return best;\n}\n\n/* ===== IA : recherche alpha-bêta à approfondissement itératif, limitée en temps ===== */\nconst AI_LEVELS = { facile: { name: \"Facile\", depth: 1, time: 300, noise: 140, random: 0.25 }, moyen: { name: \"Moyen\", depth: 3, time: 900, noise: 18, random: 0 }, difficile: { name: \"Difficile\", depth: 6, time: 2200, noise: 0, random: 0 } };\nfunction aiThink(s, levelKey, keys) {\n  const lv = AI_LEVELS[levelKey] || AI_LEVELS.moyen; const legal = legalMoves(s); if (!legal.length) return null;\n  if (lv.random && Math.random() < lv.random) return legal[Math.floor(Math.random() * legal.length)];\n  const seen = {}; for (const k of keys || []) seen[k] = (seen[k] || 0) + 1;\n  const deadline = Date.now() + lv.time; const cnt = { n: 0 }; const TO = {};\n  function nm(st, depth, alpha, beta, ply) {\n    if ((++cnt.n & 511) === 0 && Date.now() > deadline) throw TO;\n    const ms = legalMoves(st); if (!ms.length) return inCheck(st) ? -100000 + ply : 0;\n    if (st.half >= 100) return 0;\n    if (depth <= 0) return inCheck(st) && ply < 8 ? nm2(st, ms, 1, alpha, beta, ply) : quiesce(st, alpha, beta, 4, cnt);\n    return nm2(st, ms, depth, alpha, beta, ply);\n  }\n  function nm2(st, ms, depth, alpha, beta, ply) {\n    for (const m of order(ms)) { const v = -nm(makeMove(st, m), depth - 1, -beta, -alpha, ply + 1); if (v >= beta) return beta; if (v > alpha) alpha = v; }\n    return alpha;\n  }\n  let root = order(legal), best = root[0];\n  for (let d = 1; d <= lv.depth; d++) {\n    try {\n      let bestV = -Infinity, bestM = null; const sc = [];\n      for (const m of root) {\n        const ns = makeMove(s, m); let v;\n        if ((seen[posKey(ns)] || 0) >= 2) v = 0; // répétition : nulle\n        else v = -nm(ns, d - 1, -Infinity, -(bestV - lv.noise), 1);\n        if (lv.noise) v += Math.random() * lv.noise;\n        sc.push([m, v]); if (v > bestV) { bestV = v; bestM = m; }\n        if (d > 1 && Date.now() > deadline) throw TO;\n      }\n      best = bestM; root = sc.sort((a, b) => b[1] - a[1]).map((x) => x[0]);\n      if (bestV > 90000) break;\n    } catch (e) { if (e !== TO) throw e; break; }\n  }\n  return best;\n}\n\nself.onmessage = (e) => { const d = e.data; let m = null; try { m = aiThink(d.state, d.level, d.keys); } catch (err) { } self.postMessage({ id: d.id, uci: m ? sqName(m.from) + sqName(m.to) + (m.promo || \"\") : null }); };";
                                           
                                                               
                                                                                        
@@ -931,7 +982,9 @@ const G = { room: Q.get("salle"), color: Q.get("couleur") === "b" ? "b" : "w", g
   sel: -1, promo: null, yaw: 0, pitch: 52, zoom: 1, friend: false, online: false, lastId: "", hits: [], anim: null, resign: null, ids: [], teams: { w: "classique", b: "classique" } };
 const LS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (_) { return null; } };
 G.cineOn = LS("echecs3d-cine") !== "0"; G.theme = BOARD_THEMES[LS("echecs3d-plateau")] ? LS("echecs3d-plateau") : "classique"; setBoardTheme(G.theme);
-G.cine = null; G.banner = null;
+G.cine = null; G.banner = null; G.ai = null; G.aiReq = 0; G.aiPending = 0; G.es = null;
+const AI_TEAM = () => { const t = LS("echecs3d-equipe-ia"); return TEAMS[t] ? t : "dbz"; };
+const AI_LEVEL = () => { const l = LS("echecs3d-niveau"); return AI_LEVELS[l] ? l : "moyen"; };
 const SAVED_TEAM = (() => { try { return localStorage.getItem("echecs3d-equipe"); } catch (_) { return null; } })();
 
 function initialIds() {
@@ -957,6 +1010,7 @@ function cur() { return G.states[G.states.length - 1]; }
 
 /* ---------- réseau ---------- */
 async function publish(obj) {
+  if (G.ai || !G.room) return;
   obj.from = ME_ID; obj.gen = G.gen;
   try { const r = await fetch(RELAY + "/" + G.room, { method: "POST", body: JSON.stringify(obj) }); if (!r.ok) throw new Error(r.status); setNet(true); }
   catch (e) { setNet(false); toast("Envoi impossible, nouvel essai…"); setTimeout(() => publish(obj), 3000); }
@@ -982,7 +1036,7 @@ async function connect() {
     for (const line of txt.split("\n")) { if (!line.trim()) continue; const ev = JSON.parse(line); if (ev.event === "message") { G.lastId = ev.id; receive(ev.message); } }
     REPLAY = false;
   } catch (e) { REPLAY = false; toast("Relais injoignable, nouvel essai…"); }
-  const es = new EventSource(RELAY + "/" + G.room + "/sse" + (G.lastId ? "?since=" + G.lastId : ""));
+  if (G.ai) return; const es = G.es = new EventSource(RELAY + "/" + G.room + "/sse" + (G.lastId ? "?since=" + G.lastId : ""));
   es.onopen = () => setNet(true);
   es.onerror = () => setNet(false);
   es.onmessage = (e) => { let ev; try { ev = JSON.parse(e.data); } catch (_) { return; } if (ev.event && ev.event !== "message") return; if (ev.id) G.lastId = ev.id; receive(ev.message); };
@@ -1022,7 +1076,52 @@ function applyMoves(moves, reset) {
 function myTurn() { const o = outcome(G.states); return !o.over && !G.resign && cur().turn === G.color; }
 function playMove(m) {
   const moves = G.moves.concat([UCI(m)]); applyMoves(moves, false);
-  publish({ t: "moves", moves });
+  if (G.ai) { saveAI(); aiMaybe(); } else publish({ t: "moves", moves });
+}
+/* ---------- IA (Web Worker, hors ligne) ---------- */
+let WK = null;
+function aiWorker() {
+  if (WK !== null) return WK;
+  try { WK = new Worker(URL.createObjectURL(new Blob([AI_WORKER_SRC], { type: "text/javascript" }))); WK.onmessage = (e) => onAI(e.data); WK.onerror = () => { WK = false; if (G.aiPending) { const id = G.aiPending; G.aiPending = 0; aiMaybe(); } }; }
+  catch (_) { WK = false; }
+  return WK;
+}
+function aiMaybe() {
+  if (!G.ai || G.resign || outcome(G.states).over || cur().turn !== G.ai.color || G.aiPending) return;
+  const id = ++G.aiReq; G.aiPending = id; G.aiT0 = performance.now();
+  const msg = { id, state: cur(), level: G.ai.level, keys: G.states.map(posKey) };
+  const w = aiWorker();
+  if (w) w.postMessage(msg);
+  else setTimeout(() => { const m = aiThink(msg.state, msg.level, msg.keys); onAI({ id, uci: m ? UCI(m) : null }); }, 60);
+  render();
+}
+function onAI(d) {
+  if (!d || d.id !== G.aiReq || G.aiPending !== d.id) return;
+  if (!d.uci) { G.aiPending = 0; render(); return; }
+  const go = () => {
+    if (G.aiPending !== d.id) return;
+    if (G.cine || G.promo || performance.now() - G.aiT0 < 650) { setTimeout(go, 120); return; }
+    const nm = G.moves.concat([d.uci]); G.aiPending = 0;
+    if (!rebuild(nm)) { render(); return; }
+    applyMoves(nm, false); saveAI();
+  };
+  go();
+}
+function cancelAI() { G.aiReq++; G.aiPending = 0; }
+function saveAI() { if (!G.ai) return; LS("echecs3d-partie-ia", JSON.stringify({ moves: G.moves, color: G.color, level: G.ai.level, teams: G.teams, resign: G.resign })); }
+function undoAI() {
+  if (!G.ai) return; cancelAI(); const m = G.moves.slice(); if (!m.length) return;
+  m.pop(); while (m.length && (m.length % 2 === 0 ? "w" : "b") !== G.color) m.pop();
+  applyMoves(m, true); saveAI(); aiMaybe();
+}
+function startAI(color, level, keepMoves) {
+  if (G.es) { try { G.es.close(); } catch (_) { } G.es = null; }
+  G.ai = { level: AI_LEVELS[level] ? level : "moyen", color: color === "w" ? "b" : "w" }; G.color = color; G.room = null; G.friend = false; G.online = true;
+  G.teams[G.ai.color] = AI_TEAM(); cancelAI(); G.resign = null;
+  const u = new URL(location.href); u.search = ""; u.searchParams.set("ia", G.ai.level); u.searchParams.set("couleur", G.color); if (Q.get("relais")) u.searchParams.set("relais", RELAY); history.replaceState(null, "", u);
+  $("accueil").hidden = true; $("jeu").hidden = false;
+  G.yaw = G.color === "w" ? 0 : 180; G.pitch = 58; G.zoom = innerWidth < 600 ? 1.25 : 1;
+  scrollTo(0, 0); applyMoves(keepMoves || [], true); saveAI(); resize(); renderTeams(); render(); aiMaybe();
 }
 function handleSquare(sq) {
   if (sq < 0) { G.sel = -1; render(); return; }
@@ -1117,26 +1216,32 @@ cv.addEventListener("pointerup", (e) => {
 cv.addEventListener("pointercancel", () => { drag = null; });
 
 /* ---------- équipes ---------- */
-function teamButtons(el, onPick, current) {
+function teamButtons(el, onPick, current, color) {
+  color = color || G.color; if (!el) return;
   el.innerHTML = "";
   for (const [key, t] of Object.entries(TEAMS)) {
     const b = document.createElement("button"); b.className = "equipe" + (key === current ? " active" : ""); b.type = "button"; b.setAttribute("aria-pressed", key === current);
     const ch = characterFor(key, "k", 0);
-    if (ch) { const cvs = makeSprite(ch, "k", G.color, 0.5); const im = document.createElement("canvas"); im.width = cvs.width; im.height = cvs.height; im.getContext("2d").drawImage(cvs, 0, 0); b.appendChild(im); }
-    else { const sp = document.createElement("span"); sp.className = "classique"; sp.textContent = G.color === "w" ? "♔" : "♚"; b.appendChild(sp); }
+    if (ch) { const cvs = makeSprite(ch, "k", color, 0.5); const im = document.createElement("canvas"); im.width = cvs.width; im.height = cvs.height; im.getContext("2d").drawImage(cvs, 0, 0); b.appendChild(im); }
+    else { const sp = document.createElement("span"); sp.className = "classique"; sp.textContent = color === "w" ? "♔" : "♚"; b.appendChild(sp); }
     const lab = document.createElement("span"); lab.textContent = t.name; b.appendChild(lab);
     b.onclick = () => onPick(key); el.appendChild(b);
   }
 }
 function pickTeam(key) {
   G.teams[G.color] = key; try { localStorage.setItem("echecs3d-equipe", key); } catch (_) { }
-  renderTeams(); render(); if (G.room && !$("jeu").hidden) publish({ t: "team", color: G.color, team: key });
+  renderTeams(); render(); saveAI(); if (G.room && !$("jeu").hidden) publish({ t: "team", color: G.color, team: key });
 }
 function rosterText(team) { const t = TEAMS[team]; if (!t.k) return "Pièces classiques en 3D"; const n = (r) => t[r].map((id) => CH[id].name).join(" / "); return "♔ " + n("k") + " · ♕ " + n("q") + " · ♖ " + n("r") + " · ♗ " + n("b") + " · ♘ " + n("n") + " · ♙ " + n("p"); }
 function renderTeams() {
   teamButtons($("equipes-accueil"), pickTeam, G.teams[G.color]);
   teamButtons($("equipes-jeu"), pickTeam, G.teams[G.color]);
   const opp = G.color === "w" ? "b" : "w";
+  const aiT = G.ai ? G.teams[G.ai.color] : AI_TEAM();
+  teamButtons($("equipes-ia-accueil"), pickAITeam, AI_TEAM(), opp);
+  teamButtons($("equipes-ia-jeu"), pickAITeam, aiT, opp);
+  $("equipe-aide").textContent = G.ai ? "Mon équipe :" : "Mon équipe (votre ami la voit aussi) :";
+  $("ami-titre").textContent = G.ai ? "Équipe de l'IA :" : "Équipe de mon ami :";
   $("mon-equipe").textContent = TEAMS[G.teams[G.color]].name + " — " + rosterText(G.teams[G.color]);
   $("equipe-ami").textContent = TEAMS[G.teams[opp]].name + " — " + rosterText(G.teams[opp]);
 }
@@ -1152,20 +1257,23 @@ function renderThemes() {
 for (const id of ["cine-accueil", "cine-jeu"]) { const el = $(id); if (el) el.onchange = () => { G.cineOn = el.checked; LS("echecs3d-cine", G.cineOn ? "1" : "0"); if (!G.cineOn) skipCine(); renderThemes(); }; }
 renderThemes();
 
+function pickAITeam(key) { LS("echecs3d-equipe-ia", key); if (G.ai) { G.teams[G.ai.color] = key; saveAI(); } renderTeams(); render(); }
+
 /* ---------- interface ---------- */
 const side = (c) => (c === "w" ? "Blancs" : "Noirs");
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2600); }
 function renderStatus() {
   const n = $("reseau"); if (!n) return;
-  n.textContent = !G.online ? "Connexion au relais…" : G.friend ? "Ami connecté" : "En attente de votre ami…";
-  n.className = "pastille " + (!G.online ? "ko" : G.friend ? "ok" : "attente");
+  if (G.ai) { n.textContent = "Contre l'IA · " + AI_LEVELS[G.ai.level].name; n.className = "pastille ok"; }
+  else { n.textContent = !G.online ? "Connexion au relais…" : G.friend ? "Ami connecté" : "En attente de votre ami…"; n.className = "pastille " + (!G.online ? "ko" : G.friend ? "ok" : "attente"); }
+  const w = $("ia-attente"); if (w) w.hidden = !!G.ai || G.friend || !G.room;
 }
 function render() {
   const o = outcome(G.states); const s = cur();
   let txt;
   if (G.resign) txt = "Les " + side(G.resign) + " abandonnent. Victoire des " + side(G.resign === "w" ? "b" : "w");
   else if (o.over) txt = o.text;
-  else txt = (inCheck(s) ? "Échec ! " : "") + (s.turn === G.color ? "À vous de jouer" : "Au tour de votre ami");
+  else txt = (inCheck(s) ? "Échec ! " : "") + (s.turn === G.color ? "À vous de jouer" : G.ai ? "L'IA réfléchit…" : "Au tour de votre ami");
   $("etat").textContent = txt; $("etat").className = inCheck(s) && !o.over ? "alerte" : "";
   $("vous").textContent = "Vous jouez les " + side(G.color);
   $("pion").className = "pion " + G.color;
@@ -1174,6 +1282,9 @@ function render() {
   $("coups").scrollTop = 1e6;
   $("promo").hidden = !G.promo;
   $("abandon").disabled = o.over || !!G.resign;
+  for (const id of ["carte-lien", "partager"]) $(id).hidden = !!G.ai;
+  $("annuler-coup").hidden = !G.ai; $("annuler-coup").disabled = !G.ai || G.moves.length < (G.color === "w" ? 1 : 2);
+  $("carte-ia").hidden = !G.ai; if (G.ai) $("niveau-jeu").value = G.ai.level;
   renderStatus(); draw();
 }
 function inviteLink() { const u = new URL(location.href); u.search = ""; u.searchParams.set("salle", G.room); u.searchParams.set("couleur", G.color === "w" ? "b" : "w"); if (Q.get("relais")) u.searchParams.set("relais", RELAY); return u.toString(); }
@@ -1191,19 +1302,34 @@ function startGame() {
   const u = new URL(location.href); u.searchParams.set("salle", G.room); u.searchParams.set("couleur", G.color); history.replaceState(null, "", u);
   $("lien").value = inviteLink();
   resize(); renderTeams(); render(); connect();
+  setTimeout(() => { if (!G.ai && !G.friend && G.room) { $("ia-maintenant").classList.add("primaire"); toast("Personne ne vient ? Vous pouvez jouer contre l'IA."); } }, 30000);
 }
 $("creer").onclick = () => { const v = document.querySelector("input[name=couleur]:checked").value; const team = G.teams[G.color]; G.color = v === "x" ? (Math.random() < 0.5 ? "w" : "b") : v; G.teams = { w: "classique", b: "classique" }; G.teams[G.color] = team; G.room = randomRoom(); startGame(); };
 $("partager").onclick = share; $("partager2").onclick = share;
 $("recentrer").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 58; draw(); };
 $("dessus").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 89; draw(); };
-$("nouvelle").onclick = () => { if (!confirm("Recommencer une nouvelle partie pour vous deux ?")) return; G.gen++; applyMoves([], true); publish({ t: "new" }); };
-$("abandon").onclick = () => { if (!confirm("Abandonner la partie ?")) return; G.resign = G.color; render(); publish({ t: "resign", color: G.color }); };
+$("nouvelle").onclick = () => {
+  if (G.ai) { if (!confirm("Recommencer une nouvelle partie contre l'IA ?")) return; cancelAI(); applyMoves([], true); saveAI(); aiMaybe(); return; }
+  if (!confirm("Recommencer une nouvelle partie pour vous deux ?")) return; G.gen++; applyMoves([], true); publish({ t: "new" }); };
+$("abandon").onclick = () => { if (!confirm("Abandonner la partie ?")) return; G.resign = G.color; if (G.ai) { cancelAI(); saveAI(); } render(); publish({ t: "resign", color: G.color }); };
+$("annuler-coup").onclick = undoAI;
+const levelPick = () => { const r = document.querySelector("input[name=niveau]:checked"); return r ? r.value : AI_LEVEL(); };
+document.querySelectorAll("input[name=niveau]").forEach((r) => { r.checked = r.value === AI_LEVEL(); r.onchange = () => LS("echecs3d-niveau", r.value); });
+$("jouer-ia").onclick = () => { const v = document.querySelector("input[name=couleur]:checked").value; const c = v === "x" ? (Math.random() < 0.5 ? "w" : "b") : v; const team = G.teams[G.color]; G.teams = { w: "classique", b: "classique" }; G.teams[c] = team; LS("echecs3d-niveau", levelPick()); startAI(c, levelPick(), []); };
+$("niveau-jeu").onchange = () => { if (!G.ai) return; G.ai.level = $("niveau-jeu").value; LS("echecs3d-niveau", G.ai.level); saveAI(); render(); };
+$("niveau-attente").value = AI_LEVEL();
+$("ia-maintenant").onclick = () => { const lv = $("niveau-attente").value; LS("echecs3d-niveau", lv); startAI(G.color, lv, G.moves.slice()); toast("Partie contre l'IA (" + AI_LEVELS[lv].name + ")"); };
 document.querySelectorAll("#promo button[data-p]").forEach((b) => (b.onclick = () => { const p = G.promo; const m = legalMoves(cur()).find((x) => x.from === p.from && x.to === p.to && x.promo === b.dataset.p); if (m) playMove(m); }));
 $("promo-annuler").onclick = () => { G.promo = null; G.sel = -1; render(); };
 addEventListener("resize", resize);
 if (SAVED_TEAM && TEAMS[SAVED_TEAM]) G.teams[G.color] = SAVED_TEAM;
 renderTeams();
-if (G.room) startGame();
+if (Q.get("ia") && !G.room) {
+  let sv = null; try { sv = JSON.parse(LS("echecs3d-partie-ia") || "null"); } catch (_) { }
+  const c = Q.get("couleur") === "b" ? "b" : "w";
+  if (sv && sv.color === c && sv.teams) { G.teams = sv.teams; startAI(c, Q.get("ia"), sv.moves || []); if (sv.resign) { G.resign = sv.resign; cancelAI(); render(); } }
+  else startAI(c, Q.get("ia"), []);
+} else if (G.room) startGame();
 window.__G = G;
 
 </script></body></html>
