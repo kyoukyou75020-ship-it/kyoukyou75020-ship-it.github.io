@@ -1423,6 +1423,84 @@ const IMPACT = {
   explode(ctx, E) { const e = Math.min(1, E.q * 2.2); if (e < 1) { sgGlow(ctx, E.V.x, E.V.y, E.u * (0.4 + 1.6 * e), E.S.col, "#fff8d0"); } IMPACT.smoke(ctx, E); },
   launch(ctx, E) { IMPACT.cracks(ctx, { ...E, q: Math.max(0, (E.q - 0.35) / 0.65) }); },
 };
+/* ===== Déplacement « signature » vers la case prise (après l'attaque) ===== */
+const TRAVEL_T = { beam: 0.45, dash: 0.32, leap: 0.55, flash: 0.14, projectile: 0.45, sky: 0.55, gatling: 0.7, sandstream: 0.6, toad: 0.5, ripple: 0.5, whip: 0.45 };
+const TRV_LEN = 1.15;
+function sigTimes(S) { const TD = S.td || TRAVEL_T[S.travel] || 0.4; const T3 = 1.6 + TD + (S.then === "flash" ? 0.14 : 0); const TV0 = T3 + 0.95 + (S.victim === "launch" ? 0.7 : 0); const TV1 = TV0 + TRV_LEN; return { T3, TV0, TV1, D: TV1 + 0.35 }; }
+const TRV = {
+  goku: { k: "instant", txt: "SHUNKAN IDÔ !", col: "#9fe0ff" }, vegeta: { k: "fly", txt: "BUKÛJUTSU !", col: "#7ab8ff" }, piccolo: { k: "fly", txt: "BUKÛJUTSU !", col: "#e8f0ff" }, gohan: { k: "fly", txt: "BUKÛJUTSU !", col: "#ffe46a" },
+  trunks: { k: "fly", txt: "BUKÛJUTSU !", col: "#c9b4ff" }, krilin: { k: "fly", txt: "BUKÛJUTSU !", col: "#ffffff" }, bulma: { k: "smoke", txt: "CAPSULE CORP. !", col: "#f08ab8", poof: ["#ffd8ec", "#ffffff", "#f0b8d8"] },
+  tortue: { k: "fly", txt: "TURBO-CARAPACE !", col: "#8adf7a", spin: true }, saibaman: { k: "burrow", txt: "SOUS TERRE !", col: "#9aff5a" },
+  luffy: { k: "rocket", txt: "GOMU GOMU NO ROCKET !", col: "#ff5a3a" }, zoro: { k: "lost", txt: "…C'EST PAR OÙ ?!", col: "#8adf7a" }, sanji: { k: "leap", txt: "SKY WALK !", col: "#ffe08a", hops: 3, h: 0.7, steps: true },
+  nami: { k: "mirage", txt: "MIRAGE TEMPO !", col: "#ffb46a" }, usopp: { k: "run", txt: "FUITE STRATÉGIQUE !", col: "#ffcf8a", sweat: true }, chopper: { k: "leap", txt: "JUMPING POINT !", col: "#f08ab8", hops: 2, h: 1.1 },
+  franky: { k: "fly", txt: "COUP DE BOO !", col: "#ff8a3a", jet: true }, brook: { k: "run", txt: "YOHOHOHO !", col: "#e8f6ff", notes: true }, pirate: { k: "run", txt: "EN AVANT !", col: "#ffffff" },
+  naruto: { k: "leap", txt: "KAGE BUNSHIN : CATAPULTE !", col: "#ffa040", hops: 1, h: 1.6, clones: true }, sakura: { k: "leap", txt: "SHANNARÔ !", col: "#f39ac0", hops: 1, h: 1.7, cracks: true },
+  sasuke: { k: "flicker", txt: "SHUNSHIN !", col: "#6ab8ff" }, kakashi: { k: "flicker", txt: "SHUNSHIN NO JUTSU !", col: "#d8f0ff", leaves: true }, gaara: { k: "fly", txt: "NUAGE DE SABLE !", col: "#d8b06a", sand: true },
+  hinata: { k: "flicker", txt: "SHUNSHIN !", col: "#c8b8ff" }, lee: { k: "dashw", txt: "FEUILLE OURAGAN !", col: "#7aff6a", trail: "line" }, jiraiya: { k: "leap", txt: "SAUT DU CRAPAUD !", col: "#ffcf6a", hops: 1, h: 1.5, toad: true },
+  ninja: { k: "flicker", txt: "SHUNSHIN !", col: "#c9ced6", leaves: true },
+  tanjiro: { k: "dashw", txt: "PAS DE L'EAU !", col: "#4aa8ff", trail: "dragon" }, nezuko: { k: "leap", txt: "BOND DÉMONIAQUE !", col: "#ff5aa8", hops: 2, h: 0.9 }, zenitsu: { k: "flash", txt: "VITESSE DIVINE !", col: "#ffe04a" },
+  inosuke: { k: "run", txt: "CHARGE DU SANGLIER !", col: "#9aa3b5", fast: true }, giyu: { k: "dashw", txt: "PAS DU CALME PLAT !", col: "#5aa8ff", trail: "line" }, rengoku: { k: "dashw", txt: "EN AVANT, À FOND !", col: "#ff7a2a", trail: "fire" },
+  shinobu: { k: "leap", txt: "VOL DU PAPILLON !", col: "#b88ae8", hops: 3, h: 0.6, butterflies: true }, mitsuri: { k: "leap", txt: "BOND AMOUREUX !", col: "#ff8ac0", hops: 1, h: 1.3, hearts: true }, pourfendeur: { k: "run", txt: "EN AVANT !", col: "#e8edf2" },
+};
+const sm1 = (a, b, x) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+function travelPos(T, q, A, B) {
+  const L = (k) => ({ x: A.x + (B.x - A.x) * k, z: A.z + (B.z - A.z) * k }); const dx = B.x - A.x, dz = B.z - A.z, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
+  const R = (k, l, a, pose) => Object.assign(L(k), { l: l || 0, a: a == null ? 1 : a, pose: pose || null });
+  switch (T.k) {
+    case "instant": { const vis = q < 0.33 || q > 0.6; const fl = (q > 0.27 && q < 0.33) || (q > 0.6 && q < 0.66) ? (Math.sin(q * 400) > 0 ? 1 : 0.15) : 1; return R(sm1(0.33, 0.6, q), 0, vis ? fl : 0, q < 0.33 || (q > 0.6 && q < 0.85) ? "raise" : null); }
+    case "mirage": { const a = q < 0.4 ? 1 - q / 0.4 : q > 0.6 ? (q - 0.6) / 0.4 : 0; return R(sm1(0.35, 0.65, q), 0, a, null); }
+    case "smoke": case "flicker": { const vis = q < 0.25 || q > 0.62; return R(sm1(0.25, 0.62, q), 0, vis ? 1 : 0, q < 0.25 ? (T.k === "smoke" ? "throw" : "ready") : null); }
+    case "flash": { const vis = q < 0.3 || q > 0.42; return R(sm1(0.3, 0.42, q), 0, vis ? 1 : 0, q < 0.3 ? "ready" : q < 0.7 ? "slash" : null); }
+    case "fly": { const k = sm1(0.08, 0.92, q); return R(k, Math.sin(Math.PI * Math.min(1, q * 1.05)) * 0.9, 1, q > 0.05 && q < 0.95 ? "leap" : null); }
+    case "leap": { const n = T.hops || 1, k = sm1(0.08, 0.95, q), ph = Math.max(0, Math.min(1, (q - 0.08) / 0.87)); return R(k, Math.abs(Math.sin(Math.PI * ph * n)) * (T.h || 1), 1, ph > 0 && ph < 1 ? "leap" : null); }
+    case "run": { const k = sm1(0.05, T.fast ? 0.75 : 0.95, q); return R(k, Math.abs(Math.sin(k * Math.PI * (T.fast ? 8 : 6))) * 0.09, 1, k > 0 && k < 1 ? "ready" : null); }
+    case "dashw": { const p = Math.max(0, Math.min(1, (q - 0.18) / 0.5)), k = p * p * (3 - 2 * p); return R(k, Math.sin(Math.PI * k) * 0.12, 1, q < 0.18 ? "ready" : q < 0.85 ? "slash" : null); }
+    case "rocket": { if (q < 0.55) { const pb = sm1(0.38, 0.55, q) * 0.18; return Object.assign({ x: A.x - ux * pb, z: A.z - uz * pb, l: 0, a: 1, pose: "thrust" }); } const p = Math.min(1, (q - 0.55) / 0.3), k = p * p; const s = A, st = { x: A.x - ux * 0.18, z: A.z - uz * 0.18 }; return { x: st.x + (B.x - st.x) * k, z: st.z + (B.z - st.z) * k, l: Math.sin(Math.PI * k) * 0.45, a: 1, pose: q < 0.88 ? "thrust" : null }; }
+    case "lost": { if (q < 0.35) { const k = sm1(0, 0.35, q) * 0.75; return { x: A.x - ux * k, z: A.z - uz * k, l: Math.abs(Math.sin(q * 40)) * 0.05, a: 1, pose: "ready" }; } if (q < 0.5) return { x: A.x - ux * 0.75, z: A.z - uz * 0.75, l: 0, a: 1, pose: null }; if (q < 0.56) return { x: B.x - uz * 0.9, z: B.z + ux * 0.9, l: 0, a: 0, pose: null }; const k = sm1(0.56, 0.97, q); return { x: B.x - uz * 0.9 * (1 - k), z: B.z + ux * 0.9 * (1 - k), l: Math.abs(Math.sin(k * 18)) * 0.05, a: 1, pose: k < 1 ? "ready" : null }; }
+    case "burrow": { if (q < 0.25) { const k = q / 0.25; return R(0, -0.5 * k, 1 - k, null); } if (q < 0.75) return R(sm1(0.25, 0.75, q), -0.5, 0, null); const k = (q - 0.75) / 0.25; return R(1, Math.sin(Math.PI * k) * 0.5 - 0.5 * (1 - Math.min(1, k * 2)), Math.min(1, k * 2), k < 0.9 ? "leap" : null); }
+  }
+  return R(sm1(0, 1, q), 0, 1, null);
+}
+function travelFX(ctx, T, q, E) {
+  const { Pj, A, B, cur, u, t, hA } = E; const col = T.col; const chestW = (p, l) => Pj(p.x, 0.1 + (l || 0) + hA * 0.5, p.z), gnd = (p) => Pj(p.x, 0.1, p.z);
+  const Ac = chestW(cur, cur.l), Ag = Pj(cur.x, 0.1 + (cur.l || 0), cur.z), As = chestW(A), Bs = chestW(B), Ag0 = gnd(A), Bg = gnd(B);
+  const lines = (P, a) => { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 2; for (let i = 0; i < 9; i++) { const x = P.x + (hash(i + Math.floor(t * 30)) - 0.5) * u * 1.1, y = P.y + (hash(i * 3 + Math.floor(t * 30)) - 0.5) * u * 0.6; ctx.beginPath(); ctx.moveTo(x, y - u * 0.5); ctx.lineTo(x, y + u * 0.5); ctx.stroke(); } ctx.restore(); };
+  const ring = (P, k) => { if (k <= 0 || k >= 1) return; ctx.save(); ctx.globalAlpha = 1 - k; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(P.x, P.y, u * (0.2 + 1.2 * k), u * (0.5 + 1.4 * k), 0, 0, 7); ctx.stroke(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore(); };
+  const poofAt = (P, k, cols) => { if (k > 0 && k < 1) sgPuffs(ctx, P, u * 0.75, Math.min(1, k * 3), Math.max(0, (k - 0.4) / 0.6), 10, cols || ["#ffffff", "#e8e8f0", "#cfd2dc"]); };
+  const dust = (P, k) => { if (k > 0 && k < 1) sgPuffs(ctx, { x: P.x, y: P.y - u * 0.1 }, u * 0.45, Math.min(1, k * 3), Math.max(0, (k - 0.3) / 0.7), 7, ["#d8c8b0", "#b8a890", "#e8dcc8"], "#5a4a3a"); };
+  const leaves = (P, k) => { if (k <= 0 || k >= 1) return; for (let i = 0; i < 10; i++) { const a = i * 0.63 + k * 6, r = u * (0.2 + 0.8 * k); ctx.save(); ctx.globalAlpha = 1 - k; ctx.translate(P.x + Math.cos(a) * r, P.y + Math.sin(a) * r * 0.6 - k * u * 0.4); ctx.rotate(a + t * 8); ctx.fillStyle = i % 2 ? "#5aa83a" : "#8ad05a"; ctx.beginPath(); ctx.ellipse(0, 0, 6, 3, 0, 0, 7); ctx.fill(); ctx.restore(); } };
+  switch (T.k) {
+    case "instant": if (q > 0.08 && q < 0.33) lines(Ac, sm1(0.08, 0.2, q)); ring(As, (q - 0.3) / 0.18); ring(Bs, (q - 0.58) / 0.18); if (q > 0.6 && q < 0.85) lines(Bs, 1 - sm1(0.7, 0.85, q)); break;
+    case "mirage": for (const [P, k] of [[As, q / 0.45], [Bs, (q - 0.5) / 0.5]]) if (k > 0 && k < 1) { ctx.save(); ctx.globalAlpha = Math.sin(Math.PI * k) * 0.8; ctx.strokeStyle = col; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { ctx.beginPath(); for (let j = 0; j <= 20; j++) { const yy = P.y - u * 0.6 + j * u * 0.06; ctx.lineTo(P.x + (i - 1.5) * u * 0.25 + Math.sin(j * 0.9 + t * 20 + i) * 5, yy); } ctx.stroke(); } ctx.restore(); } break;
+    case "smoke": poofAt(As, (q - 0.2) / 0.4, T.poof); poofAt(Bs, (q - 0.55) / 0.45, T.poof); break;
+    case "flicker": poofAt(As, (q - 0.2) / 0.4); poofAt(Bs, (q - 0.57) / 0.43); if (T.leaves) { leaves(As, (q - 0.2) / 0.5); leaves(Bs, (q - 0.57) / 0.43); } break;
+    case "flash": if (q > 0.28 && q < 0.6) { ctx.save(); ctx.globalAlpha = 1 - sm1(0.45, 0.6, q); sgBolt(ctx, As, Bs, 10, u * 0.25, Math.floor(t * 30), col, 2.6); ctx.restore(); } ring(Bs, (q - 0.42) / 0.2); break;
+    case "fly": { if (q > 0.05 && q < 0.97) { ctx.save(); ctx.globalAlpha = 0.45; sgFlames(ctx, Ag.x, Ag.y - (Ag.y - Ac.y) * 0.1, u * 0.8, u * 1.3, t, [col, "#ffffff", col], 18); ctx.restore(); }
+      if (E.trail && q > 0.1 && q < 0.95) { ctx.save(); ctx.lineCap = "round"; ctx.strokeStyle = col; for (const off of [-0.25, 0, 0.25]) { ctx.globalAlpha = off ? 0.4 : 0.7; ctx.lineWidth = off ? 2 : u * 0.08; ctx.beginPath(); E.trail.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y + off * u) : ctx.moveTo(p.x, p.y + off * u))); ctx.stroke(); } ctx.restore(); }
+      if (T.jet && q > 0.05 && q < 0.95) sgFlames(ctx, Ag.x, Ag.y + u * 0.15, u * 0.35, u * 0.6, t, ["#ffb03a", "#ff5a1a", "#ffe08a"], 12);
+      if (T.sand && q > 0.03 && q < 0.97) { ctx.save(); ctx.fillStyle = "rgba(216,176,106,0.92)"; ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(Ag.x, Ag.y + 4, u * 0.55, u * 0.16, 0, 0, 7); ctx.fill(); ctx.stroke(); for (let i = 0; i < 16; i++) { ctx.fillStyle = ["#d8b06a", "#b88a4a", "#f0d49a"][i % 3]; ctx.beginPath(); ctx.arc(Ag.x + (hash(i + Math.floor(t * 20)) - 0.5) * u * 1.2, Ag.y + 8 + hash(i * 7) * u * 0.3, 2.2, 0, 7); ctx.fill(); } ctx.restore(); }
+      dust(Ag0, q / 0.35); dust(Bg, (q - 0.85) / 0.15 * 0.6); break; }
+    case "leap": { dust(Ag0, q / 0.3); const n = T.hops || 1; for (let i = 1; i <= n; i++) { const tq = 0.08 + 0.87 * i / n; if (i < n && T.steps) { const k = (q - tq) / 0.2; if (k > 0 && k < 1) { ctx.save(); ctx.globalAlpha = 1 - k; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(Ag.x, Ag.y + u * 0.05, u * 0.3 * (0.5 + k), u * 0.1 * (0.5 + k), 0, 0, 7); ctx.stroke(); ctx.restore(); } } else dust(Ag, (q - tq) / 0.25); }
+      if (T.steps && q > 0.08 && q < 0.95) { ctx.save(); ctx.globalAlpha = 0.85; ctx.fillStyle = "#fff6c0"; for (let i = 0; i < 6; i++) { const a = i * 1.05 + t * 9; ctx.beginPath(); ctx.arc(Ag.x + Math.cos(a) * u * 0.3, Ag.y + Math.sin(a) * u * 0.1, 2.5, 0, 7); ctx.fill(); } ctx.restore(); }
+      if (T.clones) { poofAt({ x: As.x - u * 0.6, y: As.y }, (q + 0.05) / 0.4); poofAt({ x: As.x + u * 0.6, y: As.y }, (q + 0.02) / 0.4); }
+      if (T.cracks && q > 0.9) sgCracks(ctx, Bg, u * 1.1, (q - 0.9) / 0.1);
+      if (T.toad && q > 0.02 && q < 0.97) { const s = u * 0.55; ctx.save(); ctx.fillStyle = "#c46a2a"; ctx.strokeStyle = "#3a1a10"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(Ag.x, Ag.y + s * 0.3, s * 1.2, s * 0.7, 0, 0, 7); ctx.fill(); ctx.stroke(); for (const d of [-1, 1]) { ctx.fillStyle = "#f2e6c4"; ctx.beginPath(); ctx.arc(Ag.x + d * s * 0.55, Ag.y - s * 0.25, s * 0.22, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#111"; ctx.fillRect(Ag.x + d * s * 0.55 - s * 0.1, Ag.y - s * 0.28, s * 0.2, s * 0.06); } ctx.restore(); }
+      if (T.butterflies) for (let i = 0; i < 7; i++) { const a = i * 0.9 + t * 3, x = Ac.x + Math.cos(a) * u * 0.6, y = Ac.y + Math.sin(a) * u * 0.45; for (const s2 of [-1, 1]) { ctx.fillStyle = i % 2 ? "rgba(190,140,255,0.9)" : "rgba(80,210,200,0.9)"; ctx.beginPath(); ctx.ellipse(x + s2 * 4, y, 5, 3, s2 * (0.6 + 0.5 * Math.sin(t * 40 + i)), 0, 7); ctx.fill(); } }
+      if (T.hearts && E.trail) E.trail.forEach((p, i) => { if (i % 2) return; const s = u * 0.05; ctx.save(); ctx.globalAlpha = i / E.trail.length; ctx.fillStyle = "#ff7ab0"; ctx.beginPath(); ctx.moveTo(p.x, p.y + s); ctx.bezierCurveTo(p.x - s * 2, p.y - s * 0.5, p.x - s, p.y - s * 2, p.x, p.y - s * 0.8); ctx.bezierCurveTo(p.x + s, p.y - s * 2, p.x + s * 2, p.y - s * 0.5, p.x, p.y + s); ctx.fill(); ctx.restore(); });
+      break; }
+    case "run": { for (let i = 0; i < 4; i++) dust(gnd(travelPos(T, Math.max(0, q - 0.06 * i), A, B)), ((q * 10 + i * 0.25) % 1)); if (T.sweat && q < 0.95) for (const d of [-1, 1]) { ctx.fillStyle = "#8ad0ff"; ctx.beginPath(); ctx.ellipse(Ac.x + d * u * 0.35, Ac.y - u * 0.55 + Math.sin(t * 20 + d) * 3, 3, 5, 0, 0, 7); ctx.fill(); }
+      if (T.notes) for (let i = 0; i < 4; i++) { const life = (t * 1.5 + i / 4) % 1; ctx.save(); ctx.globalAlpha = 1 - life; ctx.font = "bold " + Math.round(u * 0.3) + "px serif"; ctx.fillStyle = "#e8f6ff"; ctx.strokeStyle = "#1a2030"; ctx.lineWidth = 3; const x = Ac.x + (i - 1.5) * u * 0.3, y = Ac.y - u * 0.6 - life * u * 0.6; ctx.strokeText(i % 2 ? "♪" : "♫", x, y); ctx.fillText(i % 2 ? "♪" : "♫", x, y); ctx.restore(); }
+      break; }
+    case "dashw": if (E.trail && q > 0.15 && q < 0.95) { ctx.save(); ctx.globalAlpha = 1 - sm1(0.7, 0.95, q); TRAVEL.dash(ctx, { S: { trail: T.trail, col: T.col, flameCols: null }, uA: u, t, trail: E.trail }); ctx.restore(); } dust(Bg, (q - 0.68) / 0.3); break;
+    case "rocket": { if (q < 0.88) { const ext = q < 0.32 ? sm1(0.03, 0.32, q) : 1; const tip = { x: As.x + (Bs.x - As.x) * ext, y: As.y + (Bs.y - As.y) * ext }; const from = Ac; ctx.save(); ctx.lineCap = "round"; for (const [lw, c] of [[u * 0.13, "#3a2020"], [u * 0.085, "#f2c49a"]]) { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(from.x, from.y); const mx = (from.x + tip.x) / 2, my = (from.y + tip.y) / 2 + (q > 0.38 && q < 0.55 ? Math.sin(t * 60) * 4 : 0); ctx.quadraticCurveTo(mx, my, tip.x, tip.y); ctx.stroke(); } ctx.fillStyle = "#f2c49a"; ctx.strokeStyle = "#3a2020"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tip.x, tip.y, u * 0.11, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+        if (q > 0.38 && q < 0.56) { ctx.save(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(Ac.x, Ac.y, u * (0.4 + i * 0.12), Math.PI * 0.8, Math.PI * 1.2); ctx.stroke(); } ctx.restore(); } }
+      if (E.trail && q > 0.55 && q < 0.9) { ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2; for (const off of [-0.2, 0.2]) { ctx.beginPath(); E.trail.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y + off * u) : ctx.moveTo(p.x, p.y + off * u))); ctx.stroke(); } ctx.restore(); }
+      dust(Bg, (q - 0.84) / 0.16); break; }
+    case "lost": { const bub = (txt, k) => { if (k <= 0 || k >= 1) return; ctx.save(); ctx.globalAlpha = Math.min(1, Math.sin(Math.PI * k) * 2); const x = Ac.x + u * 0.35, y = Ac.y - u * 0.95; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, u * 0.22, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#111"; ctx.font = "900 " + Math.round(u * 0.3) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y + 1); ctx.restore(); };
+      bub("?", (q - 0.15) / 0.3); bub("!", (q - 0.42) / 0.12); poofAt(chestW({ x: A.x, z: A.z }), -1); if (q > 0.46 && q < 0.75) { const P = chestW(travelPos(T, 0.45, A, B)); poofAt(P, (q - 0.46) / 0.3); } if (q > 0.55 && q < 0.9) poofAt(chestW(travelPos(T, 0.57, A, B)), (q - 0.55) / 0.3); break; }
+    case "burrow": { const k1 = q / 0.3, k2 = (q - 0.72) / 0.28; for (const [P, k] of [[Ag0, k1], [Bg, k2]]) if (k > 0 && k < 1) sgDebris(ctx, P, u, k, ["#7a5a3a", "#5a4a3e", "#9a7a5a"], 10); if (q > 0.22 && q < 0.8) { const M = gnd(travelPos(T, q, A, B)); ctx.save(); ctx.fillStyle = "#6a4a2a"; ctx.strokeStyle = "#2a1a10"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(M.x, M.y, u * 0.3, u * 0.14, 0, Math.PI, 0); ctx.fill(); ctx.stroke(); ctx.restore(); sgDebris(ctx, M, u * 0.5, 0.6 + 0.4 * Math.sin(t * 30), ["#7a5a3a", "#9a7a5a"], 5); } break; }
+  }
+}
 /* ---- fiches des attaques ---- */
 const SGB = (o) => Object.assign({ travel: "dash", impact: "smoke", charge: "aura", pose: "ready", pose2: "slash", col: "#ffd84a", mid: "#fff6c0", edge: "#e0a01a" }, o);
 const SIG = {
@@ -1463,7 +1541,7 @@ const SIG = {
   mitsuri: SGB({ ui: "Souffle de l'amour", chant: ["SOUFFLE DE L'AMOUR…", "CINQUIÈME MOUVEMENT…"], final: "ARC-EN-CIEL DU COUP DE FOUDRE !", col: "#ff8ac0", mid: "#ffe0f0", pose: "whipReady", pose2: "whip", charge: "hearts", travel: "whip", td: 0.45, impact: "petals", slashes: 3, slashCol: "#ffc0dc" }),
   pourfendeur: SGB({ ui: "Coup de sabre", chant: ["SOUFFLE…"], final: "COUP DE SABRE !", col: "#e8edf2", pose: "ready", pose2: "slash", charge: "glint", impact: "slash", slashes: 1, trail: "line" }),
 };
-for (const id in SIG) ATTACKS[id] = Object.assign({}, ATTACKS[id] || {}, { sig: SIG[id], dur: 3.8, name: ATTACKS[id] ? ATTACKS[id].name : SIG[id].ui });
+for (const id in SIG) ATTACKS[id] = Object.assign({}, ATTACKS[id] || {}, { sig: SIG[id], trv: TRV[id] || { k: "run", txt: "", col: "#ffffff" }, dur: sigTimes(SIG[id]).D, name: ATTACKS[id] ? ATTACKS[id].name : SIG[id].ui });
 
 /* ===== Échecs 3D en ligne : interface + synchronisation via relais pub/sub (API ntfy) ===== */
 const Q = new URLSearchParams(location.search);
@@ -1561,7 +1639,7 @@ function applyMoves(moves, reset) {
       const vch = characterFor(G.teams[m.captured[0]], m.captured[1], idNum(G.ids[capSq]));
       G.cine = { t0: performance.now(), from: m.from, capSq, atk, who: (ach ? ach.name : ROLE_FR[m.piece[1]]) + " ➜ " + (vch ? vch.name : ROLE_FR[m.captured[1]]),
         state: cur(), ids: G.ids.slice(), len: moves.length, side: m.piece[0], to: m.to };
-      if (atk.sig && ach && ach.dbz && sigMoves(atk.sig)) G.anim.items = G.anim.items.filter((it) => it.from !== m.from);
+      if (atk.sig && ach && ach.dbz) G.anim.items = G.anim.items.filter((it) => it.from !== m.from);
       G.anim.t0 = after = performance.now() + (atk.dur || CINE_T) * 1000; G.anim.cap = null;
     }
     const ns = rb.states[rb.states.length - 1];
@@ -1701,7 +1779,6 @@ function drawNow() {
   else if (pcs.some((q) => q.aura) && !document.hidden) { clearTimeout(G.auraT); G.auraT = setTimeout(draw, 90); }
 }
 const sm = (a, b, x) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
-const TRAVEL_T = { beam: 0.45, dash: 0.32, leap: 0.55, flash: 0.14, projectile: 0.45, sky: 0.55, gatling: 0.7, sandstream: 0.6, toad: 0.5, ripple: 0.5, whip: 0.45 };
 function sigMoves(S) { return S && (["dash", "leap", "flash"].includes(S.travel) || S.then === "flash"); }
 function drawSigCine(C, t, dpr, spr, ch) {
   const S = C.atk.sig, s = C.state, v = makeView(cam()), Pj = (x, y, z) => { const r = project(v, [x, y, z]); return { x: r[0], y: r[1], d: r[2] }; };
@@ -1710,7 +1787,7 @@ function drawSigCine(C, t, dpr, spr, ch) {
   const usz = (x, z) => Math.max(18, Math.hypot(Pj(x + 0.5, 0, z).x - Pj(x - 0.5, 0, z).x, Pj(x + 0.5, 0, z).y - Pj(x - 0.5, 0, z).y));
   const u = usz(vx, vz), uA = usz(ax, az);
   const D = C.atk.dur || 3.8, T1 = 0.3, T2 = 1.6, TD = S.td || TRAVEL_T[S.travel] || 0.4; const flashThen = S.then === "flash";
-  const T3 = T2 + TD + (flashThen ? 0.14 : 0), T5 = D - 0.25, T4 = Math.min(T5 - 0.3, T3 + 1.15);
+  const TT = sigTimes(S), T3 = TT.T3, TV0 = TT.TV0, TV1 = TT.TV1, T4 = TV0, T5 = TV1; const TRVS = C.atk.trv || { k: "run", txt: "", col: "#fff" };
   const moves = sigMoves(S), isFlash = S.travel === "flash" || flashThen;
   const VH = S.victim === "launch" ? 0.72 : S.impact === "ice" ? 0.55 : S.victim === "late" ? 0.42 : 0.12; const TI = T3 + (S.victim === "launch" ? 0.7 : 0);
   // géométrie au sol
@@ -1718,11 +1795,12 @@ function drawSigCine(C, t, dpr, spr, ch) {
   const back = moves && dl < 1.8 ? 0.75 : 0; const P0w = { x: ax - ux * back, z: az - uz * back };
   const PEw = isFlash ? { x: vx + ux * 0.6, z: vz + uz * 0.6 } : { x: vx - ux * 0.42, z: vz - uz * 0.42 };
   const tS = flashThen ? T3 - 0.14 : T2; // départ du déplacement
-  const posA = (tt) => { if (!moves || tt < T2 - 0.34) return { x: ax, z: az, l: 0 };
+  const SW = moves ? PEw : { x: ax, z: az }, DST = { x: dx2, z: dz2 };
+  const posA = (tt) => { if (tt >= TV0) { if (tt >= TV1) return { x: dx2, z: dz2, l: 0, a: 1 }; return travelPos(TRVS, (tt - TV0) / TRV_LEN, SW, DST); }
+    if (!moves || tt < T2 - 0.34) return { x: ax, z: az, l: 0 };
     if (tt < tS) { const k = sm(T2 - 0.34, T2 - 0.06, tt); return { x: ax + (P0w.x - ax) * k, z: az + (P0w.z - az) * k, l: Math.sin(Math.PI * k) * 0.35 * (back ? 1 : 0) }; }
     if (tt < T3) { const k0 = Math.min(1, (tt - tS) / (T3 - tS)), k = S.travel === "leap" ? k0 : k0 * k0 * (3 - 2 * k0); return { x: P0w.x + (PEw.x - P0w.x) * k, z: P0w.z + (PEw.z - P0w.z) * k, l: S.travel === "leap" ? Math.sin(Math.PI * k) * 1.7 : Math.sin(Math.PI * k) * 0.12 }; }
-    if (tt < T4) return { x: PEw.x, z: PEw.z, l: 0 };
-    const k = sm(T4, T5, tt); return { x: PEw.x + (dx2 - PEw.x) * k, z: PEw.z + (dz2 - PEw.z) * k, l: Math.sin(Math.PI * k) * 0.3 }; };
+    return { x: PEw.x, z: PEw.z, l: 0 }; };
   const pa = posA(t);
   const Ac0 = Pj(ax, 0.1 + hA * 0.55, az), Vc = Pj(vx, 0.1 + hV * 0.45, vz), Vg = Pj(vx, 0.1, vz);
   const Ac = Pj(pa.x, 0.1 + pa.l + hA * 0.55, pa.z), Ag = Pj(pa.x, 0.1 + pa.l, pa.z);
@@ -1731,17 +1809,17 @@ function drawSigCine(C, t, dpr, spr, ch) {
   const mk = (kind) => { switch (kind) { case "kickUp": return { kind: "kick", ang: dirX > 0 ? -1.25 : -1.9 }; case "kick": return { kind: "kick", ang: dirX > 0 ? -0.2 : Math.PI + 0.2 }; case "whipReady": return { kind: "whip", ang: -Math.PI / 2 - dirX * 0.7 };
     case "charge": case "chargeHand": case "ready": return { kind, dir: dirX }; case "thrust": case "punch": case "palm": case "throw": case "sling": case "whip": return { kind, ang: angQ }; case "slash": return { kind, ang: angQ, dual: !!S.dual, mouth: !!S.mouth }; default: return { kind }; } };
   let pose = null;
-  if (t >= T1 && t < T2) pose = mk(S.pose); else if (t >= T2 && t < T4 + 0.05) { if (moves && t < T3) { const kk = (t - tS) / (T3 - tS); pose = t < tS ? mk(S.pose) : S.travel === "leap" && kk < 0.75 ? mk("leap") : kk < 0.55 ? mk(S.pose) : mk(S.pose2); } else pose = mk(S.pose2); }
+  if (t >= TV0) pose = pa.pose ? mk(pa.pose) : null; else if (t >= T1 && t < T2) pose = mk(S.pose); else if (t >= T2 && t < T4 + 0.05) { if (moves && t < T3) { const kk = (t - tS) / (T3 - tS); pose = t < tS ? mk(S.pose) : S.travel === "leap" && kk < 0.75 ? mk("leap") : kk < 0.55 ? mk(S.pose) : mk(S.pose2); } else pose = mk(S.pose2); }
   const spritePt = (sp, h, p, P) => { const b = project(v, [P.x, 0.1 + P.l, P.z]); const hp = (v.foc * h) / b[2], wp = hp * (sp.width / sp.height); const x0 = b[0] - wp / 2, y0 = b[1] - hp * 0.97; return { x: x0 + ((p[0] + 6) * 1.4 / sp.width) * wp, y: y0 + ((p[1] + 12) * 1.4 / sp.height) * hp, top: y0, hp }; };
   const sp0 = makeSprite(ch, role, C.side, 1.4, pose); let handP = dbzHand(ch, pose || mk(S.pose) || { kind: "charge", dir: dirX });
   if (S.chargeAt === "leg" && pose && pose.kind === "kick") handP = [114 + Math.cos(pose.ang) * 92, 186 + Math.sin(pose.ang) * 92];
   const Hs = spritePt(sp0, hA, handP, pa); const headTop = spritePt(sp0, hA, [100, 10], { x: ax, z: az, l: 0 });
   // caméra
   const center = { x: W / 2, y: H * 0.52 }; const bp = sm(tS, T3, t); const far = S.travel === "toad" || S.travel === "sky";
-  let FT = Ac, Zt = 1.9; const k = sm(0, T1, t) * (1 - sm(T5, D, t)); const L2 = (a, b, q) => ({ x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q });
+  let FT = Ac, Zt = 1.9; const k = sm(0, T1, t) * (1 - sm(TV1, D, t)); const L2 = (a, b, q) => ({ x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q });
   if (t >= T2 && t < T3) { if (moves) { FT = Ac; Zt = 1.75; } else if (far) { FT = L2(Ac0, Vc, sm(T2, T2 + 0.3, t)); Zt = 1.9 - 0.75 * sm(T2, T2 + 0.3, t); } else { FT = L2(Ac0, Vc, bp); Zt = 1.9 - 0.4 * bp; } }
   else if (t >= T3 && t < T4) { FT = moves ? L2(Ac, Vc, sm(T3, T3 + 0.15, t)) : Vc; Zt = far ? 1.15 : 1.5; if (S.victim === "launch") FT = { x: Vc.x, y: Vc.y - u * 1.2 * Math.sin(Math.PI * Math.min(1, (t - T3) / 0.7)) }; }
-  else if (t >= T4) { const q = sm(T4, T5, t); FT = moves ? L2(Vc, Ac, q) : L2(Vc, Ac0, q); Zt = (far ? 1.15 : 1.5) - 0.2 * q; }
+  else if (t >= T4) { const q = sm(TV0, TV0 + 0.35, t); FT = L2(Vc, Ac, q); Zt = (far ? 1.15 : 1.5) + ((far ? 1.45 : 1.5) - (far ? 1.15 : 1.5)) * q - 0.1 * sm(TV1 - 0.2, TV1, t); }
   const Z = 1 + (Zt - 1) * k, F = { x: center.x + (FT.x - center.x) * k, y: center.y + (FT.y - center.y) * k };
   const shk = (t > TI && t < TI + 0.45 ? (1 - (t - TI) / 0.45) * u * 0.18 : 0) + (t > T1 && t < T2 ? sm(T1, T2, t) * u * 0.025 : 0);
   const sx = Math.sin(t * 91) * shk, sy = Math.cos(t * 77) * shk;
@@ -1750,7 +1828,7 @@ function drawSigCine(C, t, dpr, spr, ch) {
   ctx.setTransform(dpr * Z, 0, 0, dpr * Z, dpr * (center.x - F.x * Z + sx), dpr * (center.y - F.y * Z + sy));
   const pcs = []; const code = s.board[C.from];
   s.board.forEach((pc, i) => { if (!pc) return; const [x, z] = sqPos(i); const o = Object.assign({ code: pc, sq: i, x, z, lift: 0 }, spr(pc, C.ids[i], i === C.from ? pose : null));
-    if (i !== C.from) o.aura = undefined; else { if (o.aura && t > T1 && t < T4) o.auraK = 0.75; o.x = pa.x; o.z = pa.z; o.lift = pa.l; if (isFlash && t > tS && t < T3 - 0.02) o.alpha = 0; }
+    if (i !== C.from) o.aura = undefined; else { if (o.aura && t > T1 && t < T4) o.auraK = 0.75; o.x = pa.x; o.z = pa.z; o.lift = pa.l; if (isFlash && t > tS && t < T3 - 0.02) o.alpha = 0; if (t >= TV0 && pa.a != null) o.alpha = pa.a; }
     if (i === C.capSq) { o.alpha = t < T3 + VH ? 1 : 0; if (t > T3 - 0.05 && t < T3 + 0.12) o.x += Math.sin(t * 120) * 0.04; if (S.victim === "launch" && t > T3) { const q = Math.min(1, (t - T3) / 0.7); o.lift = Math.sin(Math.PI * q) * 2.4; } }
     pcs.push(o); });
   // images rémanentes / clones
@@ -1770,8 +1848,10 @@ function drawSigCine(C, t, dpr, spr, ch) {
     if (moves) { if (t < T3 + 0.3) { const tr = []; for (let i = 0; i <= 10; i++) { const tt = tS + (Math.min(t, T3) - tS) * i / 10; const p = posA(tt); tr.push(Pj(p.x, 0.1 + p.l + hA * 0.45, p.z)); } ctx.globalAlpha = 1 - sm(T3, T3 + 0.3, t); if (t > tS) TRAVEL.dash(ctx, Object.assign({}, E, { trail: tr })); ctx.globalAlpha = 1; } }
     else if (TRAVEL[S.travel] && S.travel !== "ripple") TRAVEL[S.travel](ctx, E); }
   // impact
-  if (t >= TI) { const q = Math.min(1, (t - TI) / (T5 - TI)); (IMPACT[S.impact] || IMPACT.smoke)(ctx, Object.assign({}, E, { V: S.victim === "launch" ? Vc : E.V, q }));
+  if (t >= TI && t < TV0 + 0.4) { const q = Math.min(1, (t - TI) / (TV0 + 0.35 - TI)); (IMPACT[S.impact] || IMPACT.smoke)(ctx, Object.assign({}, E, { V: S.victim === "launch" ? Vc : E.V, q }));
     if (t < TI + 0.25) { const f = 1 - (t - TI) / 0.25; ctx.globalAlpha = f; sgJag(ctx, Vc.x, Vc.y, u * (0.6 + 0.9 * (1 - f)), 12, 0.45, t * 4, "#ffffff", t); ctx.strokeStyle = S.col; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(Vc.x, Vc.y, u * (0.5 + 1.6 * (1 - f)), u * (0.3 + 0.9 * (1 - f)), 0, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
+  // déplacement signature vers la case d'arrivée
+  if (t >= TV0 && t < TV1) { const q = (t - TV0) / TRV_LEN; const tr = []; for (let i = 0; i <= 8; i++) { const p = posA(Math.max(TV0, t - 0.03 * (8 - i))); tr.push(Pj(p.x, 0.1 + p.l + hA * 0.45, p.z)); } travelFX(ctx, TRVS, q, { Pj, A: SW, B: DST, cur: pa, u: uA, t, hA, trail: tr }); }
   ctx.restore();
   // ---- surcouches écran ----
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1783,6 +1863,7 @@ function drawSigCine(C, t, dpr, spr, ch) {
     const rows = [[]]; let rw = 0; for (const w of ch2) { const ww = ctx.measureText(w).width + fsz * 0.6; if (rw + ww > W - 30 && rows[rows.length - 1].length) { rows.push([]); rw = 0; } rows[rows.length - 1].push([w, ww]); rw += ww; }
     const y0 = Math.max(84, Math.min(hp.y - fsz * (0.6 + 1.15 * (rows.length - 1)), H * 0.34)); const step = Math.min(0.32, (T2 - T1 - 0.35) / ch2.length); let idx = 0;
     rows.forEach((r, ri) => { const tw = r.reduce((a, b) => a + b[1], 0); let x = W / 2 - tw / 2; for (const [w, ww] of r) { word(w, x + ww / 2, y0 + ri * fsz * 1.15, T1 + 0.05 + idx * step, fsz * 0.95, "#ffffff"); x += ww; idx++; } }); ctx.restore(); }
+  if (TRVS.txt && t > TV0 + 0.05 && t < TV1) { ctx.save(); ctx.globalAlpha = 1 - sm(TV1 - 0.25, TV1, t); word(TRVS.txt, W / 2, Math.max(96, H * 0.2), TV0 + 0.05, fit(TRVS.txt, Math.min(40, W * 0.09), W - 30), TRVS.col); ctx.restore(); }
   if (t > T2 - 0.02 && t < T3 + 0.5) { ctx.save(); ctx.globalAlpha = 1 - sm(T3 + 0.2, T3 + 0.5, t); word(S.final, W / 2, Math.max(96, H * 0.22), T2 - 0.02, fit(S.final, Math.min(64, W * 0.15), W - 30), S.mid); ctx.restore(); }
   if (t > 0.15 && t < D - 0.2) { const a = Math.min(1, (t - 0.15) / 0.2) * (1 - sm(D - 0.5, D - 0.2, t)); ctx.save(); ctx.globalAlpha = a; ctx.font = "800 14px system-ui, sans-serif"; const bw = Math.max(168, ctx.measureText(S.ui).width + 24); ctx.fillStyle = "rgba(10,16,40,0.82)"; ctx.strokeStyle = S.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(10, 10, bw, 46, 9); ctx.fill(); ctx.stroke();
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#fff"; ctx.fillText(S.ui, 20, 29); ctx.font = "600 10px system-ui, sans-serif"; ctx.fillStyle = "#9fb6d8"; ctx.fillText(ch.name, 20, 42);
