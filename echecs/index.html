@@ -17,6 +17,9 @@ input[type=text]{width:100%;font:13px ui-monospace,monospace;background:#14161a;
 #promo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:16px}#promo[hidden]{display:none}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#30343c;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .25s;pointer-events:none}#toast.on{opacity:1}
 small{color:#8f8b85}
+.equipes{display:flex;flex-wrap:wrap;gap:8px}.equipe{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;width:96px;font-size:12px;line-height:1.2;text-align:center}
+.equipe canvas{width:56px;height:84px}.equipe .classique{font-size:52px;line-height:84px;height:84px}.equipe.active{border-color:#3a7bf2;background:#1f2f4f;box-shadow:0 0 0 2px #3a7bf2 inset}
+.equipes.petit .equipe{width:80px}.equipes.petit .equipe canvas{width:40px;height:60px}.equipes.petit .equipe .classique{font-size:36px;line-height:60px;height:60px}
 </style></head><body><main>
 <section id="accueil">
   <h1>Échecs 3D en ligne</h1>
@@ -24,6 +27,8 @@ small{color:#8f8b85}
   <div class="carte">
     <p style="color:#eceae6;font-weight:600">Je joue avec :</p>
     <div class="rangee choix"><label><input type="radio" name="couleur" value="w" checked> les Blancs</label><label><input type="radio" name="couleur" value="b"> les Noirs</label><label><input type="radio" name="couleur" value="x"> au hasard</label></div>
+    <p style="color:#eceae6;font-weight:600;margin-top:14px">Mon équipe :</p>
+    <div class="equipes" id="equipes-accueil"></div>
     <div class="rangee" style="margin-top:14px"><button class="primaire" id="creer">Créer la partie</button></div>
     <p><small>Ensuite, envoyez le lien d'invitation à votre ami (SMS, WhatsApp…). Il n'a rien à installer.</small></p>
   </div>
@@ -40,6 +45,13 @@ small{color:#8f8b85}
       <div class="rangee"><button id="recentrer">Vue de mon côté</button><button id="dessus">Vue de dessus</button></div>
     </div>
     <div>
+      <div class="carte"><b>Équipes</b>
+        <p style="margin-top:8px"><small>Mon équipe (votre ami la voit aussi) :</small></p>
+        <div class="equipes petit" id="equipes-jeu"></div>
+        <p><small id="mon-equipe"></small></p>
+        <p style="color:#eceae6"><small>Équipe de mon ami :</small><br><small id="equipe-ami"></small></p>
+        <p><small>Personnages dessinés par le code, en hommage de fan : non officiel, sans image ni logo d'origine.</small></p>
+      </div>
       <div class="carte"><b>Coups joués</b><pre id="coups"></pre></div>
       <div class="carte"><b>Lien pour votre ami</b><input id="lien" type="text" readonly onclick="this.select()"><div class="rangee" style="margin-top:8px"><button id="partager2">Copier / partager</button></div><p><small>Gardez ce lien privé : toute personne qui l'a peut voir la partie.</small></p></div>
       <div class="rangee"><button id="nouvelle">Nouvelle partie</button><button id="abandon">Abandonner</button></div>
@@ -337,6 +349,7 @@ const D = Math.PI / 180;
                                                                 
 function buildMeshes()                       {
   const S = 18; const M                       = {};
+  { const f         = []; lathe([[0, 0], [0.37, 0], [0.37, 0.05], [0.34, 0.09], [0.3, 0.11], [0, 0.11]], 22, f); M.ped = { faces: f, caps: [], h: 0.11 }; }
   const base = (R        ) => [[0, 0], [R, 0], [R, 0.05], [R - 0.02, 0.08], [R - 0.01, 0.11], [R - 0.04, 0.14], [R - 0.1, 0.18]];
   { const f         = []; lathe([...base(0.3), [0.12, 0.26], [0.1, 0.36], [0.17, 0.4], [0.17, 0.43], [0.09, 0.46], ...arc(0.57, 0.14, 0.14, -55 * D, 90 * D, 7)], S, f); M.p = { faces: f, caps: [], h: 0.72 }; }
   { const f         = []; lathe([...base(0.33), [0.2, 0.3], [0.185, 0.56], [0.23, 0.6], [0.25, 0.63], [0.25, 0.76], [0.17, 0.76], [0.17, 0.7], [0, 0.7]], S, f);
@@ -404,7 +417,7 @@ function shade(base    , n    , view      , c    , spec        , gloss        ) 
   const ch = (i        ) => Math.min(255, Math.round(base[i] * k + 255 * sp));
   return "rgb(" + ch(0) + "," + ch(1) + "," + ch(2) + ")";
 }
-                                                                                         
+                                                                                                                   
                                                                                                                                                 
                                                         
 
@@ -469,8 +482,8 @@ function drawScene(ctx                          , cam     , meshes              
   const hits        = [];
   for (const { pc } of order) {
     const white = pc.code[0] === "w"; const t = pc.code[1];
-    const mesh = meshes[t === "n" ? (white ? "nw" : "nb") : t];
-    const base     = white ? [232, 220, 196] : [46, 42, 44]; const spec = white ? 0.22 : 0.35; const gloss = white ? 24 : 40;
+    const mesh = pc.sprite ? meshes.ped : meshes[t === "n" ? (white ? "nw" : "nb") : t];
+    const base     = pc.sprite ? (white ? [236, 222, 190] : [58, 40, 52]) : white ? [232, 220, 196] : [46, 42, 44]; const spec = white ? 0.22 : 0.35; const gloss = white ? 24 : 40;
     const list                                                = [], caps              = [], ink              = [];
     const add = (fc      , dest             ) => {
       const c     = [fc.c[0] + pc.x, fc.c[1] + pc.lift, fc.c[2] + pc.z];
@@ -483,6 +496,12 @@ function drawScene(ctx                          , cam     , meshes              
     list.sort((a, b) => b.d - a.d); caps.sort((a, b) => b.d - a.d);
     const polys               = [];
     for (const f of list.concat(caps, ink)) { ctx.fillStyle = f.col; ctx.strokeStyle = f.col; ctx.lineWidth = 0.7; poly(ctx, f.pts); ctx.fill(); ctx.stroke(); polys.push(f.pts); }
+    if (pc.sprite) {
+      const b = project(v, [pc.x, 0.1 + pc.lift, pc.z]); const hp = (v.foc * (pc.h || 1.2)) / b[2]; const wp = hp * (pc.sprite.width / pc.sprite.height);
+      const x0 = b[0] - wp / 2, y0 = b[1] - hp * 0.97;
+      ctx.drawImage(pc.sprite, x0, y0, wp, hp);
+      polys.push([[x0 + wp * 0.15, y0], [x0 + wp * 0.85, y0], [x0 + wp * 0.85, y0 + hp], [x0 + wp * 0.15, y0 + hp]]);
+    }
     hits.push({ sq: pc.sq, polys });
   }
   return hits;
@@ -498,6 +517,196 @@ function hitTest(hits       , x        , y        )         {
   return -1;
 }
 
+/* ===== Figurines « hommage de fan » : personnages dessinés entièrement par le code (aucune image externe) ===== */
+const SPR_W = 200, SPR_H = 300;
+function P(ctx, pts, fill, stroke) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); } }
+function E(ctx, x, y, rx, ry, fill, stroke, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); } }
+function R(ctx, x, y, w, h, r, fill) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill(); }
+function spikes(ctx, cx, cy, r0, r1, a0, a1, n, fill, jitter = 0) {
+  const pts = [[cx, cy]];
+  for (let i = 0; i <= n * 2; i++) { const a = (a0 + (a1 - a0) * i / (n * 2)) * Math.PI / 180; const r = i % 2 ? r1 * (1 + jitter * Math.sin(i * 2.3)) : r0; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  P(ctx, pts, fill);
+}
+const OUT = "#1b1416";
+
+function drawHairBack(ctx, c) {
+  const h = c.hair || {};
+  if (h.long) { P(ctx, [[48, 100], [152, 100], [162, 200 + h.long], [130, 210 + h.long], [100, 190], [70, 210 + h.long], [38, 200 + h.long]], h.color); if (h.tips) P(ctx, [[42, 190 + h.long], [160, 190 + h.long], [162, 200 + h.long], [130, 210 + h.long], [100, 195], [70, 210 + h.long], [38, 200 + h.long]], h.tips); }
+  if (h.style === "spiky_back") spikes(ctx, 100, 120, 40, 78, 120, 240, 4, h.color);
+  if (h.style === "afro") E(ctx, 100, 82, 74, 62, h.color);
+  if (h.style === "ponytail") P(ctx, [[130, 80], [168, 70], [160, 150], [140, 110]], h.color);
+  if (h.style === "braids") { for (const s of [-1, 1]) { for (let i = 0; i < 4; i++) E(ctx, 100 + s * 58, 150 + i * 22, 13, 14, i < 2 ? h.color : h.tips); } }
+}
+function drawBody(ctx, c, side) {
+  const top = c.top || "#888", bottom = c.bottom || "#444", skin = c.skin || "#f4c9a0";
+  // cape
+  if (c.cape) P(ctx, [[62, 150], [138, 150], [158, 285], [42, 285]], c.cape);
+  // swords behind
+  if (c.swords) for (const [i, col] of c.swords.entries()) { ctx.save(); ctx.translate(140 - i * 6, 205); ctx.rotate(-0.9 + i * 0.25); R(ctx, -3, -70, 6, 95, 2, "#cfd6de"); R(ctx, -5, 18, 10, 26, 3, col); R(ctx, -9, 15, 18, 5, 2, "#c8a64a"); ctx.restore(); }
+  if (c.backSword) { ctx.save(); ctx.translate(70, 170); ctx.rotate(-0.6); R(ctx, -4, -80, 8, 110, 2, "#cfd6de"); R(ctx, -6, -95, 12, 22, 3, "#6b4a2b"); ctx.restore(); }
+  if (c.gourd) { E(ctx, 145, 175, 22, 26, "#b9875a"); E(ctx, 145, 140, 15, 16, "#b9875a"); }
+  if (c.shell) { E(ctx, 100, 190, 52, 48, "#3f8f4a"); E(ctx, 100, 190, 40, 36, "#6fbf6a"); }
+  // jambes
+  if (!c.dress) { R(ctx, 77, 222, 21, 52, 6, bottom); R(ctx, 102, 222, 21, 52, 6, bottom); }
+  else P(ctx, [[66, 160], [134, 160], [150, 268], [50, 268]], c.dress);
+  if (c.legSkin) { R(ctx, 79, 250, 17, 24, 5, skin); R(ctx, 104, 250, 17, 24, 5, skin); }
+  E(ctx, 86, 280, 15, 8, c.shoes || "#3a2a20"); E(ctx, 114, 280, 15, 8, c.shoes || "#3a2a20");
+  // torse
+  if (!c.dress) P(ctx, [[64, 150], [136, 150], [140, 228], [60, 228]], top);
+  if (c.pattern === "check") { ctx.save(); ctx.beginPath(); ctx.rect(60, 150, 80, 78); ctx.clip(); for (let y = 150; y < 230; y += 14) for (let x = 60; x < 140; x += 14) if (((x - 60) / 14 + (y - 150) / 14) % 2 === 0) { ctx.fillStyle = c.top2; ctx.fillRect(x, y, 14, 14); } ctx.restore(); }
+  if (c.pattern === "stripes") { ctx.save(); ctx.beginPath(); ctx.rect(60, 150, 80, 78); ctx.clip(); for (let y = 156; y < 230; y += 14) { ctx.fillStyle = c.top2; ctx.fillRect(60, y, 80, 6); } ctx.restore(); }
+  if (c.pattern === "triangles") { ctx.save(); ctx.beginPath(); ctx.rect(60, 150, 80, 78); ctx.clip(); for (let y = 160; y < 230; y += 22) for (let x = 56; x < 140; x += 18) P(ctx, [[x, y + 16], [x + 9, y], [x + 18, y + 16]], c.top2); ctx.restore(); }
+  if (c.pattern === "split") P(ctx, [[100, 150], [136, 150], [140, 228], [100, 228]], c.top2);
+  if (c.pattern === "open") P(ctx, [[88, 150], [112, 150], [106, 200], [94, 200]], skin);
+  if (c.pattern === "vest") { P(ctx, [[86, 150], [114, 150], [108, 228], [92, 228]], c.top2 || skin); }
+  if (c.pattern === "jacket") { P(ctx, [[96, 150], [104, 150], [104, 228], [96, 228]], c.top2); }
+  if (c.belt) R(ctx, 60, 212, 80, 11, 3, c.belt);
+  if (c.sash) R(ctx, 60, 205, 80, 18, 4, c.sash);
+  // bras
+  const sleeve = c.sleeve || top; const arm = c.armSkin ? skin : sleeve;
+  R(ctx, 46, 154, 20, 58, 9, arm); R(ctx, 134, 154, 20, 58, 9, arm);
+  if (c.gloves) { E(ctx, 56, 214, 11, 11, c.gloves); E(ctx, 144, 214, 11, 11, c.gloves); } else { E(ctx, 56, 214, 10, 10, skin); E(ctx, 144, 214, 10, 10, skin); }
+  if (c.swordsHip) for (let i = 0; i < 3; i++) R(ctx, 128 + i * 5, 205, 4, 46, 2, ["#e8e8e8", "#1d1d1d", "#a51f2b"][i]);
+  if (c.necklace) { ctx.lineWidth = 4; ctx.strokeStyle = c.necklace; ctx.beginPath(); ctx.arc(100, 150, 18, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  if (c.scarf) R(ctx, 70, 146, 60, 14, 6, c.scarf);
+}
+function drawHead(ctx, c) {
+  const skin = c.skin || "#f4c9a0"; const h = c.hair || {};
+  if (c.ears) { E(ctx, 50, 112, 9, 14, skin); E(ctx, 150, 112, 9, 14, skin); }
+  if (c.pointyEars) { P(ctx, [[54, 100], [30, 92], [54, 124]], skin); P(ctx, [[146, 100], [170, 92], [146, 124]], skin); }
+  if (c.antlers) { ctx.lineWidth = 7; ctx.strokeStyle = "#8a5a2b"; ctx.lineCap = "round"; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(100 + s * 30, 70); ctx.lineTo(100 + s * 58, 30); ctx.lineTo(100 + s * 78, 34); ctx.moveTo(100 + s * 50, 42); ctx.lineTo(100 + s * 46, 18); ctx.stroke(); } }
+  if (c.antennae) { ctx.lineWidth = 5; ctx.strokeStyle = skin; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(88, 62); ctx.quadraticCurveTo(80, 36, 70, 28); ctx.moveTo(112, 62); ctx.quadraticCurveTo(120, 36, 130, 28); ctx.stroke(); }
+  E(ctx, 100, 108, 50, 48, skin);
+  if (c.fur) { E(ctx, 100, 112, 50, 46, c.fur); E(ctx, 100, 126, 30, 22, "#f2d6b0"); }
+  if (c.skull) { E(ctx, 100, 106, 46, 46, "#f3efe6"); E(ctx, 82, 108, 11, 13, "#1a1a1a"); E(ctx, 118, 108, 11, 13, "#1a1a1a"); P(ctx, [[100, 118], [95, 130], [105, 130]], "#1a1a1a"); for (let i = 0; i < 5; i++) R(ctx, 84 + i * 7, 138, 5, 9, 1, "#d8d2c4"); return; }
+  if (c.boar) { E(ctx, 100, 104, 54, 52, "#8f949b"); E(ctx, 100, 128, 26, 18, "#c9c3bb"); E(ctx, 92, 128, 4, 5, "#3a2a2a"); E(ctx, 108, 128, 4, 5, "#3a2a2a"); P(ctx, [[70, 132], [62, 114], [76, 128]], "#f4f0e6"); P(ctx, [[130, 132], [138, 114], [124, 128]], "#f4f0e6"); E(ctx, 80, 100, 9, 9, "#f4f0e6"); E(ctx, 120, 100, 9, 9, "#f4f0e6"); E(ctx, 80, 100, 4, 4, "#1a1a1a"); E(ctx, 120, 100, 4, 4, "#1a1a1a"); P(ctx, [[58, 72], [50, 40], [74, 62]], "#8f949b"); P(ctx, [[142, 72], [150, 40], [126, 62]], "#8f949b"); return; }
+  // yeux
+  const ey = c.eyeY || 112;
+  if (c.shades) { R(ctx, 66, ey - 9, 30, 16, 5, "#141414"); R(ctx, 104, ey - 9, 30, 16, 5, "#141414"); R(ctx, 94, ey - 4, 12, 4, 2, "#141414"); }
+  else if (c.eyesClosed) { ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.arc(81, ey, 8, 0.2, Math.PI - 0.2); ctx.moveTo(127, ey + 3); ctx.arc(119, ey, 8, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  else for (const x of [81, 119]) {
+    if (c.oneEye && x === 81) { ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.moveTo(72, ey); ctx.lineTo(90, ey); ctx.stroke(); continue; }
+    E(ctx, x, ey, 9, 12, "#fff"); E(ctx, x, ey + 1, 6.5, 9.5, c.iris || "#2a2230"); E(ctx, x, ey + 2, 3.5, 5, "#0d0a0e"); E(ctx, x + 2.5, ey - 3, 2.2, 2.6, "#fff");
+    if (c.angry) { ctx.lineWidth = 4; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.moveTo(x - 11, ey - 16 + (x < 100 ? -4 : 4)); ctx.lineTo(x + 11, ey - 16 + (x < 100 ? 4 : -4)); ctx.stroke(); }
+  }
+  if (c.saiba) { E(ctx, 81, 112, 9, 12, "#c3202f"); E(ctx, 119, 112, 9, 12, "#c3202f"); }
+  if (c.scar) { ctx.lineWidth = 2; ctx.strokeStyle = "#9a3b2e"; ctx.beginPath(); ctx.moveTo(72, 128); ctx.lineTo(90, 126); ctx.moveTo(76, 124); ctx.lineTo(76, 131); ctx.moveTo(82, 123); ctx.lineTo(82, 130); ctx.moveTo(88, 122); ctx.lineTo(88, 129); ctx.stroke(); }
+  if (c.whiskers) { ctx.lineWidth = 2; ctx.strokeStyle = "#6b4a3a"; for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(100 + s * 24, 124 + i * 5); ctx.lineTo(100 + s * 40, 122 + i * 6); ctx.stroke(); } }
+  if (c.foreheadScar) { ctx.lineWidth = 6; ctx.strokeStyle = "#a33a2c"; ctx.beginPath(); ctx.moveTo(68, 84); ctx.quadraticCurveTo(76, 92, 70, 100); ctx.stroke(); }
+  if (c.dots) for (let i = 0; i < 6; i++) E(ctx, 84 + (i % 3) * 16, 70 + Math.floor(i / 3) * 10, 2.5, 2.5, "#7a5a3a");
+  if (c.marks) { ctx.lineWidth = 3; ctx.strokeStyle = c.marks; ctx.beginPath(); ctx.moveTo(78, 96); ctx.lineTo(78, 132); ctx.moveTo(122, 96); ctx.lineTo(122, 132); ctx.stroke(); }
+  // nez / bouche
+  if (c.longNose) { R(ctx, 96, 116, 44, 9, 4, c.skin || "#d9a37a"); }
+  if (c.blueNose) E(ctx, 100, 120, 7, 5, "#3a6fd8");
+  if (c.mask) P(ctx, [[52, 118], [148, 118], [146, 150], [100, 158], [54, 150]], c.mask);
+  else if (c.bamboo) { R(ctx, 70, 128, 60, 11, 5, "#5e8f3a"); R(ctx, 72, 131, 56, 3, 2, "#9cc46a"); }
+  else if (c.beard) P(ctx, [[70, 130], [130, 130], [112, 178], [100, 190], [88, 178]], c.beard);
+  else { ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.beginPath(); if (c.grin) { ctx.arc(100, 128, 12, 0.15, Math.PI - 0.15); ctx.closePath(); ctx.fillStyle = "#fff"; ctx.fill(); } else ctx.arc(100, 128, 7, 0.3, Math.PI - 0.3); ctx.stroke(); }
+}
+function drawHairFront(ctx, c) {
+  const h = c.hair || {}; const col = h.color, s = h.style;
+  if (!s || s === "bald") return;
+  if (s === "short" || s === "long" || s === "ponytail" || s === "braids" || s === "curly") {
+    P(ctx, [[48, 112], [50, 78], [70, 58], [100, 52], [130, 58], [150, 78], [152, 112], [140, 92], [126, 98], [116, 84], [100, 96], [84, 84], [72, 98], [60, 92]], col);
+    if (h.tips) P(ctx, [[60, 92], [72, 98], [70, 86]], h.tips);
+    if (s === "curly") for (let i = 0; i < 9; i++) E(ctx, 52 + i * 12, 70 + Math.abs(4 - i) * 5, 13, 13, col);
+    if (h.middle) P(ctx, [[96, 54], [104, 54], [100, 100]], c.skin || "#f4c9a0");
+  }
+  if (s === "messy") { spikes(ctx, 100, 100, 46, 60, 190, 350, 7, col, 0.15); P(ctx, [[54, 100], [70, 84], [84, 96], [100, 82], [116, 96], [132, 84], [148, 100], [140, 70], [60, 70]], col); }
+  if (s === "spiky_goku" || s === "spiky_back") { spikes(ctx, 100, 98, 44, 86, 170, 370, 6, col, 0.2); P(ctx, [[52, 104], [62, 70], [100, 58], [138, 70], [148, 104], [132, 90], [124, 102], [112, 82], [100, 100], [88, 82], [76, 102], [66, 90]], col); }
+  if (s === "flame_up") { P(ctx, [[52, 106], [46, 70], [62, 20], [80, 40], [92, -2], [104, 30], [118, 0], [126, 38], [146, 18], [154, 70], [148, 106], [136, 84], [100, 66], [64, 84]], col); P(ctx, [[84, 70], [100, 92], [116, 70], [100, 62]], col); }
+  if (s === "spiky_blond") { spikes(ctx, 100, 98, 44, 74, 160, 380, 7, col, 0.1); P(ctx, [[52, 100], [62, 74], [100, 62], [138, 74], [148, 100], [130, 86], [120, 98], [108, 84], [96, 98], [84, 84], [72, 98]], col); }
+  if (s === "gravity") { P(ctx, [[50, 108], [48, 70], [70, 50], [150, 10], [128, 52], [168, 34], [140, 74], [152, 104], [124, 80], [100, 86], [70, 82]], col); }
+  if (s === "bowl") { P(ctx, [[48, 110], [50, 70], [72, 54], [100, 50], [128, 54], [150, 70], [152, 110], [144, 92], [56, 92]], col); }
+  if (s === "flame") { spikes(ctx, 100, 100, 46, 84, 160, 380, 7, col, 0.2); spikes(ctx, 100, 100, 30, 70, 200, 340, 5, h.tips, 0.2); P(ctx, [[54, 100], [70, 76], [100, 66], [130, 76], [146, 100], [120, 88], [100, 96], [80, 88]], col); }
+  if (s === "pompadour") { P(ctx, [[50, 100], [52, 70], [80, 40], [150, 28], [168, 44], [150, 62], [150, 100], [130, 76], [70, 80]], col); }
+  if (s === "afro") { E(ctx, 100, 70, 66, 40, col); }
+  if (s === "lavender") { P(ctx, [[48, 118], [52, 70], [100, 48], [148, 70], [152, 118], [136, 90], [118, 100], [100, 80], [82, 100], [64, 90]], col); P(ctx, [[48, 118], [42, 150], [58, 140], [60, 100]], col); P(ctx, [[152, 118], [158, 150], [142, 140], [140, 100]], col); }
+}
+function drawHat(ctx, c) {
+  const hat = c.hat; if (!hat) return;
+  if (hat === "straw") { E(ctx, 100, 72, 74, 16, "#e9c45a"); P(ctx, [[62, 72], [66, 40], [100, 30], [134, 40], [138, 72]], "#efd06a"); R(ctx, 62, 56, 76, 11, 3, "#c4252f"); ctx.strokeStyle = "#b8922e"; ctx.lineWidth = 1.5; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(100, 72, 30 + i * 8, 7 + i * 1.5, 0, 0, Math.PI); ctx.stroke(); } }
+  if (hat === "pinktop") { R(ctx, 64, 22, 72, 52, 14, "#f08ab8"); R(ctx, 54, 64, 92, 14, 6, "#f08ab8"); ctx.lineWidth = 6; ctx.strokeStyle = "#fff"; ctx.beginPath(); ctx.moveTo(90, 34); ctx.lineTo(110, 54); ctx.moveTo(110, 34); ctx.lineTo(90, 54); ctx.stroke(); }
+  if (hat === "tophat") { R(ctx, 70, 0, 60, 40, 4, "#1f1a22"); R(ctx, 54, 36, 92, 10, 4, "#1f1a22"); R(ctx, 70, 28, 60, 7, 2, "#7a2a3a"); }
+  if (hat === "bandana") { P(ctx, [[50, 92], [56, 64], [100, 52], [144, 64], [150, 92], [100, 80]], c.hatColor || "#2c6fbf"); P(ctx, [[146, 78], [170, 90], [160, 104]], c.hatColor || "#2c6fbf"); }
+  if (hat === "headband") { R(ctx, 50, 76, 100, 15, 4, c.hatColor || "#2b3a5a"); R(ctx, 84, 77, 32, 13, 3, "#c9ced6"); ctx.strokeStyle = "#5b6470"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(100, 83, 4, 0, Math.PI * 1.6); ctx.stroke(); P(ctx, [[150, 80], [174, 96], [166, 104], [148, 90]], c.hatColor || "#2b3a5a"); }
+  if (hat === "headband_eye") { P(ctx, [[50, 82], [150, 82], [150, 98], [100, 98], [92, 122], [66, 122], [50, 98]], "#2b3a5a"); R(ctx, 84, 82, 32, 14, 3, "#c9ced6"); }
+  if (hat === "turban") { E(ctx, 100, 62, 56, 30, "#f1efe8"); R(ctx, 70, 64, 60, 20, 6, "#e3ded2"); E(ctx, 100, 70, 10, 8, "#7a2fb8"); }
+  if (hat === "butterfly") { for (const s of [-1, 1]) { E(ctx, 128 + s * 10, 60, 12, 8, "#b46ddb", null, s * 0.6); } }
+  if (hat === "bow") { E(ctx, 128, 58, 14, 9, "#f08ab8"); E(ctx, 148, 58, 14, 9, "#f08ab8"); }
+  if (hat === "goggles") { R(ctx, 58, 68, 84, 10, 4, "#6b4a2b"); E(ctx, 84, 72, 12, 9, "#c9e8f2"); E(ctx, 116, 72, 12, 9, "#c9e8f2"); }
+  if (hat === "earrings") { R(ctx, 44, 120, 8, 16, 2, "#f2efe6"); R(ctx, 148, 120, 8, 16, 2, "#f2efe6"); }
+}
+function badge(ctx, role, side) {
+  const g = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" }[role];
+  E(ctx, 160, 262, 30, 30, side === "w" ? "#fbf3df" : "#1d1820"); ctx.lineWidth = 5; ctx.strokeStyle = side === "w" ? "#d5a531" : "#d8435a"; ctx.stroke();
+  ctx.fillStyle = side === "w" ? "#2a2024" : "#fbf3df"; ctx.font = "bold 38px 'DejaVu Sans', 'Segoe UI Symbol', 'Apple Symbols', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(g, 160, 264);
+}
+function drawCharacter(ctx, c) { drawHairBack(ctx, c); drawBody(ctx, c); drawHead(ctx, c); drawHairFront(ctx, c); drawHat(ctx, c); }
+const SPRITE_CACHE = {};
+function makeSprite(c, role, side, scale = 1.3) {
+  const key = c.id + role + side + scale; if (SPRITE_CACHE[key]) return SPRITE_CACHE[key];
+  const fig = document.createElement("canvas"); fig.width = SPR_W * scale; fig.height = SPR_H * scale;
+  const f = fig.getContext("2d"); f.scale(scale, scale); f.translate(0, 8); drawCharacter(f, c);
+  const out = document.createElement("canvas"); out.width = fig.width; out.height = fig.height; const o = out.getContext("2d");
+  // contour couleur du camp (doré pour les Blancs, rouge pour les Noirs)
+  o.shadowColor = side === "w" ? "#ffe9a8" : "#ff4d6a"; o.shadowBlur = 7 * scale;
+  for (let i = 0; i < 3; i++) o.drawImage(fig, 0, 0);
+  o.shadowBlur = 0; o.drawImage(fig, 0, 0);
+  o.save(); o.scale(scale, scale); badge(o, role, side); o.restore();
+  SPRITE_CACHE[key] = out; return out;
+}
+
+/* ---- personnages ---- */
+const C = (id, name, spec) => Object.assign({ id, name }, spec);
+const CH = {
+  luffy: C("luffy", "Luffy", { hat: "straw", hair: { style: "messy", color: "#1a1a1e" }, top: "#d42a2f", pattern: "open", bottom: "#3f6fc4", legSkin: true, armSkin: true, scar: true, grin: true, sash: "#f0c84a", shoes: "#9b6a3a" }),
+  nami: C("nami", "Nami", { hair: { style: "long", color: "#f07a22", long: 30 }, top: "#e9eef6", top2: "#3b78c8", pattern: "stripes", bottom: "#2f4f8f", armSkin: true, iris: "#7a4a22" }),
+  zoro: C("zoro", "Zoro", { hair: { style: "messy", color: "#4fa44a" }, top: "#f1f1ee", bottom: "#24302a", sash: "#3f8a3c", swordsHip: true, oneEye: true, angry: true, armSkin: true }),
+  sanji: C("sanji", "Sanji", { hair: { style: "lavender", color: "#f2d24a" }, oneEye: true, top: "#20242c", top2: "#3c7ac8", pattern: "jacket", bottom: "#20242c", shoes: "#111" }),
+  usopp: C("usopp", "Usopp", { skin: "#c98d5e", hair: { style: "curly", color: "#1c1414" }, hat: "goggles", longNose: true, top: "#e8dfc4", bottom: "#6b5a3a", belt: "#8a5a2a", armSkin: true }),
+  chopper: C("chopper", "Chopper", { skin: "#a8724a", fur: "#9a6438", hat: "pinktop", antlers: true, blueNose: true, top: "#f08a3a", bottom: "#7a4a2a", shoes: "#5a3a22" }),
+  franky: C("franky", "Franky", { hair: { style: "pompadour", color: "#3fb6ea" }, shades: true, top: "#e8433a", top2: "#f2d24a", pattern: "stripes", bottom: "#3b5fa8", armSkin: true, legSkin: true, skin: "#e9b98a" }),
+  brook: C("brook", "Brook", { skull: true, hair: { style: "afro", color: "#141214" }, hat: "tophat", top: "#1c1a22", top2: "#e8e2d6", pattern: "vest", bottom: "#1c1a22", gloves: "#f2efe6", shoes: "#111" }),
+  pirate: C("pirate", "Pirate", { hat: "bandana", hatColor: "#c4252f", hair: { style: "short", color: "#3a2618" }, top: "#f3f0e8", top2: "#2a4f8f", pattern: "stripes", bottom: "#4a3a2a", armSkin: true, grin: true }),
+  goku: C("goku", "Goku", { hair: { style: "spiky_goku", color: "#151418" }, top: "#f2851e", pattern: "vest", top2: "#2753a8", bottom: "#f2851e", belt: "#2753a8", sleeve: "#f2851e", gloves: null, shoes: "#2753a8", grin: true }),
+  vegeta: C("vegeta", "Vegeta", { hair: { style: "flame_up", color: "#141218" }, angry: true, top: "#2a3f8a", top2: "#f2f0ea", pattern: "vest", bottom: "#2a3f8a", gloves: "#f6f4ee", shoes: "#f6f4ee", sleeve: "#2a3f8a" }),
+  piccolo: C("piccolo", "Piccolo", { skin: "#69b54a", antennae: true, pointyEars: true, hat: "turban", angry: true, cape: "#f1efe8", top: "#6a2fa8", bottom: "#6a2fa8", sash: "#3a6fd8", shoes: "#5a3a22", armSkin: true }),
+  gohan: C("gohan", "Gohan", { hair: { style: "spiky_blond", color: "#151418" }, top: "#5b2f9e", bottom: "#5b2f9e", belt: "#d8443a", sleeve: "#5b2f9e", shoes: "#5a3a22" }),
+  trunks: C("trunks", "Trunks", { hair: { style: "lavender", color: "#b9a3e8" }, top: "#2e3a5e", top2: "#20242c", pattern: "jacket", bottom: "#4a4a52", backSword: true, iris: "#3a6fd8", shoes: "#c9a24a" }),
+  krilin: C("krilin", "Krilin", { hair: { style: "bald" }, dots: true, top: "#f2851e", bottom: "#f2851e", belt: "#2753a8", sleeve: "#2753a8", shoes: "#2753a8", grin: true }),
+  bulma: C("bulma", "Bulma", { hair: { style: "short", color: "#2fb8b8" }, hat: "bow", top: "#f08ab8", bottom: "#2a2a5a", armSkin: true, iris: "#3a6fd8" }),
+  tortue: C("tortue", "Tortue Géniale", { hair: { style: "bald" }, shades: true, beard: "#f4f2ec", shell: true, top: "#f2851e", bottom: "#c9a24a", armSkin: true }),
+  saibaman: C("saibaman", "Saibaman", { skin: "#5aa83e", saiba: true, hair: { style: "bald" }, top: "#4c9434", bottom: "#4c9434", armSkin: true, legSkin: true, grin: true, shoes: "#3a7a2a" }),
+  naruto: C("naruto", "Naruto", { hair: { style: "spiky_blond", color: "#f6cf3a" }, hat: "headband", whiskers: true, iris: "#2f7ad8", grin: true, top: "#f2851e", top2: "#1c1c26", pattern: "jacket", bottom: "#f2851e", shoes: "#2a3f8a" }),
+  sakura: C("sakura", "Sakura", { hair: { style: "long", color: "#f39ac0", long: 0 }, hat: "headband", hatColor: "#c4252f", iris: "#3fa86a", top: "#c4252f", bottom: "#2a2a30", armSkin: true }),
+  sasuke: C("sasuke", "Sasuke", { hair: { style: "spiky_back", color: "#1a1c2a" }, hat: "headband", angry: true, top: "#2a3f8a", bottom: "#e8e6e0", armSkin: true }),
+  kakashi: C("kakashi", "Kakashi", { hair: { style: "gravity", color: "#d8dce2" }, hat: "headband_eye", mask: "#2a3040", eyesClosed: false, oneEye: true, top: "#3f5a3a", bottom: "#2a3040", sleeve: "#2a3040" }),
+  gaara: C("gaara", "Gaara", { hair: { style: "messy", color: "#c42f2a" }, gourd: true, iris: "#5ac8b0", top: "#7a3a2a", bottom: "#7a3a2a", sash: "#e0d0b0", angry: true }),
+  hinata: C("hinata", "Hinata", { hair: { style: "long", color: "#2a2a5a", long: 25 }, hat: "headband", iris: "#d8d4ec", top: "#d8cfe8", bottom: "#2a2a5a" }),
+  lee: C("lee", "Rock Lee", { hair: { style: "bowl", color: "#121214" }, top: "#3a9a3a", bottom: "#3a9a3a", belt: "#e8a63a", sleeve: "#3a9a3a", shoes: "#2a2a2a", grin: true }),
+  jiraiya: C("jiraiya", "Jiraiya", { hair: { style: "long", color: "#eceae4", long: 40 }, marks: "#c4252f", top: "#c4252f", top2: "#3f6a3a", pattern: "vest", bottom: "#3f6a3a", grin: true }),
+  ninja: C("ninja", "Ninja", { hair: { style: "short", color: "#3a2a1e" }, hat: "headband", top: "#3f5a3a", bottom: "#2a3040", sleeve: "#2a3040" }),
+  tanjiro: C("tanjiro", "Tanjiro", { hair: { style: "short", color: "#6a1f22" }, foreheadScar: true, hat: "earrings", iris: "#a8322e", top: "#1d5a3a", top2: "#121214", pattern: "check", bottom: "#1c1c22" }),
+  nezuko: C("nezuko", "Nezuko", { hair: { style: "long", color: "#1a1418", tips: "#e0632a", long: 45 }, bamboo: true, iris: "#d8648a", hat: "bow", dress: "#f2a0b8", top: "#f2a0b8", armSkin: false }),
+  zenitsu: C("zenitsu", "Zenitsu", { hair: { style: "short", color: "#f6cf3a", tips: "#e0632a" }, top: "#f2c43a", top2: "#f8f4e8", pattern: "triangles", bottom: "#1c1c22", iris: "#a87a2a" }),
+  inosuke: C("inosuke", "Inosuke", { boar: true, top: "#e9b98a", armSkin: true, bottom: "#5a4a3a", legSkin: false, sash: "#6b4a2b", skin: "#e9b98a" }),
+  giyu: C("giyu", "Giyu", { hair: { style: "ponytail", color: "#141824" }, iris: "#2f4a8a", top: "#8a2a2e", top2: "#3a7a5a", pattern: "split", bottom: "#1c1c22" }),
+  rengoku: C("rengoku", "Rengoku", { hair: { style: "flame", color: "#f6cf3a", tips: "#d8432a" }, iris: "#e0632a", grin: true, top: "#f2ece0", bottom: "#1c1c22", sash: "#d8432a" }),
+  shinobu: C("shinobu", "Shinobu", { hair: { style: "short", color: "#1a1418", tips: "#8a4ab8" }, hat: "butterfly", iris: "#9a6ad8", top: "#1c1c22", top2: "#b46ddb", pattern: "jacket", bottom: "#1c1c22" }),
+  mitsuri: C("mitsuri", "Mitsuri", { hair: { style: "braids", color: "#f39ac0", tips: "#8ac84a" }, iris: "#5ab05a", top: "#1c1c22", bottom: "#f2ece0", armSkin: true }),
+  pourfendeur: C("pourfendeur", "Pourfendeur", { hair: { style: "short", color: "#2a1e18" }, top: "#1c1c26", bottom: "#1c1c26", belt: "#f2ece0", swords: ["#2a2a2a"] }),
+};
+const TEAMS = {
+  classique: { name: "Classique" },
+  luffy: { name: "Équipage de Luffy", k: ["luffy"], q: ["nami"], r: ["zoro", "sanji"], b: ["usopp", "chopper"], n: ["franky", "brook"], p: ["pirate"] },
+  dbz: { name: "Dragon Ball Z", k: ["goku"], q: ["vegeta"], r: ["piccolo", "gohan"], b: ["trunks", "krilin"], n: ["bulma", "tortue"], p: ["saibaman"] },
+  naruto: { name: "Naruto", k: ["naruto"], q: ["sakura"], r: ["sasuke", "kakashi"], b: ["gaara", "hinata"], n: ["lee", "jiraiya"], p: ["ninja"] },
+  demon: { name: "Demon Slayer", k: ["tanjiro"], q: ["nezuko"], r: ["zenitsu", "inosuke"], b: ["giyu", "rengoku"], n: ["shinobu", "mitsuri"], p: ["pourfendeur"] },
+};
+const ROLE_H = { k: 1.5, q: 1.42, r: 1.3, b: 1.3, n: 1.3, p: 1.06 };
+function characterFor(team, role, idx) { const t = TEAMS[team]; if (!t || !t[role]) return null; const l = t[role]; return CH[l[Math.min(idx, l.length - 1)]]; }
+
 /* ===== Échecs 3D en ligne : interface + synchronisation via relais pub/sub (API ntfy) ===== */
 const Q = new URLSearchParams(location.search);
 const RELAY = (Q.get("relais") || "https://ntfy.sh").replace(/\/$/, "");
@@ -508,15 +717,27 @@ const UCI = (m) => sqName(m.from) + sqName(m.to) + (m.promo || "");
 const sqOf = (n) => (n.charCodeAt(0) - 97) + (Number(n[1]) - 1) * 8;
 
 const G = { room: Q.get("salle"), color: Q.get("couleur") === "b" ? "b" : "w", gen: 0, moves: [], states: [initialState()], recs: [],
-  sel: -1, promo: null, yaw: 0, pitch: 52, zoom: 1, friend: false, online: false, lastId: "", hits: [], anim: null, resign: null };
+  sel: -1, promo: null, yaw: 0, pitch: 52, zoom: 1, friend: false, online: false, lastId: "", hits: [], anim: null, resign: null, ids: [], teams: { w: "classique", b: "classique" } };
+const SAVED_TEAM = (() => { try { return localStorage.getItem("echecs3d-equipe"); } catch (_) { return null; } })();
 
+function initialIds() {
+  const ids = new Array(64).fill(null);
+  for (const [base, c] of [[0, "w"], [56, "b"]]) { ["r0", "n0", "b0", "q0", "k0", "b1", "n1", "r1"].forEach((v, f) => (ids[base + f] = v)); }
+  for (let f = 0; f < 8; f++) { ids[8 + f] = "p0"; ids[48 + f] = "p0"; }
+  return ids;
+}
 function rebuild(moves) {
-  let s = initialState(); const states = [s], recs = [];
+  let s = initialState(); const states = [s], recs = []; const ids = initialIds();
   for (const u of moves) {
     const L = legalMoves(s); const m = L.find((x) => UCI(x) === u); if (!m) return null;
-    recs.push({ move: m, san: san(s, m, L) }); s = makeMove(s, m); states.push(s);
+    recs.push({ move: m, san: san(s, m, L) });
+    ids[m.to] = m.promo ? m.promo + "0" : ids[m.from]; ids[m.from] = null;
+    if (m.flag === "ep") ids[m.to + (s.turn === "w" ? -8 : 8)] = null;
+    if (m.flag === "k") { ids[m.to - 1] = ids[m.to + 1]; ids[m.to + 1] = null; }
+    if (m.flag === "q") { ids[m.to + 1] = ids[m.to - 2]; ids[m.to - 2] = null; }
+    s = makeMove(s, m); states.push(s);
   }
-  return { states, recs };
+  return { states, recs, ids };
 }
 function cur() { return G.states[G.states.length - 1]; }
 
@@ -530,7 +751,8 @@ let REPLAY = false;
 function receive(raw) {
   let m; try { m = JSON.parse(raw); } catch (_) { return; }
   if (!m || typeof m !== "object") return;
-  if (m.t === "hi" && m.from !== ME_ID) { if (REPLAY) return; setFriend(true); if (!m.ack) publish({ t: "hi", ack: 1 }); return; }
+  if (m.t === "team" && (m.color === "w" || m.color === "b") && TEAMS[m.team]) { if (m.color !== G.color) { G.teams[m.color] = m.team; renderTeams(); render(); } return; }
+  if (m.t === "hi" && m.from !== ME_ID) { if (REPLAY) return; setFriend(true); if (!m.ack) { publish({ t: "hi", ack: 1 }); publish({ t: "team", color: G.color, team: G.teams[G.color] }); } return; }
   if (m.t === "new") { if (m.gen > G.gen) { G.gen = m.gen; applyMoves([], true); } return; }
   if (m.t === "resign") { if (m.gen === G.gen) { G.resign = m.color; render(); } return; }
   if (m.t === "moves" && Array.isArray(m.moves)) {
@@ -550,6 +772,7 @@ async function connect() {
   es.onopen = () => setNet(true);
   es.onerror = () => setNet(false);
   es.onmessage = (e) => { let ev; try { ev = JSON.parse(e.data); } catch (_) { return; } if (ev.event && ev.event !== "message") return; if (ev.id) G.lastId = ev.id; receive(ev.message); };
+  publish({ t: "team", color: G.color, team: G.teams[G.color] });
   publish({ t: "hi" });
 }
 function setNet(ok) { G.online = ok; renderStatus(); }
@@ -564,11 +787,11 @@ function applyMoves(moves, reset) {
     if (m.flag === "k") items.push({ from: m.to + 1, to: m.to - 1, hop: false });
     if (m.flag === "q") items.push({ from: m.to - 2, to: m.to + 1, hop: false });
     const capSq = m.flag === "ep" ? m.to + (m.piece[0] === "w" ? -8 : 8) : m.to;
-    G.anim = { t0: performance.now(), dur: 420, items, cap: m.captured ? { code: m.captured, sq: capSq } : null, len: moves.length };
+    G.anim = { t0: performance.now(), dur: 420, items, cap: m.captured ? { code: m.captured, sq: capSq, id: G.ids[capSq] } : null, len: moves.length };
     if (m.piece[0] !== G.color) navigator.vibrate && navigator.vibrate(60);
   } else G.anim = null;
   if (reset) G.resign = null;
-  G.moves = moves.slice(); G.states = rb.states; G.recs = rb.recs; G.sel = -1; G.promo = null;
+  G.moves = moves.slice(); G.states = rb.states; G.recs = rb.recs; G.ids = rb.ids; G.sel = -1; G.promo = null;
   render();
 }
 function myTurn() { const o = outcome(G.states); return !o.over && !G.resign && cur().turn === G.color; }
@@ -601,12 +824,13 @@ function drawNow() {
   if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const s = cur(); const pcs = [];
-  s.board.forEach((p, i) => { if (p) { const [x, z] = sqPos(i); pcs.push({ code: p, sq: i, x, z, lift: 0 }); } });
+  const spr = (code, id) => { const ch = characterFor(G.teams[code[0]], code[1], id ? Number(id[1]) : 0); return ch ? { sprite: makeSprite(ch, code[1], code[0]), h: ROLE_H[code[1]] } : {}; };
+  s.board.forEach((p, i) => { if (p) { const [x, z] = sqPos(i); pcs.push(Object.assign({ code: p, sq: i, x, z, lift: 0 }, spr(p, G.ids[i]))); } });
   let going = false; const a = G.anim;
   if (a && a.len === G.moves.length) {
     const t = Math.min(1, (performance.now() - a.t0) / a.dur), e = ease(t); going = t < 1;
     for (const it of a.items) { const pc = pcs.find((q) => q.sq === it.to); if (!pc) continue; const [fx, fz] = sqPos(it.from), [tx, tz] = sqPos(it.to); pc.x = fx + (tx - fx) * e; pc.z = fz + (tz - fz) * e; pc.lift = Math.sin(Math.PI * e) * (it.hop ? 0.8 : 0.22); }
-    if (a.cap && t < 0.8) { const [x, z] = sqPos(a.cap.sq); pcs.push({ code: a.cap.code, sq: -1, x, z, lift: 0 }); }
+    if (a.cap && t < 0.8) { const [x, z] = sqPos(a.cap.sq); pcs.push(Object.assign({ code: a.cap.code, sq: -1, x, z, lift: 0 }, spr(a.cap.code, a.cap.id))); }
     if (!going) G.anim = null;
   }
   const L = G.sel >= 0 ? legalMoves(s).filter((m) => m.from === G.sel) : [];
@@ -624,9 +848,37 @@ cv.addEventListener("pointermove", (e) => {
 });
 cv.addEventListener("pointerup", (e) => {
   const d = drag; drag = null; if (!d || d.moved) return; const r = cv.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top;
-  let sq = hitTest(G.hits, x, y); if (sq < 0) sq = pickSquare(makeView(cam()), x, y); handleSquare(sq);
+  const hit = hitTest(G.hits, x, y), board = pickSquare(makeView(cam()), x, y);
+  const isTarget = (q) => q >= 0 && G.sel >= 0 && legalMoves(cur()).some((m) => m.from === G.sel && m.to === q);
+  const mine = (q) => q >= 0 && !!cur().board[q] && cur().board[q][0] === G.color;
+  handleSquare(isTarget(board) && !isTarget(hit) ? board : mine(board) && !isTarget(hit) ? board : hit >= 0 ? hit : board);
 });
 cv.addEventListener("pointercancel", () => { drag = null; });
+
+/* ---------- équipes ---------- */
+function teamButtons(el, onPick, current) {
+  el.innerHTML = "";
+  for (const [key, t] of Object.entries(TEAMS)) {
+    const b = document.createElement("button"); b.className = "equipe" + (key === current ? " active" : ""); b.type = "button"; b.setAttribute("aria-pressed", key === current);
+    const ch = characterFor(key, "k", 0);
+    if (ch) { const cvs = makeSprite(ch, "k", G.color, 0.5); const im = document.createElement("canvas"); im.width = cvs.width; im.height = cvs.height; im.getContext("2d").drawImage(cvs, 0, 0); b.appendChild(im); }
+    else { const sp = document.createElement("span"); sp.className = "classique"; sp.textContent = G.color === "w" ? "♔" : "♚"; b.appendChild(sp); }
+    const lab = document.createElement("span"); lab.textContent = t.name; b.appendChild(lab);
+    b.onclick = () => onPick(key); el.appendChild(b);
+  }
+}
+function pickTeam(key) {
+  G.teams[G.color] = key; try { localStorage.setItem("echecs3d-equipe", key); } catch (_) { }
+  renderTeams(); render(); if (G.room && !$("jeu").hidden) publish({ t: "team", color: G.color, team: key });
+}
+function rosterText(team) { const t = TEAMS[team]; if (!t.k) return "Pièces classiques en 3D"; const n = (r) => t[r].map((id) => CH[id].name).join(" / "); return "♔ " + n("k") + " · ♕ " + n("q") + " · ♖ " + n("r") + " · ♗ " + n("b") + " · ♘ " + n("n") + " · ♙ " + n("p"); }
+function renderTeams() {
+  teamButtons($("equipes-accueil"), pickTeam, G.teams[G.color]);
+  teamButtons($("equipes-jeu"), pickTeam, G.teams[G.color]);
+  const opp = G.color === "w" ? "b" : "w";
+  $("mon-equipe").textContent = TEAMS[G.teams[G.color]].name + " — " + rosterText(G.teams[G.color]);
+  $("equipe-ami").textContent = TEAMS[G.teams[opp]].name + " — " + rosterText(G.teams[opp]);
+}
 
 /* ---------- interface ---------- */
 const side = (c) => (c === "w" ? "Blancs" : "Noirs");
@@ -661,21 +913,24 @@ async function share() {
 function randomRoom() { const a = new Uint8Array(12); crypto.getRandomValues(a); return "echecs3d-" + Array.from(a, (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b & 31]).join(""); }
 
 function startGame() {
+  if (!G.ids.length) G.ids = initialIds();
   $("accueil").hidden = true; $("jeu").hidden = false;
-  G.yaw = G.color === "w" ? 0 : 180; G.zoom = innerWidth < 600 ? 1.25 : 1;
+  G.yaw = G.color === "w" ? 0 : 180; G.pitch = 58; G.zoom = innerWidth < 600 ? 1.25 : 1;
   const u = new URL(location.href); u.searchParams.set("salle", G.room); u.searchParams.set("couleur", G.color); history.replaceState(null, "", u);
   $("lien").value = inviteLink();
-  resize(); render(); connect();
+  resize(); renderTeams(); render(); connect();
 }
-$("creer").onclick = () => { const v = document.querySelector("input[name=couleur]:checked").value; G.color = v === "x" ? (Math.random() < 0.5 ? "w" : "b") : v; G.room = randomRoom(); startGame(); };
+$("creer").onclick = () => { const v = document.querySelector("input[name=couleur]:checked").value; const team = G.teams[G.color]; G.color = v === "x" ? (Math.random() < 0.5 ? "w" : "b") : v; G.teams = { w: "classique", b: "classique" }; G.teams[G.color] = team; G.room = randomRoom(); startGame(); };
 $("partager").onclick = share; $("partager2").onclick = share;
-$("recentrer").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 52; draw(); };
+$("recentrer").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 58; draw(); };
 $("dessus").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 89; draw(); };
 $("nouvelle").onclick = () => { if (!confirm("Recommencer une nouvelle partie pour vous deux ?")) return; G.gen++; applyMoves([], true); publish({ t: "new" }); };
 $("abandon").onclick = () => { if (!confirm("Abandonner la partie ?")) return; G.resign = G.color; render(); publish({ t: "resign", color: G.color }); };
 document.querySelectorAll("#promo button[data-p]").forEach((b) => (b.onclick = () => { const p = G.promo; const m = legalMoves(cur()).find((x) => x.from === p.from && x.to === p.to && x.promo === b.dataset.p); if (m) playMove(m); }));
 $("promo-annuler").onclick = () => { G.promo = null; G.sel = -1; render(); };
 addEventListener("resize", resize);
+if (SAVED_TEAM && TEAMS[SAVED_TEAM]) G.teams[G.color] = SAVED_TEAM;
+renderTeams();
 if (G.room) startGame();
 window.__G = G;
 
