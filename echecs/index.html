@@ -26,6 +26,15 @@ small{color:#8f8b85}select{font:inherit;background:#262a31;color:#eceae6;border:
 details.plus>summary{cursor:pointer;font-weight:650;list-style:none;display:flex;justify-content:space-between;align-items:center}details.plus>summary::-webkit-details-marker{display:none}details.plus>summary::after{content:"▾";color:#8f8b85}details.plus[open]>summary::after{content:"▴"}details.plus .carte{margin:10px 0 0;padding:12px;background:#191c21}
 .vues{margin-top:8px}
 @media(max-width:800px){body.en-jeu main{padding:6px 4px 30px}body.en-jeu .haut{margin:0 2px 4px;font-size:14px}body.en-jeu #partager{padding:7px 11px}body.en-jeu #etat{font-size:15px;margin:0 4px}body.en-jeu .grille{gap:6px}body.en-jeu canvas#plateau{border-radius:10px}body.en-jeu .aide-plateau{display:none}.vues button{padding:7px 11px;font-size:14px}details.plus{padding:12px}}
+#pleinEcran{position:absolute;left:8px;top:8px;z-index:3;padding:6px 12px;font-size:14px;font-weight:650;background:rgba(20,22,26,.78);border-radius:999px}
+#fsEtat,#fsActions,#fsAstuce{display:none}
+#plateauBox.plein{position:fixed;inset:0;z-index:1000;background:#0b0c0f;width:100vw;height:100vh;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#plateauBox.plein canvas{border-radius:0}
+#plateauBox.plein #fsEtat{display:block;position:absolute;left:50%;transform:translateX(-50%);top:calc(50px + env(safe-area-inset-top));z-index:3;background:rgba(20,22,26,.82);border:1px solid #3b404a;border-radius:999px;padding:5px 14px;font-weight:650;font-size:15px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}#fsEtat.alerte{color:#ff6b6b}
+#plateauBox.plein #fsActions{display:flex;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));z-index:3;gap:6px}#fsActions button{padding:7px 11px;font-size:14px;background:rgba(38,42,49,.88);white-space:nowrap}
+#plateauBox.plein #fsAstuce:not([hidden]){display:block;position:absolute;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:3;background:rgba(30,47,79,.94);border:1px solid #3a7bf2;border-radius:12px;padding:8px 34px 8px 12px;font-size:13px}#fsAstuce button{position:absolute;right:4px;top:4px;padding:2px 8px;background:none;border:0}
+#plateauBox.en-cine #pleinEcran,#plateauBox.en-cine #fsEtat,#plateauBox.en-cine #fsActions,#plateauBox.en-cine #fsAstuce,#plateauBox.en-cine #zoomBox{visibility:hidden}
+body.pseudo-plein{overflow:hidden}@media(orientation:landscape){#plateauBox.plein #fsEtat{top:calc(56px + env(safe-area-inset-top));left:auto;right:calc(8px + env(safe-area-inset-right));transform:none;max-width:200px;white-space:normal}#plateauBox.plein #fsActions{left:calc(8px + env(safe-area-inset-left));transform:none;flex-direction:column;align-items:stretch}}
 </style></head><body><main>
 <section id="accueil">
   <h1>Échecs 3D en ligne</h1>
@@ -55,7 +64,10 @@ details.plus>summary{cursor:pointer;font-weight:650;list-style:none;display:flex
   <div id="etat" aria-live="polite"></div>
   <div class="grille" style="margin-top:6px">
     <div>
-      <div id="plateauBox"><label id="zoomBox" title="Zoom">🔍<input type="range" id="zoom" min="0.7" max="2.6" step="0.05" value="1" aria-label="Zoom de l'échiquier"></label><canvas id="plateau" aria-label="Échiquier 3D : touchez une pièce puis une case marquée. Glissez pour tourner."></canvas>
+      <div id="plateauBox"><button id="pleinEcran" type="button" aria-pressed="false">⛶ Plein écran</button><div id="fsEtat" aria-hidden="true"></div>
+        <div id="fsActions"><button id="fs-annuler" type="button" hidden>Annuler</button><button id="fs-nouvelle" type="button">Nouvelle partie</button><button id="fs-abandon" type="button">Abandonner</button></div>
+        <div id="fsAstuce" hidden>Astuce iPhone : Partager ▸ « Sur l’écran d’accueil » pour jouer sans la barre de Safari.<button id="fsAstuceX" type="button" aria-label="Fermer">✕</button></div>
+        <label id="zoomBox" title="Zoom">🔍<input type="range" id="zoom" min="0.7" max="2.6" step="0.05" value="1" aria-label="Zoom de l'échiquier"></label><canvas id="plateau" aria-label="Échiquier 3D : touchez une pièce puis une case marquée. Glissez pour tourner."></canvas>
         <div id="promo" hidden><div class="carte" style="max-width:340px"><p style="color:#eceae6;font-weight:600">Promotion du pion</p><div class="rangee"><button data-p="q" class="primaire">Dame</button><button data-p="r">Tour</button><button data-p="b">Fou</button><button data-p="n">Cavalier</button><button id="promo-annuler">Annuler</button></div></div></div>
       </div>
       <p class="aide-plateau"><small>Touchez une de vos pièces puis une case marquée d'un point bleu. Glissez sur l'échiquier pour le faire tourner.</small></p>
@@ -1627,9 +1639,36 @@ function handleSquare(sq) {
 const cv = $("plateau"); const ctx = cv.getContext("2d"); let W = 0, H = 0, pending = false;
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const PHONE = () => innerWidth < 700;
+/* ---- plein écran (API Fullscreen, préfixe webkit, sinon pseudo plein écran CSS) ---- */
+const FS = { on: false, pseudo: false, zoomBefore: null };
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+function fsZoom() { return innerWidth > innerHeight ? 1.05 : (PHONE() ? 1.45 : 1.1); }
+function fsApply(on, pseudo) {
+  const bx = $("plateauBox"), was = FS.on; FS.on = on; FS.pseudo = on && pseudo;
+  bx.classList.toggle("plein", on); document.body.classList.toggle("pseudo-plein", FS.pseudo);
+  $("pleinEcran").textContent = on ? "✕ Quitter le plein écran" : "⛶ Plein écran"; $("pleinEcran").setAttribute("aria-pressed", on ? "true" : "false");
+  const t = $("toast"); if (on && t.parentElement !== bx) bx.appendChild(t); else if (!on && t.parentElement === bx) document.body.appendChild(t);
+  if (on && !was) { FS.zoomBefore = G.zoom; G.zoom = fsZoom(); } else if (!on && was && FS.zoomBefore != null) { G.zoom = FS.zoomBefore; FS.zoomBefore = null; }
+  $("zoom").value = G.zoom;
+  const ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  $("fsAstuce").hidden = !(FS.pseudo && ios && !navigator.standalone && !LS("echecs3d-astuce-fs"));
+  if (on) scrollTo(0, 0); resize(); requestAnimationFrame(resize);
+}
+async function fsEnter() {
+  const bx = $("plateauBox"); const can = (document.fullscreenEnabled || document.webkitFullscreenEnabled) && (bx.requestFullscreen || bx.webkitRequestFullscreen);
+  if (can) { try { if (bx.requestFullscreen) await bx.requestFullscreen({ navigationUI: "hide" }); else bx.webkitRequestFullscreen(); return; } catch (e) { /* refusé : pseudo plein écran */ } }
+  fsApply(true, true);
+}
+function fsExit() { if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } else fsApply(false, false); }
+$("pleinEcran").onclick = () => (FS.on ? fsExit() : fsEnter());
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => { if (fsEl() === $("plateauBox")) fsApply(true, false); else if (!FS.pseudo) fsApply(false, false); });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && FS.pseudo) fsApply(false, false); });
+addEventListener("orientationchange", () => setTimeout(() => { if (FS.on) { G.zoom = fsZoom(); $("zoom").value = G.zoom; } resize(); }, 250));
+$("fs-annuler").onclick = () => $("annuler-coup").click(); $("fs-nouvelle").onclick = () => $("nouvelle").click(); $("fs-abandon").onclick = () => $("abandon").click();
+$("fsAstuceX").onclick = () => { LS("echecs3d-astuce-fs", "1"); $("fsAstuce").hidden = true; };
 function defaultZoom() { return PHONE() ? 1.45 : 1; }
 function defaultPitch() { return PHONE() ? 72 : 58; }
-function resize() { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = PHONE() ? Math.round(Math.max(320, Math.min(innerHeight - 118, W * 1.4))) : Math.round(Math.min(Math.max(W * 0.72, 300), innerHeight * 0.72)); cv.style.height = H + "px"; draw(); }
+function resize() { const r = cv.parentElement.getBoundingClientRect(); W = r.width; if (FS.on) { const bx = $("plateauBox"), cs = getComputedStyle(bx); W = bx.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); H = Math.round(bx.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)); cv.style.height = H + "px"; draw(); return; } H = PHONE() ? Math.round(Math.max(320, Math.min(innerHeight - 118, W * 1.4))) : Math.round(Math.min(Math.max(W * 0.72, 300), innerHeight * 0.72)); cv.style.height = H + "px"; draw(); }
 $("zoom").addEventListener("input", (e) => { G.zoom = +e.target.value; draw(); });
 $("plus").open = innerWidth >= 800;
 function draw() { if (pending) return; pending = true; requestAnimationFrame(drawNow); }
@@ -1642,7 +1681,7 @@ function drawNow() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const now = performance.now();
   const spr = (code, id, pose) => { const ch = characterFor(G.teams[code[0]], code[1], idNum(id)); if (!ch) return {}; const sp = makeSprite(ch, code[1], code[0], 1.4, pose || null); return { sprite: sp, side: sp.side, h: ROLE_H[code[1]] * (ch.dbz ? 1.06 : 1), aura: code[1] !== "p" ? ch.aura : undefined, ch }; };
-  const C = G.cine && G.cine.len === G.moves.length ? G.cine : null; if (!C) G.cine = null; $("zoomBox").style.visibility = C ? "hidden" : "";
+  const C = G.cine && G.cine.len === G.moves.length ? G.cine : null; if (!C) G.cine = null; $("plateauBox").classList.toggle("en-cine", !!C);
   if (C) { const t = (now - C.t0) / 1000; if (t >= (C.atk.dur || CINE_T)) { G.cine = null; } else { drawCine(C, t, dpr, spr); draw(); return; } }
   const s = cur(); const pcs = [];
   s.board.forEach((p, i) => { if (p) { const [x, z] = sqPos(i); pcs.push(Object.assign({ code: p, sq: i, x, z, lift: 0 }, spr(p, G.ids[i]))); } });
@@ -1858,7 +1897,7 @@ function render() {
   if (G.resign) txt = "Les " + side(G.resign) + " abandonnent. Victoire des " + side(G.resign === "w" ? "b" : "w");
   else if (o.over) txt = o.text;
   else txt = (inCheck(s) ? "Échec ! " : "") + (s.turn === G.color ? "À vous de jouer" : G.ai ? "L'IA réfléchit…" : "Au tour de votre ami");
-  $("etat").textContent = txt; $("etat").className = inCheck(s) && !o.over ? "alerte" : "";
+  $("etat").textContent = txt; $("etat").className = inCheck(s) && !o.over ? "alerte" : ""; $("fsEtat").textContent = txt; $("fsEtat").className = $("etat").className;
   $("vous").textContent = "Vous jouez les " + side(G.color);
   $("pion").className = "pion " + G.color;
   const pairs = []; G.recs.forEach((r, i) => { if (i % 2 === 0) pairs.push((i / 2 + 1) + ". " + r.san); else pairs[pairs.length - 1] += "  " + r.san; });
@@ -1867,7 +1906,7 @@ function render() {
   $("promo").hidden = !G.promo;
   $("abandon").disabled = o.over || !!G.resign;
   for (const id of ["carte-lien", "partager"]) $(id).hidden = !!G.ai;
-  $("annuler-coup").hidden = !G.ai; $("annuler-coup").disabled = !G.ai || G.moves.length < (G.color === "w" ? 1 : 2);
+  $("annuler-coup").hidden = !G.ai; $("annuler-coup").disabled = !G.ai || G.moves.length < (G.color === "w" ? 1 : 2); $("fs-annuler").hidden = $("annuler-coup").hidden; $("fs-annuler").disabled = $("annuler-coup").disabled;
   $("carte-ia").hidden = !G.ai; if (G.ai) $("niveau-jeu").value = G.ai.level;
   renderStatus(); draw();
 }
