@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Échecs 3D en ligne</title><meta name="theme-color" content="#14161a">
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#14161a;color:#eceae6;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:14px 14px 40px}h1{font-size:24px;margin:6px 0 4px}p{margin:6px 0;color:#b9b5ae}
+.carte{background:#1e2127;border:1px solid #30343c;border-radius:16px;padding:16px;margin:12px 0}
+button{font:inherit;border:1px solid #3b404a;background:#262a31;color:#eceae6;border-radius:10px;padding:10px 14px;cursor:pointer}button.primaire{background:#3a7bf2;border-color:#3a7bf2;color:#fff;font-weight:600}button:disabled{opacity:.45}
+.rangee{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.choix label{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border:1px solid #3b404a;border-radius:10px}
+#plateauBox{position:relative;width:100%}canvas{display:block;width:100%;border-radius:16px;touch-action:none}
+.haut{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;margin:4px 0 10px}
+#etat{font-weight:650;font-size:17px}#etat.alerte{color:#ff6b6b}.pion{display:inline-block;width:14px;height:14px;border-radius:7px;border:1px solid #888;vertical-align:-2px;margin-right:6px}.pion.w{background:#f1e9d8}.pion.b{background:#2b2729}
+.pastille{font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid #3b404a}.pastille.ok{color:#7ee2a0;border-color:#2f6b45}.pastille.attente{color:#f3c969;border-color:#6b5a2f}.pastille.ko{color:#ff8b8b;border-color:#6b2f2f}
+.grille{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}@media(max-width:800px){.grille{grid-template-columns:1fr}}
+#coups{white-space:pre;font:13px/1.6 ui-monospace,Menlo,monospace;max-height:220px;overflow:auto;margin:0}
+input[type=text]{width:100%;font:13px ui-monospace,monospace;background:#14161a;color:#ddd;border:1px solid #3b404a;border-radius:8px;padding:8px}
+#promo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:16px}#promo[hidden]{display:none}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#30343c;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .25s;pointer-events:none}#toast.on{opacity:1}
+small{color:#8f8b85}
+</style></head><body><main>
+<section id="accueil">
+  <h1>Échecs 3D en ligne</h1>
+  <p>Jouez avec un ami, chacun sur son téléphone. Vous voyez l'échiquier de votre côté, votre ami du sien, et chaque coup apparaît chez l'autre.</p>
+  <div class="carte">
+    <p style="color:#eceae6;font-weight:600">Je joue avec :</p>
+    <div class="rangee choix"><label><input type="radio" name="couleur" value="w" checked> les Blancs</label><label><input type="radio" name="couleur" value="b"> les Noirs</label><label><input type="radio" name="couleur" value="x"> au hasard</label></div>
+    <div class="rangee" style="margin-top:14px"><button class="primaire" id="creer">Créer la partie</button></div>
+    <p><small>Ensuite, envoyez le lien d'invitation à votre ami (SMS, WhatsApp…). Il n'a rien à installer.</small></p>
+  </div>
+</section>
+<section id="jeu" hidden>
+  <div class="haut"><div><span id="pion" class="pion w"></span><span id="vous"></span> · <span id="reseau" class="pastille">…</span></div><div class="rangee"><button id="partager" class="primaire">Inviter mon ami</button></div></div>
+  <div id="etat" aria-live="polite"></div>
+  <div class="grille" style="margin-top:8px">
+    <div>
+      <div id="plateauBox"><canvas id="plateau" aria-label="Échiquier 3D : touchez une pièce puis une case marquée. Glissez pour tourner."></canvas>
+        <div id="promo" hidden><div class="carte" style="max-width:340px"><p style="color:#eceae6;font-weight:600">Promotion du pion</p><div class="rangee"><button data-p="q" class="primaire">Dame</button><button data-p="r">Tour</button><button data-p="b">Fou</button><button data-p="n">Cavalier</button><button id="promo-annuler">Annuler</button></div></div></div>
+      </div>
+      <p><small>Touchez une de vos pièces puis une case marquée d'un point bleu. Glissez sur l'échiquier pour le faire tourner.</small></p>
+      <div class="rangee"><button id="recentrer">Vue de mon côté</button><button id="dessus">Vue de dessus</button></div>
+    </div>
+    <div>
+      <div class="carte"><b>Coups joués</b><pre id="coups"></pre></div>
+      <div class="carte"><b>Lien pour votre ami</b><input id="lien" type="text" readonly onclick="this.select()"><div class="rangee" style="margin-top:8px"><button id="partager2">Copier / partager</button></div><p><small>Gardez ce lien privé : toute personne qui l'a peut voir la partie.</small></p></div>
+      <div class="rangee"><button id="nouvelle">Nouvelle partie</button><button id="abandon">Abandonner</button></div>
+    </div>
+  </div>
+</section>
+<div id="toast"></div>
+</main>
+<script>
+                              
+                               
+                                                                                                           
+                                                                                                                       
+
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+function parseFen(fen        )        {
+  const [pl, turn, castle, ep, half, full] = fen.split(" ");
+  const board       = new Array(64).fill(null);
+  const rows = pl.split("/");
+  for (let i = 0; i < 8; i++) {
+    const rank = 7 - i; let file = 0;
+    for (const ch of rows[i]) {
+      if (ch >= "1" && ch <= "8") { file += Number(ch); continue; }
+      const c        = ch === ch.toUpperCase() ? "w" : "b";
+      board[rank * 8 + file] = c + ch.toLowerCase(); file++;
+    }
+  }
+  const epSq = ep === "-" ? -1 : (ep.charCodeAt(0) - 97) + (Number(ep[1]) - 1) * 8;
+  return { board, turn: turn         , castle: castle === "-" ? "" : castle, ep: epSq, half: Number(half || 0), full: Number(full || 1) };
+}
+function initialState()        { return parseFen(START); }
+
+const KN = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
+const KG = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+const ORTH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const fileOf = (s        ) => s & 7;
+const rankOf = (s        ) => s >> 3;
+const on = (f        , r        ) => f >= 0 && f < 8 && r >= 0 && r < 8;
+
+function attacked(board      , sq        , by       )          {
+  const f = fileOf(sq), r = rankOf(sq);
+  const pr = by === "w" ? r - 1 : r + 1;
+  for (const df of [-1, 1]) { if (on(f + df, pr) && board[pr * 8 + f + df] === by + "p") return true; }
+  for (const [df, dr] of KN) { if (on(f + df, r + dr) && board[(r + dr) * 8 + f + df] === by + "n") return true; }
+  for (const [df, dr] of KG) { if (on(f + df, r + dr) && board[(r + dr) * 8 + f + df] === by + "k") return true; }
+  for (const [df, dr] of DIAG) {
+    let ff = f + df, rr = r + dr;
+    while (on(ff, rr)) { const p = board[rr * 8 + ff]; if (p) { if (p[0] === by && (p[1] === "b" || p[1] === "q")) return true; break; } ff += df; rr += dr; }
+  }
+  for (const [df, dr] of ORTH) {
+    let ff = f + df, rr = r + dr;
+    while (on(ff, rr)) { const p = board[rr * 8 + ff]; if (p) { if (p[0] === by && (p[1] === "r" || p[1] === "q")) return true; break; } ff += df; rr += dr; }
+  }
+  return false;
+}
+function kingSq(board      , c       )         { for (let i = 0; i < 64; i++) if (board[i] === c + "k") return i; return -1; }
+function inCheck(s       )          { const k = kingSq(s.board, s.turn); return k >= 0 && attacked(s.board, k, s.turn === "w" ? "b" : "w"); }
+
+function pseudo(s       )         {
+  const out         = []; const b = s.board; const me = s.turn; const opp        = me === "w" ? "b" : "w";
+  const add = (from        , to        , flag        , promo = "") => {
+    out.push({ from, to, piece: b[from]          , captured: flag === "ep" ? opp + "p" : b[to], promo, flag });
+  };
+  for (let sq = 0; sq < 64; sq++) {
+    const p = b[sq]; if (!p || p[0] !== me) continue;
+    const t = p[1], f = fileOf(sq), r = rankOf(sq);
+    if (t === "p") {
+      const dir = me === "w" ? 1 : -1, last = me === "w" ? 7 : 0, startR = me === "w" ? 1 : 6;
+      const pushP = (from        , to        , flag        ) => {
+        if (rankOf(to) === last) { for (const pr of ["q", "r", "b", "n"]) add(from, to, flag, pr); } else add(from, to, flag);
+      };
+      if (on(f, r + dir) && !b[(r + dir) * 8 + f]) {
+        pushP(sq, (r + dir) * 8 + f, "n");
+        if (r === startR && !b[(r + 2 * dir) * 8 + f]) add(sq, (r + 2 * dir) * 8 + f, "2");
+      }
+      for (const df of [-1, 1]) {
+        if (!on(f + df, r + dir)) continue;
+        const to = (r + dir) * 8 + f + df; const q = b[to];
+        if (q && q[0] === opp) pushP(sq, to, "c");
+        else if (to === s.ep) add(sq, to, "ep");
+      }
+    } else if (t === "n" || t === "k") {
+      for (const [df, dr] of t === "n" ? KN : KG) {
+        if (!on(f + df, r + dr)) continue; const to = (r + dr) * 8 + f + df; const q = b[to];
+        if (!q) add(sq, to, "n"); else if (q[0] === opp) add(sq, to, "c");
+      }
+      if (t === "k") {
+        const home = me === "w" ? 4 : 60;
+        if (sq === home && !attacked(b, sq, opp)) {
+          const K = me === "w" ? "K" : "k", Q = me === "w" ? "Q" : "q";
+          if (s.castle.includes(K) && b[home + 3] === me + "r" && !b[home + 1] && !b[home + 2] && !attacked(b, home + 1, opp) && !attacked(b, home + 2, opp)) add(sq, home + 2, "k");
+          if (s.castle.includes(Q) && b[home - 4] === me + "r" && !b[home - 1] && !b[home - 2] && !b[home - 3] && !attacked(b, home - 1, opp) && !attacked(b, home - 2, opp)) add(sq, home - 2, "q");
+        }
+      }
+    } else {
+      const dirs = t === "b" ? DIAG : t === "r" ? ORTH : DIAG.concat(ORTH);
+      for (const [df, dr] of dirs) {
+        let ff = f + df, rr = r + dr;
+        while (on(ff, rr)) {
+          const to = rr * 8 + ff; const q = b[to];
+          if (!q) add(sq, to, "n"); else { if (q[0] === opp) add(sq, to, "c"); break; }
+          ff += df; rr += dr;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function makeMove(s       , m      )        {
+  const b = s.board.slice(); const me = s.turn; const opp        = me === "w" ? "b" : "w";
+  b[m.from] = null;
+  b[m.to] = m.promo ? me + m.promo : m.piece;
+  if (m.flag === "ep") b[m.to + (me === "w" ? -8 : 8)] = null;
+  if (m.flag === "k") { b[m.to + 1] = null; b[m.to - 1] = me + "r"; }
+  if (m.flag === "q") { b[m.to - 2] = null; b[m.to + 1] = me + "r"; }
+  let c = s.castle;
+  const strip = (sq        ) => {
+    if (sq === 0) c = c.replace("Q", ""); if (sq === 7) c = c.replace("K", "");
+    if (sq === 56) c = c.replace("q", ""); if (sq === 63) c = c.replace("k", "");
+  };
+  if (m.piece[1] === "k") c = me === "w" ? c.replace("K", "").replace("Q", "") : c.replace("k", "").replace("q", "");
+  strip(m.from); strip(m.to);
+  return {
+    board: b, turn: opp, castle: c,
+    ep: m.flag === "2" ? (m.from + m.to) / 2 : -1,
+    half: m.piece[1] === "p" || m.captured ? 0 : s.half + 1,
+    full: me === "b" ? s.full + 1 : s.full,
+  };
+}
+
+function legalMoves(s       )         {
+  return pseudo(s).filter((m) => { const n = makeMove(s, m); const k = kingSq(n.board, s.turn); return !attacked(n.board, k, n.turn); });
+}
+
+const FR                         = { k: "R", q: "D", r: "T", b: "F", n: "C", p: "" };
+const sqName = (sq        ) => "abcdefgh"[fileOf(sq)] + (rankOf(sq) + 1);
+function san(s       , m      , legal        )         {
+  let out = "";
+  if (m.flag === "k") out = "O-O"; else if (m.flag === "q") out = "O-O-O";
+  else {
+    const t = m.piece[1];
+    if (t === "p") { if (m.captured) out = "abcdefgh"[fileOf(m.from)] + "x"; out += sqName(m.to); if (m.promo) out += "=" + FR[m.promo]; }
+    else {
+      out = FR[t];
+      const amb = legal.filter((o) => o.piece === m.piece && o.to === m.to && o.from !== m.from);
+      if (amb.length) {
+        const sameF = amb.some((o) => fileOf(o.from) === fileOf(m.from)), sameR = amb.some((o) => rankOf(o.from) === rankOf(m.from));
+        if (!sameF) out += "abcdefgh"[fileOf(m.from)]; else if (!sameR) out += rankOf(m.from) + 1; else out += sqName(m.from);
+      }
+      if (m.captured) out += "x"; out += sqName(m.to);
+    }
+  }
+  const n = makeMove(s, m);
+  if (inCheck(n)) out += legalMoves(n).length ? "+" : "#";
+  return out;
+}
+
+function posKey(s       )         { return s.board.map((p) => p || "-").join("") + s.turn + s.castle + s.ep; }
+function insufficient(b      )          {
+  const minors                               = [];
+  for (let i = 0; i < 64; i++) { const p = b[i]; if (!p || p[1] === "k") continue; if (p[1] === "b" || p[1] === "n") minors.push({ t: p[1], sqc: (fileOf(i) + rankOf(i)) & 1 }); else return false; }
+  if (minors.length <= 1) return true;
+  return minors.every((m) => m.t === "b") && minors.every((m) => m.sqc === minors[0].sqc);
+}
+                                                                            
+function outcome(states         )          {
+  const s = states[states.length - 1]; const legal = legalMoves(s); const chk = inCheck(s);
+  const side = (c       ) => (c === "w" ? "Blancs" : "Noirs");
+  if (!legal.length) {
+    if (chk) { const w        = s.turn === "w" ? "b" : "w"; return { over: true, text: "Échec et mat ! Victoire des " + side(w), winner: w }; }
+    return { over: true, text: "Pat : partie nulle", winner: null };
+  }
+  if (s.half >= 100) return { over: true, text: "Partie nulle (règle des 50 coups)", winner: null };
+  if (insufficient(s.board)) return { over: true, text: "Partie nulle (matériel insuffisant)", winner: null };
+  const k = posKey(s); let n = 0; for (const t of states) if (posKey(t) === k) n++;
+  if (n >= 3) return { over: true, text: "Partie nulle (triple répétition)", winner: null };
+  return { over: false, text: (chk ? "Échec ! " : "") + "Aux " + side(s.turn) + " de jouer", winner: null };
+}
+
+// ---- IA ----
+const VAL                         = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+const PST                           = {
+  p: [0,0,0,0,0,0,0,0, 5,10,10,-20,-20,10,10,5, 5,-5,-10,0,0,-10,-5,5, 0,0,0,20,20,0,0,0, 5,5,10,25,25,10,5,5, 10,10,20,30,30,20,10,10, 50,50,50,50,50,50,50,50, 0,0,0,0,0,0,0,0],
+  n: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,5,5,0,-20,-40, -30,5,10,15,15,10,5,-30, -30,0,15,20,20,15,0,-30, -30,5,15,20,20,15,5,-30, -30,0,10,15,15,10,0,-30, -40,-20,0,0,0,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+  b: [-20,-10,-10,-10,-10,-10,-10,-20, -10,5,0,0,0,0,5,-10, -10,10,10,10,10,10,10,-10, -10,0,10,10,10,10,0,-10, -10,5,5,10,10,5,5,-10, -10,0,5,10,10,5,0,-10, -10,0,0,0,0,0,0,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+  r: [0,0,0,5,5,0,0,0, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 5,10,10,10,10,10,10,5, 0,0,0,0,0,0,0,0],
+  q: [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,5,0,0,0,0,-10, -10,5,5,5,5,5,0,-10, 0,0,5,5,5,5,0,-5, -5,0,5,5,5,5,0,-5, -10,0,5,5,5,5,0,-10, -10,0,0,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+  k: [20,30,10,0,0,10,30,20, 20,20,0,0,0,0,20,20, -10,-20,-20,-20,-20,-20,-20,-10, -20,-30,-30,-40,-40,-30,-30,-20, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30],
+};
+function evaluate(s       )         {
+  let sc = 0;
+  for (let i = 0; i < 64; i++) {
+    const p = s.board[i]; if (!p) continue;
+    const t = p[1]; const idx = p[0] === "w" ? i : (7 - rankOf(i)) * 8 + fileOf(i);
+    const v = VAL[t] + PST[t][idx]; sc += p[0] === "w" ? v : -v;
+  }
+  return s.turn === "w" ? sc : -sc;
+}
+function order(ms        )         {
+  return ms.map((m) => ({ m, k: (m.captured ? 10 * VAL[m.captured[1]] - VAL[m.piece[1]] + 1000 : 0) + (m.promo ? 800 : 0) }))
+    .sort((a, b) => b.k - a.k).map((x) => x.m);
+}
+function quiesce(s       , alpha        , beta        , d        , cnt               )         {
+  cnt.n++;
+  const stand = evaluate(s); if (stand >= beta) return beta; if (alpha < stand) alpha = stand; if (d <= 0) return alpha;
+  for (const m of order(legalMoves(s).filter((x) => x.captured || x.promo))) {
+    const v = -quiesce(makeMove(s, m), -beta, -alpha, d - 1, cnt);
+    if (v >= beta) return beta; if (v > alpha) alpha = v;
+  }
+  return alpha;
+}
+function negamax(s       , depth        , alpha        , beta        , ply        , cnt               )         {
+  cnt.n++;
+  const ms = legalMoves(s);
+  if (!ms.length) return inCheck(s) ? -100000 + ply : 0;
+  if (s.half >= 100) return 0;
+  if (depth <= 0) return quiesce(s, alpha, beta, 4, cnt);
+  for (const m of order(ms)) {
+    const v = -negamax(makeMove(s, m), depth - 1, -beta, -alpha, ply + 1, cnt);
+    if (v >= beta) return beta; if (v > alpha) alpha = v;
+  }
+  return alpha;
+}
+function bestMove(s       , depth        , noise        )              {
+  const ms = order(legalMoves(s)); if (!ms.length) return null;
+  let best       = ms[0], bestV = -Infinity; const cnt = { n: 0 };
+  for (const m of ms) {
+    const v = -negamax(makeMove(s, m), depth - 1, -Infinity, -bestV + noise, 1, cnt) + (noise ? Math.random() * noise : 0);
+    if (v > bestV) { bestV = v; best = m; }
+  }
+  return best;
+}
+
+                                          
+                                                              
+                                                                                       
+                                                                                           
+
+const norm = (v    )     => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const dot = (a    , b    ) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a    , b    )     => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const centroid = (p      )     => { let x = 0, y = 0, z = 0; for (const q of p) { x += q[0]; y += q[1]; z += q[2]; } const n = p.length; return [x / n, y / n, z / n]; };
+
+function lathe(prof            , segs        , out        , ox = 0, oy = 0, oz = 0) {
+  for (let i = 0; i < prof.length - 1; i++) {
+    const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
+    if (r0 === 0 && r1 === 0) continue;
+    const n2 = norm([y1 - y0, -(r1 - r0), 0]);
+    for (let j = 0; j < segs; j++) {
+      const a0 = (j / segs) * Math.PI * 2, a1 = ((j + 1) / segs) * Math.PI * 2, am = (a0 + a1) / 2;
+      const P = (r        , y        , a        )     => [ox + r * Math.cos(a), oy + y, oz + r * Math.sin(a)];
+      const pts       = [];
+      pts.push(P(r0, y0, a0)); if (r0 !== 0) pts.push(P(r0, y0, a1));
+      pts.push(P(r1, y1, a1)); if (r1 !== 0) pts.push(P(r1, y1, a0));
+      const p = r1 === 0 ? [P(r0, y0, a0), P(r0, y0, a1), P(r1, y1, a1)] : pts;
+      const n     = [n2[0] * Math.cos(am), n2[1], n2[0] * Math.sin(am)];
+      out.push({ p, n, c: centroid(p) });
+    }
+  }
+}
+function sphere(cx        , cy        , cz        , rad        , segs        , rings        , out        ) {
+  const prof             = [];
+  for (let i = 0; i <= rings; i++) { const a = -Math.PI / 2 + (i / rings) * Math.PI; prof.push([i === 0 || i === rings ? 0 : rad * Math.cos(a), rad * Math.sin(a)]); }
+  lathe(prof, segs, out, cx, cy, cz);
+}
+function box(x0        , x1        , y0        , y1        , z0        , z1        , rot        , out        ) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  const R = (v    )     => [v[0] * c - v[2] * s, v[1], v[0] * s + v[2] * c];
+  const q = (a    , b    , cc    , d    , n    ) => { const p = [a, b, cc, d].map(R); out.push({ p, n: R(n), c: centroid(p) }); };
+  q([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [0, 0, -1]);
+  q([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1]);
+  q([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0]);
+  q([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [1, 0, 0]);
+  q([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], [0, 1, 0]);
+}
+// extrude side silhouette (u forward, y up) along lateral axis; dir: +1 faces -z (towards black), -1 faces +z
+function extrude(poly            , half        , dir        , out        , capsLast        ) {
+  let area = 0; for (let i = 0; i < poly.length; i++) { const [a, b] = poly[i], [c, d] = poly[(i + 1) % poly.length]; area += a * d - c * b; }
+  const sgn = area > 0 ? 1 : -1;
+  const W = (u        , y        , x        )     => [x * dir, y, -u * dir];
+  for (let i = 0; i < poly.length; i++) {
+    const [u0, y0] = poly[i], [u1, y1] = poly[(i + 1) % poly.length];
+    const nu = (y1 - y0) * sgn, ny = -(u1 - u0) * sgn; const l = Math.hypot(nu, ny) || 1;
+    const p = [W(u0, y0, -half), W(u1, y1, -half), W(u1, y1, half), W(u0, y0, half)];
+    out.push({ p, n: [0, ny / l, (-nu / l) * dir], c: centroid(p) });
+  }
+  for (const sx of [-1, 1]) { const p = poly.map(([u, y]) => W(u, y, sx * half)); capsLast.push({ p, n: [sx * dir, 0, 0], c: centroid(p) }); }
+}
+function arc(cy        , rx        , ry        , a0        , a1        , n        )             {
+  const o             = []; for (let i = 0; i <= n; i++) { const a = a0 + ((a1 - a0) * i) / n; o.push([Math.max(0, rx * Math.cos(a)), cy + ry * Math.sin(a)]); } return o;
+}
+const D = Math.PI / 180;
+                                                                
+function buildMeshes()                       {
+  const S = 18; const M                       = {};
+  const base = (R        ) => [[0, 0], [R, 0], [R, 0.05], [R - 0.02, 0.08], [R - 0.01, 0.11], [R - 0.04, 0.14], [R - 0.1, 0.18]];
+  { const f         = []; lathe([...base(0.3), [0.12, 0.26], [0.1, 0.36], [0.17, 0.4], [0.17, 0.43], [0.09, 0.46], ...arc(0.57, 0.14, 0.14, -55 * D, 90 * D, 7)], S, f); M.p = { faces: f, caps: [], h: 0.72 }; }
+  { const f         = []; lathe([...base(0.33), [0.2, 0.3], [0.185, 0.56], [0.23, 0.6], [0.25, 0.63], [0.25, 0.76], [0.17, 0.76], [0.17, 0.7], [0, 0.7]], S, f);
+    for (let k = 0; k < 4; k++) box(0.165, 0.25, 0.76, 0.86, -0.075, 0.075, k * Math.PI / 2 + Math.PI / 4, f); M.r = { faces: f, caps: [], h: 0.86 }; }
+  for (const dir of [1, -1]) { const f         = []; const caps         = [];
+    lathe([...base(0.33), [0.21, 0.26], [0, 0.26]], S, f);
+    const head = [[-0.2, 0.24], [0.15, 0.24], [0.17, 0.36], [0.11, 0.48], [0.11, 0.53], [0.27, 0.56], [0.32, 0.61], [0.31, 0.69], [0.2, 0.78], [0.1, 0.86], [0.07, 0.97], [0.01, 1.03], [-0.04, 0.93], [-0.12, 0.88], [-0.19, 0.78], [-0.24, 0.6], [-0.25, 0.42], [-0.23, 0.3]];
+    extrude(head, 0.12, dir, f, caps);
+    // mane ridge
+    const mane = [[-0.12, 0.88], [-0.19, 0.78], [-0.24, 0.6], [-0.25, 0.42], [-0.29, 0.44], [-0.28, 0.62], [-0.23, 0.8], [-0.15, 0.91]];
+    extrude(mane, 0.06, dir, f, caps);
+    // eyes
+    for (const sx of [-1, 1]) { const e       = []; for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; e.push([sx * 0.125 * dir, 0.8 + 0.025 * Math.sin(a), -(0.08 + 0.03 * Math.cos(a)) * dir]); } caps.push({ p: e, n: [sx * dir, 0, 0], c: centroid(e), ink: true }); }
+    M[dir === 1 ? "nw" : "nb"] = { faces: f, caps, h: 1.03 }; }
+  { const f         = []; lathe([...base(0.33), [0.16, 0.28], [0.12, 0.52], [0.2, 0.56], [0.2, 0.59], [0.12, 0.62], ...arc(0.79, 0.15, 0.2, -58 * D, 75 * D, 8), [0.035, 1.0], ...arc(1.04, 0.055, 0.055, -40 * D, 90 * D, 4)], S, f);
+    M.b = { faces: f, caps: [], h: 1.1 }; }
+  { const f         = []; lathe([...base(0.36), [0.17, 0.32], [0.12, 0.72], [0.21, 0.77], [0.21, 0.8], [0.13, 0.83], [0.14, 0.88], [0.23, 1.07], [0.19, 1.07], [0.11, 1.04], ...arc(1.04, 0.11, 0.08, 0, 90 * D, 3)], S, f);
+    sphere(0, 1.17, 0, 0.055, 8, 5, f);
+    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2; sphere(0.215 * Math.cos(a), 1.09, 0.215 * Math.sin(a), 0.032, 6, 4, f); }
+    M.q = { faces: f, caps: [], h: 1.22 }; }
+  { const f         = []; lathe([...base(0.36), [0.17, 0.32], [0.13, 0.78], [0.22, 0.83], [0.22, 0.86], [0.14, 0.89], [0.16, 0.94], [0.235, 1.1], [0.2, 1.14], [0.1, 1.16], [0.06, 1.2], [0, 1.21]], S, f);
+    box(-0.038, 0.038, 1.19, 1.46, -0.038, 0.038, 0, f); box(-0.12, -0.038, 1.3, 1.37, -0.038, 0.038, 0, f); box(0.038, 0.12, 1.3, 1.37, -0.038, 0.038, 0, f);
+    M.k = { faces: f, caps: [], h: 1.46 }; }
+  return M;
+}
+
+function makeView(c     )       {
+  const d = 14; const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
+  const pos     = [d * cp * Math.sin(c.yaw), d * sp, d * cp * Math.cos(c.yaw)];
+  const f = norm([-pos[0], -pos[1] + 0.3, -pos[2]]);
+  const r = norm(cross(f, [0, 1, 0])); const u = cross(r, f);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const px of [-4.5, 4.5]) for (const pz of [-4.5, 4.5]) for (const py of [-0.36, 1.25]) {
+    const q     = [px - pos[0], py - pos[1], pz - pos[2]]; const z = dot(q, f); const x = dot(q, r) / z, y = -dot(q, u) / z;
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const foc = Math.min((c.W * 0.96) / (x1 - x0), (c.H * 0.94) / (y1 - y0)) * c.zoom;
+  return { pos, f, r, u, foc, cx: c.W / 2 - foc * (x0 + x1) / 2, cy: c.H / 2 - foc * (y0 + y1) / 2 };
+}
+function project(v      , p    )                           {
+  const x = p[0] - v.pos[0], y = p[1] - v.pos[1], z = p[2] - v.pos[2];
+  const cz = x * v.f[0] + y * v.f[1] + z * v.f[2];
+  const cx = x * v.r[0] + y * v.r[1] + z * v.r[2];
+  const cy = x * v.u[0] + y * v.u[1] + z * v.u[2];
+  return [v.cx + (v.foc * cx) / cz, v.cy - (v.foc * cy) / cz, cz];
+}
+function pickSquare(v      , sx        , sy        )         {
+  const a = (sx - v.cx) / v.foc, b = (v.cy - sy) / v.foc;
+  const dir     = [v.f[0] + v.r[0] * a + v.u[0] * b, v.f[1] + v.r[1] * a + v.u[1] * b, v.f[2] + v.r[2] * a + v.u[2] * b];
+  if (dir[1] >= 0) return -1; const t = -v.pos[1] / dir[1];
+  const x = v.pos[0] + dir[0] * t, z = v.pos[2] + dir[2] * t;
+  const file = Math.floor(x + 4), rank = Math.floor(4 - z);
+  return file >= 0 && file < 8 && rank >= 0 && rank < 8 ? rank * 8 + file : -1;
+}
+const sqPos = (sq        )                   => [(sq & 7) - 3.5, 3.5 - (sq >> 3)];
+
+const L1 = norm([-0.45, 0.85, 0.35]), L2 = norm([0.6, 0.35, -0.7]);
+function shade(base    , n    , view      , c    , spec        , gloss        )         {
+  const d1 = Math.max(0, dot(n, L1)), d2 = Math.max(0, dot(n, L2));
+  const vdir = norm([view.pos[0] - c[0], view.pos[1] - c[1], view.pos[2] - c[2]]);
+  const h = norm([L1[0] + vdir[0], L1[1] + vdir[1], L1[2] + vdir[2]]);
+  const sp = spec * Math.pow(Math.max(0, dot(n, h)), gloss);
+  const rim = Math.pow(1 - Math.max(0, dot(n, vdir)), 3) * 0.25;
+  const k = 0.32 + 0.78 * d1 + 0.22 * d2 + rim;
+  const ch = (i        ) => Math.min(255, Math.round(base[i] * k + 255 * sp));
+  return "rgb(" + ch(0) + "," + ch(1) + "," + ch(2) + ")";
+}
+                                                                                         
+                                                                                                                                                
+                                                        
+
+function poly(ctx                          , pts            ) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
+
+function drawScene(ctx                          , cam     , meshes                      , pieces           , marks       , dark         )        {
+  const v = makeView(cam); const W = cam.W, H = cam.H;
+  const g = ctx.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H / 2, Math.max(W, H) * 0.75);
+  if (dark) { g.addColorStop(0, "#2c3038"); g.addColorStop(1, "#0e1013"); } else { g.addColorStop(0, "#fbfaf7"); g.addColorStop(1, "#d8d3c8"); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const P = (x        , y        , z        ) => project(v, [x, y, z]);
+  // soft shadow under the board
+  ctx.save(); ctx.shadowColor = dark ? "rgba(0,0,0,0.7)" : "rgba(60,40,20,0.35)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "rgb(40,26,16)"; poly(ctx, [P(-4.45, -0.36, -4.45), P(4.45, -0.36, -4.45), P(4.45, -0.36, 4.45), P(-4.45, -0.36, 4.45)]); ctx.fill(); ctx.restore();
+  // frame sides
+  const E = 4.45, T = 0.36; const wood     = [92, 56, 34];
+  const sides                         = [
+    { pts: [[-E, 0, E], [E, 0, E], [E, -T, E], [-E, -T, E]], n: [0, 0, 1] }, { pts: [[E, 0, -E], [-E, 0, -E], [-E, -T, -E], [E, -T, -E]], n: [0, 0, -1] },
+    { pts: [[E, 0, E], [E, 0, -E], [E, -T, -E], [E, -T, E]], n: [1, 0, 0] }, { pts: [[-E, 0, -E], [-E, 0, E], [-E, -T, E], [-E, -T, -E]], n: [-1, 0, 0] }];
+  for (const s of sides) { const c = centroid(s.pts); if (dot(s.n, [v.pos[0] - c[0], v.pos[1] - c[1], v.pos[2] - c[2]]) <= 0) continue; ctx.fillStyle = shade([wood[0] * 0.8, wood[1] * 0.8, wood[2] * 0.8], s.n, v, c, 0.05, 20); poly(ctx, s.pts.map((p) => P(p[0], p[1], p[2]))); ctx.fill(); }
+  ctx.fillStyle = shade(wood, [0, 1, 0], v, [0, 0, 0], 0.06, 30); poly(ctx, [P(-E, 0, -E), P(E, 0, -E), P(E, 0, E), P(-E, 0, E)]); ctx.fill();
+  // inlay line
+  ctx.strokeStyle = "rgba(230,200,140,0.55)"; ctx.lineWidth = 1.2; poly(ctx, [P(-4.08, 0, -4.08), P(4.08, 0, -4.08), P(4.08, 0, 4.08), P(-4.08, 0, 4.08)]); ctx.stroke();
+  // squares
+  for (let sq = 0; sq < 64; sq++) {
+    const [x, z] = sqPos(sq); const light = ((sq & 7) + (sq >> 3)) % 2 === 1;
+    const base     = light ? [238, 218, 181] : [161, 106, 70];
+    const pts = [P(x - 0.5, 0, z - 0.5), P(x + 0.5, 0, z - 0.5), P(x + 0.5, 0, z + 0.5), P(x - 0.5, 0, z + 0.5)];
+    ctx.fillStyle = shade(base, [0, 1, 0], v, [x, 0, z], light ? 0.1 : 0.07, 40); poly(ctx, pts); ctx.fill();
+    ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.6; ctx.stroke();
+    let tint = "";
+    if (marks.last.includes(sq)) tint = "rgba(255,214,64,0.38)";
+    if (sq === marks.check) tint = "rgba(230,40,40,0.55)";
+    if (sq === marks.selected) tint = "rgba(70,150,255,0.5)";
+    if (tint) { ctx.fillStyle = tint; poly(ctx, pts); ctx.fill(); }
+    if (sq === marks.hover && sq !== marks.selected) { ctx.fillStyle = "rgba(255,255,255,0.14)"; poly(ctx, pts); ctx.fill(); }
+  }
+  // targets
+  for (const sq of marks.targets) {
+    const [x, z] = sqPos(sq); const cap = marks.captures.includes(sq); const pts             = [];
+    const rad = cap ? 0.44 : 0.15; for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; pts.push(P(x + rad * Math.cos(a), 0.005, z + rad * Math.sin(a))); }
+    poly(ctx, pts);
+    if (cap) { ctx.strokeStyle = "rgba(40,120,240,0.85)"; ctx.lineWidth = Math.max(2, v.foc * 0.06 / pts.length * 6); ctx.stroke(); } else { ctx.fillStyle = "rgba(30,110,235,0.72)"; ctx.fill(); }
+  }
+  if (marks.cursor >= 0) {
+    const [x, z] = sqPos(marks.cursor); const i = 0.46;
+    ctx.strokeStyle = dark ? "rgba(255,255,255,0.95)" : "rgba(20,20,20,0.9)"; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
+    poly(ctx, [P(x - i, 0.01, z - i), P(x + i, 0.01, z - i), P(x + i, 0.01, z + i), P(x - i, 0.01, z + i)]); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // coordinates
+  ctx.fillStyle = "rgba(240,220,180,0.9)"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const lab = (t        , x        , z        ) => { const p = P(x, 0, z); const size = Math.max(8, Math.min(18, (v.foc * 0.2) / p[2])); ctx.font = "600 " + size.toFixed(1) + "px system-ui, sans-serif"; ctx.fillText(t, p[0], p[1]); };
+  for (let i = 0; i < 8; i++) { lab("abcdefgh"[i], i - 3.5, 4.24); lab("abcdefgh"[i], i - 3.5, -4.24); lab(String(i + 1), -4.24, 3.5 - i); lab(String(i + 1), 4.24, 3.5 - i); }
+  // shadows
+  for (const pc of pieces) {
+    const pts             = []; const rad = pc.code[1] === "p" ? 0.33 : 0.4; const ox = 0.08 + pc.lift * 0.3, oz = -0.05 - pc.lift * 0.2;
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; pts.push(P(pc.x + ox + rad * Math.cos(a), 0.003, pc.z + oz + rad * 0.9 * Math.sin(a))); }
+    ctx.fillStyle = "rgba(0,0,0," + (0.28 / (1 + pc.lift * 2)).toFixed(3) + ")"; poly(ctx, pts); ctx.fill();
+  }
+  // pieces
+  const order = pieces.map((pc) => ({ pc, d: project(v, [pc.x, 0.5, pc.z])[2] })).sort((a, b) => b.d - a.d);
+  const hits        = [];
+  for (const { pc } of order) {
+    const white = pc.code[0] === "w"; const t = pc.code[1];
+    const mesh = meshes[t === "n" ? (white ? "nw" : "nb") : t];
+    const base     = white ? [232, 220, 196] : [46, 42, 44]; const spec = white ? 0.22 : 0.35; const gloss = white ? 24 : 40;
+    const list                                                = [], caps              = [], ink              = [];
+    const add = (fc      , dest             ) => {
+      const c     = [fc.c[0] + pc.x, fc.c[1] + pc.lift, fc.c[2] + pc.z];
+      if (dot(fc.n, [v.pos[0] - c[0], v.pos[1] - c[1], v.pos[2] - c[2]]) <= 0) return;
+      const pts = fc.p.map((p) => project(v, [p[0] + pc.x, p[1] + pc.lift, p[2] + pc.z]));
+      dest.push({ pts, d: project(v, c)[2], col: fc.ink ? (white ? "rgb(70,52,40)" : "rgb(150,140,130)") : shade(base, fc.n, v, c, spec, gloss) });
+    };
+    for (const fc of mesh.faces) add(fc, list);
+    for (const fc of mesh.caps) add(fc, fc.ink ? ink : caps);
+    list.sort((a, b) => b.d - a.d); caps.sort((a, b) => b.d - a.d);
+    const polys               = [];
+    for (const f of list.concat(caps, ink)) { ctx.fillStyle = f.col; ctx.strokeStyle = f.col; ctx.lineWidth = 0.7; poly(ctx, f.pts); ctx.fill(); ctx.stroke(); polys.push(f.pts); }
+    hits.push({ sq: pc.sq, polys });
+  }
+  return hits;
+}
+function hitTest(hits       , x        , y        )         {
+  for (let h = hits.length - 1; h >= 0; h--) {
+    for (const p of hits[h].polys) {
+      let inside = false;
+      for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const xi = p[i][0], yi = p[i][1], xj = p[j][0], yj = p[j][1]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside; }
+      if (inside) return hits[h].sq;
+    }
+  }
+  return -1;
+}
+
+/* ===== Échecs 3D en ligne : interface + synchronisation via relais pub/sub (API ntfy) ===== */
+const Q = new URLSearchParams(location.search);
+const RELAY = (Q.get("relais") || "https://ntfy.sh").replace(/\/$/, "");
+const $ = (id) => document.getElementById(id);
+const MESHES = buildMeshes();
+const ME_ID = Math.random().toString(36).slice(2, 10);
+const UCI = (m) => sqName(m.from) + sqName(m.to) + (m.promo || "");
+const sqOf = (n) => (n.charCodeAt(0) - 97) + (Number(n[1]) - 1) * 8;
+
+const G = { room: Q.get("salle"), color: Q.get("couleur") === "b" ? "b" : "w", gen: 0, moves: [], states: [initialState()], recs: [],
+  sel: -1, promo: null, yaw: 0, pitch: 52, zoom: 1, friend: false, online: false, lastId: "", hits: [], anim: null, resign: null };
+
+function rebuild(moves) {
+  let s = initialState(); const states = [s], recs = [];
+  for (const u of moves) {
+    const L = legalMoves(s); const m = L.find((x) => UCI(x) === u); if (!m) return null;
+    recs.push({ move: m, san: san(s, m, L) }); s = makeMove(s, m); states.push(s);
+  }
+  return { states, recs };
+}
+function cur() { return G.states[G.states.length - 1]; }
+
+/* ---------- réseau ---------- */
+async function publish(obj) {
+  obj.from = ME_ID; obj.gen = G.gen;
+  try { const r = await fetch(RELAY + "/" + G.room, { method: "POST", body: JSON.stringify(obj) }); if (!r.ok) throw new Error(r.status); setNet(true); }
+  catch (e) { setNet(false); toast("Envoi impossible, nouvel essai…"); setTimeout(() => publish(obj), 3000); }
+}
+let REPLAY = false;
+function receive(raw) {
+  let m; try { m = JSON.parse(raw); } catch (_) { return; }
+  if (!m || typeof m !== "object") return;
+  if (m.t === "hi" && m.from !== ME_ID) { if (REPLAY) return; setFriend(true); if (!m.ack) publish({ t: "hi", ack: 1 }); return; }
+  if (m.t === "new") { if (m.gen > G.gen) { G.gen = m.gen; applyMoves([], true); } return; }
+  if (m.t === "resign") { if (m.gen === G.gen) { G.resign = m.color; render(); } return; }
+  if (m.t === "moves" && Array.isArray(m.moves)) {
+    if (m.gen > G.gen) { G.gen = m.gen; G.resign = null; G.moves = []; }
+    if (m.gen === G.gen && m.moves.length > G.moves.length && G.moves.every((u, i) => m.moves[i] === u)) applyMoves(m.moves, false);
+  }
+}
+async function connect() {
+  setNet(false);
+  try {
+    const r = await fetch(RELAY + "/" + G.room + "/json?poll=1&since=all");
+    const txt = await r.text(); REPLAY = true;
+    for (const line of txt.split("\n")) { if (!line.trim()) continue; const ev = JSON.parse(line); if (ev.event === "message") { G.lastId = ev.id; receive(ev.message); } }
+    REPLAY = false;
+  } catch (e) { REPLAY = false; toast("Relais injoignable, nouvel essai…"); }
+  const es = new EventSource(RELAY + "/" + G.room + "/sse" + (G.lastId ? "?since=" + G.lastId : ""));
+  es.onopen = () => setNet(true);
+  es.onerror = () => setNet(false);
+  es.onmessage = (e) => { let ev; try { ev = JSON.parse(e.data); } catch (_) { return; } if (ev.event && ev.event !== "message") return; if (ev.id) G.lastId = ev.id; receive(ev.message); };
+  publish({ t: "hi" });
+}
+function setNet(ok) { G.online = ok; renderStatus(); }
+function setFriend(ok) { G.friend = ok; renderStatus(); }
+
+/* ---------- jeu ---------- */
+function applyMoves(moves, reset) {
+  const rb = rebuild(moves); if (!rb) return;
+  const prevLen = G.moves.length;
+  if (!reset && moves.length === prevLen + 1) {
+    const m = rb.recs[rb.recs.length - 1].move; const items = [{ from: m.from, to: m.to, hop: m.piece[1] === "n" }];
+    if (m.flag === "k") items.push({ from: m.to + 1, to: m.to - 1, hop: false });
+    if (m.flag === "q") items.push({ from: m.to - 2, to: m.to + 1, hop: false });
+    const capSq = m.flag === "ep" ? m.to + (m.piece[0] === "w" ? -8 : 8) : m.to;
+    G.anim = { t0: performance.now(), dur: 420, items, cap: m.captured ? { code: m.captured, sq: capSq } : null, len: moves.length };
+    if (m.piece[0] !== G.color) navigator.vibrate && navigator.vibrate(60);
+  } else G.anim = null;
+  if (reset) G.resign = null;
+  G.moves = moves.slice(); G.states = rb.states; G.recs = rb.recs; G.sel = -1; G.promo = null;
+  render();
+}
+function myTurn() { const o = outcome(G.states); return !o.over && !G.resign && cur().turn === G.color; }
+function playMove(m) {
+  const moves = G.moves.concat([UCI(m)]); applyMoves(moves, false);
+  publish({ t: "moves", moves });
+}
+function handleSquare(sq) {
+  if (sq < 0) { G.sel = -1; render(); return; }
+  if (!myTurn() || G.promo) return;
+  const L = legalMoves(cur());
+  if (G.sel >= 0) {
+    const ms = L.filter((m) => m.from === G.sel && m.to === sq);
+    if (ms.length > 1) { G.promo = { from: G.sel, to: sq }; render(); return; }
+    if (ms.length === 1) { playMove(ms[0]); return; }
+  }
+  const p = cur().board[sq];
+  G.sel = p && p[0] === G.color && sq !== G.sel && L.some((m) => m.from === sq) ? sq : -1; render();
+}
+
+/* ---------- rendu 3D ---------- */
+const cv = $("plateau"); const ctx = cv.getContext("2d"); let W = 0, H = 0, pending = false;
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+function resize() { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = Math.round(Math.min(Math.max(W * (innerWidth < 700 ? 0.92 : 0.72), 300), innerHeight * 0.72)); cv.style.height = H + "px"; draw(); }
+function draw() { if (pending) return; pending = true; requestAnimationFrame(drawNow); }
+function cam() { return { yaw: G.yaw * Math.PI / 180, pitch: G.pitch * Math.PI / 180, zoom: G.zoom, W, H }; }
+function drawNow() {
+  pending = false; if (!W) return;
+  const dpr = Math.min(2, devicePixelRatio || 1); const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
+  if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const s = cur(); const pcs = [];
+  s.board.forEach((p, i) => { if (p) { const [x, z] = sqPos(i); pcs.push({ code: p, sq: i, x, z, lift: 0 }); } });
+  let going = false; const a = G.anim;
+  if (a && a.len === G.moves.length) {
+    const t = Math.min(1, (performance.now() - a.t0) / a.dur), e = ease(t); going = t < 1;
+    for (const it of a.items) { const pc = pcs.find((q) => q.sq === it.to); if (!pc) continue; const [fx, fz] = sqPos(it.from), [tx, tz] = sqPos(it.to); pc.x = fx + (tx - fx) * e; pc.z = fz + (tz - fz) * e; pc.lift = Math.sin(Math.PI * e) * (it.hop ? 0.8 : 0.22); }
+    if (a.cap && t < 0.8) { const [x, z] = sqPos(a.cap.sq); pcs.push({ code: a.cap.code, sq: -1, x, z, lift: 0 }); }
+    if (!going) G.anim = null;
+  }
+  const L = G.sel >= 0 ? legalMoves(s).filter((m) => m.from === G.sel) : [];
+  const last = G.recs.length ? G.recs[G.recs.length - 1].move : null;
+  const marks = { selected: G.sel, targets: L.map((m) => m.to), captures: L.filter((m) => m.captured).map((m) => m.to), last: last ? [last.from, last.to] : [], check: inCheck(s) ? kingSq(s.board, s.turn) : -1, cursor: -1, hover: -1 };
+  G.hits = drawScene(ctx, cam(), MESHES, pcs, marks, true);
+  if (going) draw();
+}
+let drag = null;
+cv.addEventListener("pointerdown", (e) => { const r = cv.getBoundingClientRect(); drag = { x: e.clientX - r.left, y: e.clientY - r.top, yaw: G.yaw, pitch: G.pitch, moved: false, id: e.pointerId }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", (e) => {
+  if (!drag || drag.id !== e.pointerId) return; const r = cv.getBoundingClientRect(); const dx = e.clientX - r.left - drag.x, dy = e.clientY - r.top - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) > 8) drag.moved = true;
+  if (drag.moved) { G.yaw = drag.yaw - dx * 0.4; G.pitch = Math.min(89, Math.max(18, drag.pitch + dy * 0.3)); draw(); }
+});
+cv.addEventListener("pointerup", (e) => {
+  const d = drag; drag = null; if (!d || d.moved) return; const r = cv.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top;
+  let sq = hitTest(G.hits, x, y); if (sq < 0) sq = pickSquare(makeView(cam()), x, y); handleSquare(sq);
+});
+cv.addEventListener("pointercancel", () => { drag = null; });
+
+/* ---------- interface ---------- */
+const side = (c) => (c === "w" ? "Blancs" : "Noirs");
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2600); }
+function renderStatus() {
+  const n = $("reseau"); if (!n) return;
+  n.textContent = !G.online ? "Connexion au relais…" : G.friend ? "Ami connecté" : "En attente de votre ami…";
+  n.className = "pastille " + (!G.online ? "ko" : G.friend ? "ok" : "attente");
+}
+function render() {
+  const o = outcome(G.states); const s = cur();
+  let txt;
+  if (G.resign) txt = "Les " + side(G.resign) + " abandonnent. Victoire des " + side(G.resign === "w" ? "b" : "w");
+  else if (o.over) txt = o.text;
+  else txt = (inCheck(s) ? "Échec ! " : "") + (s.turn === G.color ? "À vous de jouer" : "Au tour de votre ami");
+  $("etat").textContent = txt; $("etat").className = inCheck(s) && !o.over ? "alerte" : "";
+  $("vous").textContent = "Vous jouez les " + side(G.color);
+  $("pion").className = "pion " + G.color;
+  const pairs = []; G.recs.forEach((r, i) => { if (i % 2 === 0) pairs.push((i / 2 + 1) + ". " + r.san); else pairs[pairs.length - 1] += "  " + r.san; });
+  $("coups").textContent = pairs.length ? pairs.join("\n") : "Les Blancs commencent.";
+  $("coups").scrollTop = 1e6;
+  $("promo").hidden = !G.promo;
+  $("abandon").disabled = o.over || !!G.resign;
+  renderStatus(); draw();
+}
+function inviteLink() { const u = new URL(location.href); u.search = ""; u.searchParams.set("salle", G.room); u.searchParams.set("couleur", G.color === "w" ? "b" : "w"); if (Q.get("relais")) u.searchParams.set("relais", RELAY); return u.toString(); }
+async function share() {
+  const link = inviteLink();
+  if (navigator.share) { try { await navigator.share({ title: "Partie d'échecs 3D", text: "Rejoins ma partie d'échecs !", url: link }); return; } catch (_) { } }
+  try { await navigator.clipboard.writeText(link); toast("Lien copié !"); } catch (_) { prompt("Copiez ce lien et envoyez-le à votre ami :", link); }
+}
+function randomRoom() { const a = new Uint8Array(12); crypto.getRandomValues(a); return "echecs3d-" + Array.from(a, (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b & 31]).join(""); }
+
+function startGame() {
+  $("accueil").hidden = true; $("jeu").hidden = false;
+  G.yaw = G.color === "w" ? 0 : 180; G.zoom = innerWidth < 600 ? 1.25 : 1;
+  const u = new URL(location.href); u.searchParams.set("salle", G.room); u.searchParams.set("couleur", G.color); history.replaceState(null, "", u);
+  $("lien").value = inviteLink();
+  resize(); render(); connect();
+}
+$("creer").onclick = () => { const v = document.querySelector("input[name=couleur]:checked").value; G.color = v === "x" ? (Math.random() < 0.5 ? "w" : "b") : v; G.room = randomRoom(); startGame(); };
+$("partager").onclick = share; $("partager2").onclick = share;
+$("recentrer").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 52; draw(); };
+$("dessus").onclick = () => { G.yaw = G.color === "w" ? 0 : 180; G.pitch = 89; draw(); };
+$("nouvelle").onclick = () => { if (!confirm("Recommencer une nouvelle partie pour vous deux ?")) return; G.gen++; applyMoves([], true); publish({ t: "new" }); };
+$("abandon").onclick = () => { if (!confirm("Abandonner la partie ?")) return; G.resign = G.color; render(); publish({ t: "resign", color: G.color }); };
+document.querySelectorAll("#promo button[data-p]").forEach((b) => (b.onclick = () => { const p = G.promo; const m = legalMoves(cur()).find((x) => x.from === p.from && x.to === p.to && x.promo === b.dataset.p); if (m) playMove(m); }));
+$("promo-annuler").onclick = () => { G.promo = null; G.sel = -1; render(); };
+addEventListener("resize", resize);
+if (G.room) startGame();
+window.__G = G;
+
+</script></body></html>
