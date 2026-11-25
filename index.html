@@ -23700,7 +23700,7 @@ function brQuitterBritannia() {
     const eti = (txt, x, y, col) => { const tw = imageTexte(txt).width * p; c.fillStyle = "rgba(10,10,24,0.78)"; c.fillRect(Math.round(x - tw / 2 - 3 * p), y - p, Math.round(tw + 6 * p), 12 * p); textePixel(c, txt, x, y, p, col, "#0a0a18", 0.5); };
     for (const id of BR_ZID) { const Z = BRG.zones[id]; eti(Z.nom + (Z.niv ? "  ☠ Nv " + Z.niv + "+" : ""), X(T2P(Z.tx)), Y(T2P(Z.ty)) - 5 * p, Z.niv ? "#ff9090" : Z.ville ? "#ffe070" : "#fff0a0"); }
     for (const B of BR_BAT) if (B.nom && B.shop) eti(B.nom, X(B.x), Y(B.y) + 2 * p, "#ffffff");
-    const G = BOAR.m5; if (G) eti("BOAR HAT", X(G.x), Y(G.y) - 8 * p, "#ffc8dc");
+    const G = BOAR.m5; if (G) eti("BOAR HAT · HAWK MAMA", X(G.x), Y(G.y) - 8 * p, "#ffc8dc");
   };
 })();
 (() => { const tp = teleporter; teleporter = function (mx, my) { return tp(mx, my); }; })();
@@ -39041,7 +39041,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "60.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "61.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -51239,6 +51239,553 @@ function v60SprLaboonMiroir(s) { const c = nouveauCanvas(s.width, s.height), g =
     const r = n3Rendu; n3Rendu = function () { if (!N3.pret && (AV.monde || 1) === 1) pre(); return r.apply(this, arguments); };
   } catch (e) { V60D.err++; }
 })();
+
+
+/* ===== v61.0 partie A — Britannia (Seven Deadly Sins) : noms canoniques, nouveaux lieux (Prison de Baste, Capitale des Morts,
+   Arène du festival de combat de Vaizel, Arbre sacré et Fontaine de jouvence de la Forêt du Roi des Fées), Chevaliers sacrés
+   (Dreyfus, Howzer, Jericho, Helbram), Hawk en vrai cochon, quêtes dans l'ordre ===== */
+const P610 = { err: [], m: new Map(), deco: null, decoM: null, img: {}, fx: [], V: "61.0" };
+function p610Err(w, e) { if (P610.err.length < 12) P610.err.push(w + ": " + (e && e.message || e)); try { console.warn("v61.0", w, e); } catch (_) { } }
+
+/* ---------- 1) noms canoniques (identifiants internes inchangés) ---------- */
+try {
+  // zones
+  BRG.zones.fees.nom = "FORÊT DU ROI DES FÉES";
+  BRG.zones.liones.nom = "ROYAUME DE LIONES";
+  // nouveaux lieux (avant la génération du monde 5 : terrain aplani, forêt dégagée, marqueur sur la carte)
+  BRG.zones.baste = { nom: "PRISON DE BASTE", tx: 548, ty: 326, r: 16, v61: 1 };
+  BRG.zones.morts = { nom: "CAPITALE DES MORTS", tx: 566, ty: 688, r: 18, v61: 1 };
+  BRG.zones.festival = { nom: "ARÈNE DU FESTIVAL DE VAIZEL", tx: 404, ty: 588, r: 11, ville: true, v61: 1 };
+  for (const k of ["baste", "morts", "festival"]) if (!BR_ZID.includes(k)) BR_ZID.push(k);
+  // chemins vers les nouveaux lieux
+  BRG.chemins.push([[546, 447], [552, 400], [548, 342]], [[512, 628], [540, 660], [562, 672]], [[404, 566], [404, 577]]);
+} catch (e) { p610Err("zones", e); }
+try {
+  const R = (id, nom) => { const D = BR_PNJ_DEF.find(d => d.id === id); if (D) D.nom = nom; };
+  R("capitaine", "Griamore, Chevalier sacré"); R("roi", "Roi Bartra Liones");
+  if (typeof V56_SECT !== "undefined" && V56_SECT.br && V56_SECT.br.pnj) V56_SECT.br.pnj.nom = "Pêcheur d'Ordan";
+} catch (e) { p610Err("pnjBR", e); }
+try {
+  const N = (k, o) => { if (Q49_PNJ[k]) Object.assign(Q49_PNJ[k], o); };
+  Q49_LK.elisa = q49L("marg61", "#f8e0d0", "#e8c878", "#ecd0e8", "#a878a8", { cheveux: "long" });
+  Q49_LK.hendor = q49L("dreyf61", "#e8c8a8", "#5a3a1a", "#c8ccd8", "#3a3a4a", { barbe: true });
+  Q49_LK.fee = q49L("elaine61", "#f8e4d4", "#f0e080", "#f6f6ff", "#e0e0f4", { cheveux: "long" });
+  Q49_LK.gerh = q49L("gerh61", "#f0dcc8", "#a8d870", "#4a9a5a", "#2a6a3a", { cheveux: "long" });
+  Q49_LK.geant = q49L("matr61", "#b07850", "#2a1a10", "#7a4a2a", "#4a3a2a", { cheveux: "long" });
+  Q49_LK.howzer = q49L("howz61", "#f0c8a0", "#2a2a3a", "#b8c4d4", "#4a5468", {});
+  Q49_LK.jericho = q49L("jeri61", "#f4d0b0", "#d8c070", "#9aa6ba", "#3a4458", {});
+  Q49_LK.helbram = q49L("helb61", "#d8c8b0", "#6a7488", "#8a94a8", "#4a5468", { chapeau: "#7a8498" });
+  Q49_LK.zaratras = q49L("zara61", "#c8d8f0", "#3a3a4a", "#8aa0c8", "#4a5a7a", { barbe: true });
+  N("elisa", { nom: "Princesse Margaret Liones", ligne: "Les Sept Péchés capitaux doivent être réunis. Ma sœur Elizabeth croit en eux." });
+  N("hawk", { nom: "Hawk", ligne: "Je suis le capitaine de l'Ordre des restes, groin ! Hawk Mama porte la taverne sur son dos." });
+  N("fee", { nom: "Elaine", ligne: "Je garde la Fontaine de jouvence. Mon frère King est le Roi des Fées." });
+  N("roifee", { nom: "Gerheade, gardienne des fées", L: "gerh", ligne: "L'Arbre sacré protège la Forêt du Roi des Fées depuis des siècles." });
+  N("hendor", { nom: "Dreyfus, Grand Maître des Chevaliers sacrés", ligne: "Les Péchés seront jugés par le Grand Maître." });
+  N("geant", { nom: "Matrona, guerrière géante", ligne: "Hé, petit ! Diane était mon élève. Montre-moi ta force !" });
+  N("mc5", { nom: "Marchande de Liones" });
+  N("forg", { ligne: "Le festival de combat de Vaizel a besoin d'une nouvelle arène !" });
+  Q49_PNJ.howzer = { w: 5, nom: "Howzer, Chevalier sacré", L: "howzer", a: ["festival", 0, 30], ligne: "Le festival de combat de Vaizel ! Le vainqueur gagne 100 pièces d'or… et ma considération." };
+  Q49_PNJ.jericho = { w: 5, nom: "Jericho, apprentie Chevalier sacré", L: "jericho", a: ["baste", 0, 150], ligne: "C'est d'ici, de Baste, que Ban s'est évadé. Personne ne refait le même coup sous ma garde !" };
+  Q49_PNJ.helbram = { w: 5, nom: "Helbram, Chevalier sacré", L: "helbram", a: ["fees", 230, -40], ligne: "Les ailes de fée valent cher… Pourquoi devrais-je m'en priver ?" };
+  Q49_PNJ.zaratras = { w: 5, nom: "Esprit de Zaratras", L: "zaratras", a: ["morts", 0, 60], ligne: "Ici, dans la Capitale des Morts, les âmes attendent qu'on se souvienne d'elles." };
+  // quêtes existantes : textes canoniques
+  const Q = id => Q49_BY[id];
+  if (Q("w5m")) { Q("w5m").intro = "Les Chevaliers sacrés ont pris le royaume. Retrouve les fragments de l'armure sacrée et arrête le Grand Maître Dreyfus !";
+    const E = Q("w5m").e; E[3].txt = "Affronte Dreyfus, Grand Maître des Chevaliers sacrés"; E[3].techs = [{ nom: "Breakdown", mult: 1.7 }, { nom: "Tourbillon", mult: 1.3 }]; E[4].txt = "Retourne voir la Princesse Margaret"; }
+  if (Q("w5a")) { Q("w5a").titre = "Les restes de Hawk"; Q("w5a").e[0].txt = "Ramasse 5 restes pour Hawk"; Q("w5a").e[1].txt = "Donne-les à Hawk"; }
+  if (Q("w5b")) Q("w5b").intro = "Les fées volent vite. Et toi ? 5 drapeaux en 50 secondes dans la Forêt du Roi des Fées !";
+  if (Q("w5c")) Q("w5c").intro = "Réponds à l'Arbre sacré, et la forêt te reconnaîtra.";
+  if (Q("w5e")) Q("w5e").e[1].nomC = "Arène du festival de Vaizel";
+  if (Q("w5f")) { Q("w5f").titre = "L'épreuve de Matrona"; Q("w5f").intro = "Une épreuve de géant ! Si tu gagnes, je te parlerai de Diane."; Q("w5f").e[0].txt = "Bats Matrona en duel"; Q("w5f").e[0].techs = [{ nom: "Poing de roche", mult: 1.6 }, { nom: "Création : rempart de terre", mult: 1.2 }]; }
+  // nouvelles quêtes (ordre de la série : Baste → Forêt des fées → festival de Vaizel → Capitale des Morts)
+  const NQ = [
+    { id: "w5h", w: 5, titre: "Les murs de Baste", giver: "jericho", apres: ["w5a"], rec: { xp: 240, z: 420 }, intro: "Ban s'est évadé de Baste. Ramasse les 3 clés des cellules volées par les démons, puis montre-moi ce que vaut un ami des Péchés !",
+      e: [{ t: "aller", a: ["baste", 0, 150], txt: "Va à la Prison de Baste (au nord de Liones)" },
+          { t: "ramasser", n: 3, a: ["baste", 0, 40], r: 230, ic: "cle", txt: "Retrouve 3 clés de cellule autour de la prison" },
+          { t: "duel", p: "jericho", lvl: 0.7, techs: [{ nom: "Lame tranchante", mult: 1.5 }, { nom: "Charge de Baste", mult: 1.2 }], txt: "Affronte Jericho" },
+          { t: "parler", p: "jericho", txt: "Parle à Jericho", dit: "Tu frappes fort… Ban avait raison de faire confiance à Meliodas." }] },
+    { id: "w5i", w: 5, titre: "Le chasseur de fées", giver: "roifee", apres: ["w5c"], rec: { xp: 300, z: 520 }, intro: "Le Chevalier sacré Helbram traque les fées pour leurs ailes. Chasse les intrus de la forêt et arrête-le !",
+      e: [{ t: "vaincre", n: 4, txt: "Bats 4 ennemis" },
+          { t: "duel", p: "helbram", lvl: 0.85, techs: [{ nom: "Link", mult: 1.4 }, { nom: "Lance du bois de fée", mult: 1.6 }], txt: "Affronte Helbram à l'orée de la forêt" },
+          { t: "parler", p: "fee", txt: "Rassure Elaine", dit: "La forêt respire de nouveau. Merci… dis à mon frère que je l'attends." }] },
+    { id: "w5g", w: 5, titre: "Le festival de combat de Vaizel", giver: "howzer", apres: ["w5e"], rec: { xp: 320, z: 600 }, intro: "Le festival commence ! Bats-moi dans l'arène, puis va recevoir ton prix chez le forgeron.",
+      e: [{ t: "aller", a: ["festival", 0, 0], txt: "Entre dans l'arène du festival" },
+          { t: "duel", p: "howzer", lvl: 0.8, techs: [{ nom: "Tempête de vent", mult: 1.5 }, { nom: "Lance tourbillon", mult: 1.3 }], txt: "Gagne le duel contre Howzer" },
+          { t: "parler", p: "forg", txt: "Reçois ton prix chez le Forgeron de Vaizel", dit: "Le champion du festival ! Toute la ville parle de toi." }] },
+    { id: "w5j", w: 5, titre: "La Capitale des Morts", giver: "zaratras", apres: ["w5m"], rec: { xp: 420, z: 800 }, intro: "Les âmes de la Capitale des Morts errent sans repos. Rassemble 5 lueurs d'âme près des tombes et ramène-les-moi.",
+      e: [{ t: "ramasser", n: 5, a: ["morts", 0, 0], r: 240, ic: "ame", txt: "Rassemble 5 lueurs d'âme" },
+          { t: "parler", p: "zaratras", txt: "Rends les âmes à Zaratras", dit: "Merci. Dis à mon fils Gilthunder que je suis fier de lui… et protège Liones." }] }
+  ];
+  for (const q of NQ) if (!Q49_BY[q.id]) { Q49_Q.push(q); Q49_BY[q.id] = q; }
+  Q("w5c").apres = ["w5b"]; Q("w5f").apres = ["w5g"];
+} catch (e) { p610Err("q49", e); }
+
+/* quêtes : une quête « après » ne se propose qu'une fois la précédente finie (les quêtes déjà commencées continuent) */
+function p610Fini(id) { try { const s = q49Q(id); return !!(s && s.st === "fini"); } catch (_) { return false; } }
+{ const d0 = q49Dispo; q49Dispo = function (Q) { if (!d0.apply(this, arguments)) return false; try { if (Q.apres && !Q.apres.every(p610Fini)) return false; } catch (_) { } return true; }; }
+{ const p0 = q49Parler; q49Parler = function (k) {
+  try { const N = Q49_PNJ[k];
+    if (N && N.w === 5 && !Q49_Q.some(Q => { const E = q49Etape(Q.id); return E && E.p === k; }) && !Q49_Q.some(Q => Q.giver === k && (q49Dispo(Q) || q49Etape(Q.id)))) {
+      const L = Q49_Q.find(Q => Q.giver === k && !q49Q(Q.id) && Q.apres); if (L && !q49Pecheur(k)) { const av = L.apres.filter(id => !p610Fini(id)).map(id => "« " + Q49_BY[id].titre + " »").join(", ");
+        q49Dialogue(N.nom, N.ligne + " Reviens quand tu auras terminé " + av + ".", [["x", "D'accord"]], "🔒 " + L.titre); return; } } } catch (e) { p610Err("parler", e); }
+  return p0.apply(this, arguments); }; }
+/* ancres des nouveaux lieux */
+{ const a0 = q49Ancre; q49Ancre = function (w, k) {
+  if (w === 5 && (k === "baste" || k === "morts" || k === "festival")) { const z = BRG.zones[k]; return z ? q49T2(z.tx, z.ty) : null; }
+  return a0.apply(this, arguments); }; }
+/* icônes : clé de cellule, lueur d'âme */
+{ const s0 = q49Spr; q49Spr = function (k) {
+  if (k !== "cle" && k !== "ame") return s0.apply(this, arguments);
+  if (Q49.spr[k]) return Q49.spr[k];
+  const c = nouveauCanvas(k === "cle" ? 12 : 10, 10), x = c.getContext("2d"), R = (cl, a, b, w, h) => { x.fillStyle = cl; x.fillRect(a, b, w, h); };
+  if (k === "cle") { R("#3a2a08", 0, 2, 6, 6); R("#e8c040", 1, 3, 4, 4); R("#3a2a08", 2, 4, 2, 2); R("#3a2a08", 6, 4, 6, 2); R("#e8c040", 6, 4, 6, 1); R("#3a2a08", 9, 6, 1, 3); R("#3a2a08", 11, 6, 1, 2); }
+  else { R("#4a6aa8", 2, 1, 6, 8); R("#a8d8ff", 3, 2, 4, 6); R("#ffffff", 4, 3, 2, 2); R("#4a6aa8", 4, 0, 2, 1); R("#4a6aa8", 1, 7, 1, 2); R("#4a6aa8", 8, 7, 1, 2); }
+  return (Q49.spr[k] = c); }; }
+{ const n0 = q49NomIc; q49NomIc = function (ic) { if (ic === "cle") return "clé de cellule"; if (ic === "ame") return "lueur d'âme"; return n0.apply(this, arguments); }; }
+/* Hawk est un cochon (et non un humain rose) : sprite du Boar Hat, posé au sol */
+{ const ik = imageKPNJ; imageKPNJ = function (L, vue, f, miroir) {
+  try { if (L && L.id === "q49hawk" && typeof BR_HAWK === "function") {
+    const key = "hawk" + ((f | 0) & 1) + (miroir ? "m" : ""); if (P610.img[key]) return P610.img[key];
+    const src = BR_HAWK(f | 0), c = nouveauCanvas(22, 24), g = c.getContext("2d");
+    if (miroir) { g.translate(22, 0); g.scale(-1, 1); } g.drawImage(src, 1, 8);
+    c.e3h = 1; c.e3hawk = 1; return (P610.img[key] = c); } } catch (e) { p610Err("hawk", e); }
+  return ik.apply(this, arguments); }; }
+
+/* ---------- 2) décor des nouveaux lieux (2D + 3D + collisions) ---------- */
+const P610_FOOT = { bmur: [50, 12, 1], bmurV: [14, 26, 1], btour: [34, 16, 1], bporte: [70, 14, 0], bdonjon: [74, 30, 1], bcell: [44, 14, 1], torche: [6, 4, 1],
+  portailM: [96, 18, 1], tombe: [14, 6, 1], arbreM: [12, 8, 1], lanterneA: [6, 4, 1], gradin: [40, 10, 1], tribune: [76, 18, 1], fanion: [6, 4, 1], arbreSacre: [44, 22, 1], jouvence: [52, 20, 1] };
+function p610Candidats() {
+  const L = [], A = (type, x, y, o) => L.push(Object.assign({ type, x: Math.round(x), y: Math.round(y) }, o || {}));
+  const Zc = k => { const z = BRG.zones[k]; return z ? [T2P(z.tx), T2P(z.ty)] : null; };
+  // Prison de Baste : enceinte carrée, 4 tours, porte au sud, donjon et cellules
+  const B = Zc("baste"); if (B) { const [cx, cy] = B, X0 = cx - 200, X1 = cx + 200, Y0 = cy - 150, Y1 = cy + 110;
+    for (let x = X0 + 40; x <= X1 - 40; x += 50) A("bmur", x, Y0);
+    for (let x = X0 + 40; x <= X1 - 40; x += 50) if (Math.abs(x - cx) > 40) A("bmur", x, Y1);
+    for (let y = Y0 + 34; y <= Y1 - 14; y += 26) { A("bmurV", X0, y); A("bmurV", X1, y); }
+    for (const [x, y] of [[X0, Y0], [X1, Y0], [X0, Y1], [X1, Y1]]) A("btour", x, y + 6);
+    A("bporte", cx, Y1 + 2); A("torche", cx - 46, Y1 + 10); A("torche", cx + 46, Y1 + 10);
+    A("bdonjon", cx, cy - 40); A("bcell", cx - 120, cy + 20); A("bcell", cx + 120, cy + 20);
+    A("torche", cx - 60, cy - 20); A("torche", cx + 60, cy - 20); }
+  // Capitale des Morts : grand portail spectral, tombes, arbres morts, lanternes d'âmes
+  const M = Zc("morts"); if (M) { const [cx, cy] = M;
+    A("portailM", cx, cy - 70);
+    const r = mulberry32(6106); for (let i = 0; i < 18; i++) { const a = -0.3 + i / 18 * (Math.PI + 0.6) + r() * 0.12, d = 120 + r() * 140; A("tombe", cx + Math.cos(a) * d * 1.2, cy + 20 + Math.sin(a) * d * 0.7, { c: i % 3 }); }
+    for (const [dx, dy] of [[-230, -60], [220, -80], [-260, 90], [250, 110], [-140, 180], [160, 190], [0, 220], [-60, -170]]) A("arbreM", cx + dx, cy + dy);
+    for (const [dx, dy] of [[-40, 40], [40, 40], [-40, 120], [40, 120], [-40, -10], [40, -10]]) A("lanterneA", cx + dx, cy + dy); }
+  // Arène du festival de combat de Vaizel : gradins en ellipse (entrée au sud), tribune royale, fanions
+  const F = Zc("festival"); if (F) { const [cx, cy] = F;
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; if (Math.abs(a - Math.PI / 2) < 0.42) continue; A("gradin", cx + Math.cos(a) * 128, cy + Math.sin(a) * 74, { a }); }
+    A("tribune", cx, cy - 96);
+    for (const [dx, dy] of [[-150, -40], [150, -40], [-150, 50], [150, 50], [-40, 104], [40, 104]]) A("fanion", cx + dx, cy + dy, { c: (dx > 0) ? 1 : 0 }); }
+  // Forêt du Roi des Fées : Arbre sacré géant + Fontaine de jouvence
+  const E = Zc("fees"); if (E) { const [cx, cy] = E; A("arbreSacre", cx + 70, cy - 50); A("jouvence", cx - 60, cy - 120); }
+  return L;
+}
+function p610Valider(m, L) {
+  const NIVO = typeof NIV !== "undefined" ? NIV : { EAU: 1 };
+  return L.filter(c => { try { const [w] = P610_FOOT[c.type]; for (const dx of [-w / 2, 0, w / 2]) if (m.niveauPx(Math.floor(c.x + dx), Math.floor(c.y)) <= NIVO.EAU) return false; } catch (_) { return false; }
+    for (const B of BR_BAT) if (Math.abs(B.x - c.x) < (B.w || 60) / 2 + 20 && Math.abs(B.y - c.y) < 50) return false; return true; });
+}
+P610.cand = p610Candidats();
+/* terrain : arbres retirés sous les nouveaux bâtiments, sol de terre battue dans l'arène */
+{ const p = MondeBritannia.prototype.preparer;
+  MondeBritannia.prototype.preparer = function () { const r = p.apply(this, arguments);
+    try { const T = CONFIG.TAILLE_MONDE, D = this.DEC; if (D) for (const c of P610.cand) { const [w, d] = P610_FOOT[c.type], rx = Math.ceil(w / 32) + 1, ry = Math.ceil(d / 16) + 2, tx = c.x >> 4, ty = c.y >> 4;
+        for (let j = -ry - 2; j <= 1; j++) for (let i = -rx; i <= rx; i++) { const u = tx + i, v = ty + j; if (u > 0 && v > 0 && u < T && v < T) D[v * T + u] = 0; } }
+      const F = BRG.zones.festival; if (F && this.sol) for (let j = -6; j <= 6; j++) for (let i = -9; i <= 9; i++) { const u = F.tx + i, v = F.ty + j; if ((i / 9) ** 2 + (j / 5.6) ** 2 < 1 && D) D[v * T + u] = 0; if ((i / 7.6) ** 2 + (j / 4.4) ** 2 < 1) this.sol[v * T + u] = 1; }
+      const B = BRG.zones.baste; if (B && this.sol) for (let j = -2; j <= 18; j++) for (let i = -1; i <= 1; i++) { const u = B.tx + i, v = B.ty + j; if (!this.sol[v * T + u]) this.sol[v * T + u] = 1; }
+    } catch (e) { p610Err("terre", e); }
+    return r; }; }
+function p610Obst(m) {
+  const L = p610Valider(m, P610.cand); P610.deco = L; P610.decoM = m; P610.m.clear();
+  for (const c of L) { const [w, d, col] = P610_FOOT[c.type]; if (col) obstacle(m, Math.round(c.x - w / 2), Math.round(c.y - d), Math.round(c.x + w / 2), Math.round(c.y)); }
+}
+{ const bo = brObstacles; brObstacles = function (m) { bo.apply(this, arguments); try { p610Obst(m); } catch (e) { p610Err("obst", e); } }; }
+try { const m = AV.parMonde && AV.parMonde[5] && AV.parMonde[5].monde; if (m && m.brit && P610.decoM !== m) p610Obst(m); } catch (e) { p610Err("obst0", e); }
+
+/* ---------- 2D ---------- */
+function p610Img(type, c = 0) {
+  const key = type + c; if (P610.img[key]) return P610.img[key];
+  let cv; const mk = (w, h, f) => { cv = nouveauCanvas(w, h); const g = cv.getContext("2d"); f(pinceau(g), g); knOutline(cv); return cv; };
+  const pi = "#9a96a2", piF = "#6a6672", piC = "#c4c0cc", piS = "#4a4652", bois = "#7a4a26", boisF = "#4a2e16";
+  const pierres = (P, x, y, w, h, b) => { P.r(x, y, w, h, b || pi); for (let j = 0; j < h; j += 6) for (let i = ((j / 6) & 1) * 5; i < w; i += 10) { P.r(x + i, y + j, 1, 6, piF); } for (let j = 5; j < h; j += 6) P.r(x, y + j, w, 1, piF); };
+  if (type === "bmur") mk(52, 44, P => { pierres(P, 1, 10, 50, 34); for (let x = 1; x < 51; x += 10) P.r(x, 4, 6, 7, pi); P.r(1, 10, 50, 2, piC); P.r(1, 42, 50, 2, piS); });
+  else if (type === "bmurV") mk(16, 50, P => { pierres(P, 2, 6, 12, 44, piF); P.r(2, 2, 12, 5, pi); P.r(2, 6, 12, 2, piC); });
+  else if (type === "btour") mk(38, 86, P => { pierres(P, 4, 22, 30, 64); P.r(2, 14, 34, 9, piF); for (let x = 2; x < 36; x += 8) P.r(x, 8, 5, 7, pi); P.r(16, 40, 6, 10, "#1a1420"); P.r(17, 41, 1, 9, "#5a5a64"); P.r(20, 41, 1, 9, "#5a5a64"); P.r(2, 84, 34, 2, piS);
+    P.r(18, 0, 2, 9, boisF); P.r(20, 0, 9, 6, "#8a1a2a"); });
+  else if (type === "bporte") mk(72, 60, P => { pierres(P, 0, 8, 14, 52); pierres(P, 58, 8, 14, 52); P.r(0, 2, 72, 9, pi); for (let x = 0; x < 72; x += 9) P.r(x, 0, 6, 4, pi); P.r(14, 11, 44, 4, piF);
+    for (let x = 16; x < 58; x += 6) P.r(x, 15, 2, 14, "#3a3a44"); P.r(14, 28, 44, 2, "#3a3a44"); P.r(30, 3, 12, 6, "#e8c040"); P.r(33, 4, 6, 4, "#8a1a2a"); });
+  else if (type === "bdonjon") mk(78, 118, P => { pierres(P, 6, 30, 66, 88); P.r(2, 20, 74, 11, piF); for (let x = 2; x < 76; x += 9) P.r(x, 12, 6, 9, pi);
+    for (const [x, y] of [[18, 46], [52, 46], [18, 78], [52, 78]]) { P.r(x, y, 9, 13, "#1a1420"); for (let i = 1; i < 9; i += 3) P.r(x + i, y, 1, 13, "#6a6a74"); }
+    P.r(30, 92, 18, 26, "#2a1a10"); P.r(32, 94, 14, 24, "#5a3418"); P.r(38, 104, 2, 3, "#e8c040"); P.r(36, 0, 2, 13, boisF); P.r(38, 0, 14, 8, "#2a3a6a"); P.r(42, 2, 5, 4, "#e8c040"); });
+  else if (type === "bcell") mk(46, 40, P => { pierres(P, 1, 8, 44, 32); P.r(1, 4, 44, 5, piF); for (const x of [6, 26]) { P.r(x, 16, 14, 18, "#120c16"); for (let i = 1; i < 14; i += 3) P.r(x + i, 16, 1, 18, "#7a7a84"); P.r(x, 24, 14, 1, "#7a7a84"); } });
+  else if (type === "torche") mk(8, 30, P => { P.r(3, 8, 2, 22, boisF); P.r(1, 7, 6, 3, "#3a3a44"); P.ell(4, 4, 3, 4, "#ff8a20"); P.ell(4, 4.5, 1.6, 2.5, "#ffe070"); });
+  else if (type === "portailM") mk(100, 112, P => { const sp = "#5a5a72", spF = "#3a3a52", spC = "#8a8aa8";
+    P.r(6, 20, 20, 92, sp); P.r(74, 20, 20, 92, sp); P.r(6, 20, 3, 92, spC); P.r(74, 20, 3, 92, spC); P.r(0, 8, 100, 16, spF); P.r(0, 8, 100, 3, spC);
+    for (let x = 4; x < 96; x += 12) P.r(x, 2, 7, 7, sp); P.ell(50, 60, 24, 44, "#2a3a6a"); P.ell(50, 62, 19, 38, "#4a7ac8"); P.ell(50, 64, 12, 28, "#a8d8ff"); P.ell(50, 66, 5, 14, "#f0fbff");
+    P.r(44, 12, 12, 8, "#c8d8f0"); P.r(48, 13, 4, 6, "#4a6aa8"); P.r(0, 108, 100, 4, spF); });
+  else if (type === "tombe") mk(16, 22, P => { const t = ["#8a8a9a", "#9a9488", "#7a8090"][c % 3]; if (c === 1) { P.r(6, 0, 4, 20, t); P.r(1, 5, 14, 4, t); } else { P.ell(8, 7, 7, 7, t); P.r(1, 7, 14, 13, t); P.r(5, 7, 6, 1, "#4a4a58"); P.r(5, 10, 6, 1, "#4a4a58"); } P.r(0, 19, 16, 3, "#5a5a4a"); P.r(2, 20, 4, 2, "#5a8a3a"); });
+  else if (type === "arbreM") mk(34, 56, P => { const b = "#4a3a34", bC = "#6a5a50"; P.r(15, 18, 5, 38, b); P.r(16, 18, 1, 38, bC); P.r(8, 12, 3, 12, b); P.r(10, 22, 6, 3, b); P.r(22, 8, 3, 16, b); P.r(19, 22, 5, 3, b); P.r(4, 6, 3, 8, b); P.r(27, 2, 3, 8, b); P.r(13, 2, 2, 17, b); P.r(11, 54, 13, 2, "#2a2220"); });
+  else if (type === "lanterneA") mk(10, 34, P => { P.r(4, 10, 2, 24, "#2a2a34"); P.r(1, 2, 8, 9, "#2a2a34"); P.r(2, 3, 6, 7, "#8ac8ff"); P.r(3, 4, 4, 5, "#e8f8ff"); P.r(0, 0, 10, 2, "#3a3a44"); });
+  else if (type === "gradin") mk(44, 30, P => { const g = "#b8a07a", gF = "#8a7454", gC = "#d8c49a"; P.r(0, 6, 44, 24, g); for (let y = 6; y < 30; y += 8) { P.r(0, y, 44, 2, gC); P.r(0, y + 6, 44, 2, gF); } P.r(0, 2, 44, 5, "#a03a2a"); for (let x = 0; x < 44; x += 8) P.r(x, 2, 4, 5, "#e8c040"); });
+  else if (type === "tribune") mk(80, 64, P => { const g = "#b8a07a"; P.r(2, 30, 76, 34, g); for (let y = 30; y < 64; y += 8) P.r(2, y, 76, 2, "#d8c49a"); P.r(4, 12, 3, 20, boisF); P.r(73, 12, 3, 20, boisF);
+    for (let i = 0; i < 10; i++) P.r(2 + i * 8, 4, 8, 10, i & 1 ? "#2a4aa0" : "#e8e0d0"); P.r(2, 2, 76, 3, "#e8c040"); P.r(34, 18, 12, 12, "#8a1a2a"); P.r(37, 14, 6, 5, "#e8c040"); });
+  else if (type === "fanion") mk(18, 46, P => { P.r(2, 2, 2, 44, boisF); P.r(1, 0, 4, 3, "#e8c040"); const f = c ? "#c83a3a" : "#2a6ac8"; P.r(4, 4, 12, 8, f); P.r(4, 12, 8, 4, f); P.r(4, 16, 4, 3, f); P.r(6, 6, 4, 3, "#f4f0e0"); });
+  else if (type === "arbreSacre") mk(120, 150, P => { const b = "#6a4426", bC = "#8a5a32", bF = "#4a2c16";
+    P.r(48, 70, 24, 80, b); P.r(52, 70, 5, 80, bC); P.r(66, 70, 4, 80, bF); P.r(36, 138, 48, 12, b); P.r(28, 144, 18, 6, bF); P.r(76, 144, 16, 6, bF);
+    for (const [x, y, rx, ry, col] of [[60, 52, 56, 40, "#2a7a3a"], [30, 64, 26, 20, "#2a7a3a"], [92, 62, 26, 22, "#2a7a3a"], [60, 36, 44, 30, "#3a9a4a"], [40, 46, 20, 14, "#4aae5a"], [80, 40, 18, 14, "#4aae5a"], [60, 22, 26, 16, "#5ac06a"]]) P.ell(x, y, rx, ry, col);
+    for (let i = 0; i < 26; i++) { const x = 14 + (i * 37) % 92, y = 12 + (i * 23) % 76; P.r(x, y, 2, 2, i & 1 ? "#f8f0a0" : "#c8f8ff"); } });
+  else if (type === "jouvence") mk(56, 30, P => { P.ell(28, 16, 27, 13, "#8a8a96"); P.ell(28, 16, 23, 10, "#5aa8e8"); P.ell(28, 15, 17, 7, "#8ad8ff"); P.ell(24, 13, 6, 2, "#f0fbff"); P.r(26, 0, 4, 14, "#a4a4b0"); P.ell(28, 2, 5, 3, "#c8f0ff"); });
+  else mk(8, 8, P => P.r(0, 0, 8, 8, "#f0f"));
+  return (P610.img[key] = cv);
+}
+function p610En3D() { try { return typeof p536En3D === "function" ? p536En3D() : (typeof g3Actif === "function" && g3Actif() && E3.actif); } catch (_) { return false; } }
+{ const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try {
+      if (!brIci() || jeu.scene !== sceneMonde || !P610.deco || P610.decoM !== jeu.monde) return;
+      const t = AV.temps || performance.now() / 1000, d3 = p610En3D();
+      if (!d3) for (const c of P610.deco) {
+        if (!visible(c.x, c.y - 40, c.type === "arbreSacre" ? 160 : 90)) continue;
+        const im = p610Img(c.type, c.c || 0);
+        items.push({ y: c.y, dessiner: () => {
+          poserImg(im, c.x, c.y, im.width / 2, im.height - 1, o, e);
+          if (c.type === "torche" || c.type === "lanterneA") { const k = Math.max(1, e), sx = (c.x - o.x) * e, sy = (c.y - (c.type === "torche" ? 27 : 27) - o.y) * e, f = 0.5 + 0.5 * Math.sin(t * 9 + c.x);
+            ctx.globalAlpha = 0.18 + f * 0.12; ctx.fillStyle = c.type === "torche" ? "#ffa040" : "#a8d8ff"; ctx.fillRect(Math.round(sx - 7 * k), Math.round(sy - 7 * k), 14 * k, 14 * k); ctx.globalAlpha = 1; }
+        } });
+      }
+      // feux follets (Capitale des Morts), éclats de l'Arbre sacré, reflets de la fontaine
+      const vols = p610Vols(t);
+      if (!d3 && vols.length) items.push({ y: 1e7 - 4, dessiner: () => { const k = Math.max(1, e); for (const f of vols) { if (!visible(f.x, f.y, 20)) continue; const sx = Math.round((f.x - o.x) * e), sy = Math.round((f.y - f.h - o.y) * e);
+        ctx.globalAlpha = 0.3 * f.a; ctx.fillStyle = f.c; ctx.fillRect(sx - 3 * k, sy - 3 * k, 7 * k, 7 * k); ctx.globalAlpha = f.a; ctx.fillRect(sx - k, sy - k, 2 * k, 2 * k); ctx.globalAlpha = 1; } } });
+    } catch (er) { if (!P610.e2) { P610.e2 = 1; p610Err("2d", er); } }
+  };
+}
+function p610Vols(t) {
+  const L = []; if (!P610.deco) return L; const px = perso.x, py = perso.y;
+  const Z = (k, f) => { const z = BRG.zones[k]; if (!z) return; const cx = T2P(z.tx), cy = T2P(z.ty); if (Math.abs(cx - px) > 700 || Math.abs(cy - py) > 700) return; f(cx, cy); };
+  Z("morts", (cx, cy) => { for (let i = 0; i < 14; i++) { const a = t * (0.2 + (i % 4) * 0.05) + i * 2.3, r = 60 + (i * 41) % 220; L.push({ x: cx + Math.cos(a) * r * 1.2, y: cy + 40 + Math.sin(a) * r * 0.6, h: 14 + Math.sin(t * 1.7 + i) * 6, c: i % 3 ? "#a8d8ff" : "#d8f0ff", a: 0.6 + 0.4 * Math.sin(t * 2 + i) }); } });
+  for (const c of P610.deco) if (c.type === "arbreSacre" && Math.abs(c.x - px) < 600 && Math.abs(c.y - py) < 600) for (let i = 0; i < 10; i++) { const a = t * 0.4 + i * 0.63; L.push({ x: c.x + Math.cos(a) * (30 + (i * 13) % 50), y: c.y - 6 + Math.sin(a) * 18, h: 40 + ((t * 18 + i * 21) % 90), c: i & 1 ? "#f8f0a0" : "#c8ffd8", a: 0.8 }); }
+  return L;
+}
+/* ---------- 3D ---------- */
+function p610Cell(key) {
+  const [ci, cj] = key.split(",").map(Number), g = new G3Geo(), l = new G3Geo(), H = g3RGB;
+  const pi = H("#9a96a2"), piF = H("#6a6672"), piC = H("#c4c0cc"), bois = H("#7a4a26"), boisF = H("#4a2e16"), fer = H("#3a3a44"), rouge = H("#8a1a2a"), or = H("#e8c040");
+  let sx = 0, sz = 0, n = 0;
+  for (const c of P610.deco) {
+    if (Math.floor(c.x / 384) !== ci || Math.floor(c.y / 384) !== cj) continue;
+    const x = c.x, z = c.y - 6, h = e3Sol(c.x, c.y); sx += x; sz += z; n++;
+    if (c.type === "bmur") { g.box(x, h, z, 50, 32, 12, pi); g.box(x, h + 32, z, 51, 2, 13, piC); for (let i = 0; i < 5; i++) g.box(x - 20 + i * 10, h + 34, z + 3, 6, 6, 6, pi); g.box(x, h, z + 6.2, 50, 3, 0.4, piF); }
+    else if (c.type === "bmurV") { g.box(x, h, z - 6, 12, 32, 28, pi); g.box(x, h + 32, z - 6, 13, 2, 28, piC); for (let i = 0; i < 3; i++) g.box(x + 3, h + 34, z - 16 + i * 10, 6, 6, 6, pi); }
+    else if (c.type === "btour") { g.cyl(x, h, z - 8, 16, 15, 64, 12, pi); g.cyl(x, h + 64, z - 8, 18, 18, 4, 12, piF); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283; g.box(x + Math.cos(a) * 16.5, h + 68, z - 8 + Math.sin(a) * 16.5, 5, 6, 5, pi, -a); }
+      l.box(x, h + 40, z + 7.5, 5, 9, 0.6, H("#ffb060")); g.cyl(x, h + 68, z - 8, 0.7, 0.7, 16, 4, boisF); g.box(x + 5, h + 78, z - 8, 9, 5, 0.6, rouge); }
+    else if (c.type === "bporte") { for (const s of [-1, 1]) g.box(x + s * 29, h, z, 14, 52, 14, pi); g.box(x, h + 40, z, 72, 12, 14, piF); for (let i = 0; i < 8; i++) g.box(x - 34 + i * 9.5, h + 52, z, 6, 5, 12, pi);
+      for (let i = 0; i < 8; i++) g.box(x - 21 + i * 6, h + 26, z + 4, 1.2, 14, 1.2, fer); g.box(x, h + 26, z + 4, 44, 1.2, 1.2, fer); g.box(x, h + 44, z + 7.4, 12, 6, 0.6, or); }
+    else if (c.type === "bdonjon") { g.box(x, h, z - 14, 66, 88, 30, pi); g.box(x, h + 88, z - 14, 74, 6, 36, piF); for (let i = 0; i < 8; i++) g.box(x - 32 + i * 9, h + 94, z + 2, 6, 7, 6, pi);
+      for (const [dx, dy] of [[-17, 46], [17, 46], [-17, 22], [17, 22]]) { g.box(x + dx, h + dy, z + 1.2, 10, 13, 0.6, H("#1a1420")); for (let i = 0; i < 3; i++) g.box(x + dx - 3 + i * 3, h + dy, z + 1.8, 0.8, 13, 0.8, fer); }
+      g.box(x, h, z + 1.4, 18, 24, 0.8, H("#5a3418")); g.cyl(x + 20, h + 94, z - 14, 0.8, 0.8, 16, 4, boisF); g.box(x + 27, h + 104, z - 14, 14, 8, 0.6, H("#2a3a6a")); }
+    else if (c.type === "bcell") { g.box(x, h, z - 4, 44, 30, 16, pi); g.box(x, h + 30, z - 4, 46, 3, 18, piF); for (const dx of [-10, 10]) { g.box(x + dx, h + 4, z + 4.2, 14, 18, 0.5, H("#120c16")); for (let i = 0; i < 4; i++) g.box(x + dx - 5 + i * 3.4, h + 4, z + 4.8, 0.8, 18, 0.8, H("#7a7a84")); } }
+    else if (c.type === "torche") { g.cyl(x, h, z, 1, 1, 22, 5, boisF); g.box(x, h + 22, z, 5, 2, 5, fer); l.sph(x, h + 27, z, 2.6, 3.6, 2.6, 6, H("#ffa030")); }
+    else if (c.type === "portailM") { const sp = H("#5a5a72"), spF = H("#3a3a52"); for (const s of [-1, 1]) { g.box(x + s * 40, h, z - 6, 20, 92, 20, sp); g.cyl(x + s * 40, h + 92, z - 6, 6, 0, 16, 4, spF); }
+      g.box(x, h + 88, z - 6, 100, 16, 22, spF); for (let i = 0; i < 8; i++) g.box(x - 44 + i * 12.5, h + 104, z - 6, 7, 7, 18, sp); l.box(x, h + 6, z - 6, 58, 82, 3, H("#4a7ac8")); l.box(x, h + 20, z - 4.2, 34, 56, 0.8, H("#a8d8ff")); g.box(x, h + 92, z + 5.4, 12, 8, 0.6, H("#c8d8f0")); }
+    else if (c.type === "tombe") { const t = H(["#8a8a9a", "#9a9488", "#7a8090"][c.c % 3]); if (c.c === 1) { g.box(x, h, z, 4, 20, 3, t); g.box(x, h + 12, z, 14, 4, 3, t); } else { g.box(x, h, z, 14, 13, 4, t); g.cyl(x, h + 13, z, 7, 7, 4, 10, t); } g.box(x, h, z + 4, 16, 1.5, 8, H("#5a5a4a")); }
+    else if (c.type === "arbreM") { const b = H("#4a3a34"); g.cyl(x, h, z, 3.2, 2, 40, 6, b); for (const [a, y, L] of [[0.6, 22, 16], [2.4, 28, 14], [4.1, 32, 12], [5.3, 18, 12]]) { const cx = Math.cos(a), cz = Math.sin(a); for (let k = 0; k < 4; k++) g.box(x + cx * k * L / 4, h + y + k * 3, z + cz * k * L / 4, 2, 3, 2, b); } }
+    else if (c.type === "lanterneA") { g.cyl(x, h, z, 1, 1, 26, 5, fer); g.box(x, h + 26, z, 7, 1.4, 7, fer); l.box(x, h + 27.4, z, 5, 7, 5, H("#a8d8ff")); g.cyl(x, h + 34.4, z, 4.6, 0, 3, 4, fer); }
+    else if (c.type === "gradin") { const a = c.a || 0, ry = -a - Math.PI / 2, gg = H("#b8a07a"), gC = H("#d8c49a"); for (let k = 0; k < 3; k++) { const d = k * 7, ox = Math.cos(a) * d, oz = Math.sin(a) * d; g.box(x + ox, h, z + oz, 42, 7 + k * 7, 8, k & 1 ? gC : gg, ry); } g.box(x + Math.cos(a) * 21, h + 21, z + Math.sin(a) * 21, 42, 5, 1.4, rouge, ry); }
+    else if (c.type === "tribune") { const gg = H("#b8a07a"); for (let k = 0; k < 3; k++) g.box(x, h, z - 6 - k * 6, 76, 8 + k * 8, 8, k & 1 ? H("#d8c49a") : gg); for (const s of [-1, 1]) g.box(x + s * 36, h, z - 4, 2.4, 44, 2.4, boisF); for (let i = 0; i < 10; i++) g.box(x - 36 + i * 8, h + 42, z - 12, 8, 3, 22, i & 1 ? H("#2a4aa0") : H("#e8e0d0")); g.box(x, h + 24, z - 18, 12, 14, 2, rouge); }
+    else if (c.type === "fanion") { g.cyl(x, h, z, 1.1, 1.1, 44, 6, boisF); g.sph(x, h + 45, z, 1.8, 1.8, 1.8, 6, or); g.box(x + 6, h + 32, z, 12, 10, 0.6, H(c.c ? "#c83a3a" : "#2a6ac8")); }
+    else if (c.type === "arbreSacre") { const b = H("#6a4426"); g.cyl(x, h, z - 8, 16, 10, 80, 10, b); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; g.cyl(x + Math.cos(a) * 14, h, z - 8 + Math.sin(a) * 14, 6, 1, 14, 5, H("#4a2c16")); }
+      for (const [dx, dy, dz, r] of [[0, 96, 0, 46], [-30, 82, 6, 28], [30, 84, -4, 28], [0, 118, -4, 32], [-18, 106, 14, 20], [20, 108, 12, 20]]) g.sph(x + dx, h + dy, z - 8 + dz, r, r * 0.75, r, 10, H(dy > 100 ? "#4aae5a" : "#2a7a3a"), 0.2); }
+    else if (c.type === "jouvence") { g.cyl(x, h, z - 6, 26, 27, 5, 16, H("#8a8a96")); l.cyl(x, h + 4, z - 6, 22, 22, 1, 16, H("#6ac8ff")); g.cyl(x, h, z - 6, 2.4, 2.4, 16, 6, H("#a4a4b0")); l.sph(x, h + 18, z - 6, 4, 3, 4, 8, H("#c8f0ff")); }
+  }
+  if (!n) return null;
+  return { g: g.build(), l: l.build(), x: sx / n, z: sz / n - 20, r: 360 };
+}
+{ const x5 = E3X[5];
+  E3X[5] = function (U, A, Pl, I, TR, gy, now, dt) {
+    const r = x5.apply(this, arguments);
+    try {
+      if (!P610.deco || P610.decoM !== jeu.monde || !brIci()) return r;
+      const cx = E3.cx, cz = E3.cz;
+      const c0 = Math.floor((cx - TR.R - 200) / 384), c1 = Math.floor((cx + TR.R + 200) / 384), r0 = Math.floor((cz - TR.R - 200) / 384), r1 = Math.floor((cz + TR.R + 200) / 384);
+      let built = 0;
+      for (let i = c0; i <= c1; i++) for (let j = r0; j <= r1; j++) {
+        const k = i + "," + j; let o = P610.m.get(k);
+        if (o === undefined) { if (built++ > 0) continue; o = p610Cell(k); P610.m.set(k, o); }
+        if (!o || !e3Vu(Pl, o.x, 20, o.z, o.r)) continue;
+        if (typeof SH3 !== "undefined" && SH3.on && Math.hypot(o.x - cx, o.z - cz) < SH3.R + o.r) SH3.rec.push(o.g, I);
+        g3Mesh(o.g, I); g3Mesh(o.l, I, { e: Math.min(1, 0.6 + (A.nu || 0) * 0.5) });
+      }
+      const t = AV.temps || now, glow = (x, y, z, rr, col, a) => g3Mesh(U.sph, M4.trs(x, y, z, 0, 0, 0, rr, rr, rr), { tint: [col[0], col[1], col[2], 1], e: 1, a, add: true });
+      for (const f of p610Vols(t)) { if (Math.abs(f.x - cx) > 520 || Math.abs(f.y - cz) > 520) continue; const y = e3Sol(f.x, f.y) + f.h, c = g3RGB(f.c); glow(f.x, y, f.y, 3.4, c, 0.35 * f.a); glow(f.x, y, f.y, 1.2, [1, 1, 1], 0.85 * f.a); }
+      for (const c of P610.deco) if (c.type === "portailM" && Math.abs(c.x - cx) < 420 && Math.abs(c.y - cz) < 420) { const h = e3Sol(c.x, c.y); for (let i = 0; i < 3; i++) { const rr = 8 + ((t * 14 + i * 9) % 26); g3Mesh(U.disque, M4.trs(c.x, h + 46, c.y - 9, Math.PI / 2, 0, t * (0.8 + i * 0.3), rr, 0.3, rr * 1.4), { tint: [0.55, 0.8, 1, 1], e: 1, a: 0.35 * (1 - rr / 34), add: true }); } }
+    } catch (e) { if (!P610.e3) { P610.e3 = 1; p610Err("3d", e); } }
+    return r;
+  };
+}
+/* carte : étiquette du Boar Hat porté par Hawk Mama est remplacée dans le code (patch) ; on garde le marqueur des nouveaux lieux via BR_ZID */
+/* ---------- petits détails vivants : spectateurs du festival, gardes de Baste, âmes de la Capitale des Morts ---------- */
+function p610Figurants() {
+  if (P610.fig) return P610.fig; const L = [];
+  const Zc = k => { const z = BRG.zones[k]; return z ? [T2P(z.tx), T2P(z.ty)] : null; };
+  const look = (s, base) => { try { if (typeof p536Look === "function") return p536Look(s); } catch (_) { } return BR_LOOKS[base] || BR_LOOKS.fermier; };
+  const F = Zc("festival"); if (F) for (let i = 0; i < 9; i++) { const a = Math.PI + 0.25 + i / 8 * (Math.PI - 0.5); L.push({ x: F[0] + Math.cos(a) * 150, y: F[1] + Math.sin(a) * 90, L: look(61000 + i, "fermier"), vue: 0, saut: 1 }); }
+  const B = Zc("baste"); if (B) for (const dx of [-30, 30]) L.push({ x: B[0] + dx, y: B[1] + 128, L: BR_LOOKS.garde, vue: 0 });
+  const M = Zc("morts"); if (M) for (let i = 0; i < 4; i++) L.push({ x: M[0] + [-150, 120, -60, 190][i], y: M[1] + [60, 20, 150, 120][i], L: Object.assign({}, look(61100 + i, "dame"), { id: "p610ame" + i, s: "#dce8ff", h: "#a8bce0", c: "#bcd0f0", p: "#8ea8d4", gilet: "#c8dcf8" }), vue: i & 1 ? 2 : 0, ame: 1 });
+  return (P610.fig = L);
+}
+{ const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try {
+      if (!brIci() || jeu.scene !== sceneMonde || !P610.deco || P610.decoM !== jeu.monde) return;
+      const t = AV.temps || performance.now() / 1000;
+      for (const q of p610Figurants()) { if (!visible(q.x, q.y, 30)) continue;
+        const f = q.saut ? (Math.sin(t * 6 + q.x) > 0.6 ? 1 : 0) : 0, dy = q.saut && f ? -2 : q.ame ? Math.sin(t * 2 + q.x) * 2 - 3 : 0;
+        items.push({ y: q.y, dessiner: () => { const im = imageKPNJ(q.L, q.vue, f, q.x > perso.x, false); poserImg(im, q.x, q.y + dy, 8, 23, o, e, q.ame ? 0.55 : 1); } }); }
+    } catch (er) { if (!P610.e2f) { P610.e2f = 1; p610Err("fig", er); } }
+  };
+}
+try { if (typeof V52_BR !== "undefined") V52_BR.push("Le Boar Hat ? C'est la taverne sur le dos de Hawk Mama, une truie géante !", "Il paraît que le festival de combat de Vaizel revient cette année.", "On raconte qu'on s'échappe pas de la prison de Baste… sauf un certain Ban.", "Ma grand-mère disait que la Capitale des Morts est au sud, derrière le grand portail.", "La princesse Elizabeth sert à boire au Boar Hat, tu le crois ?"); } catch (e) { p610Err("phr", e); }
+
+/* ===== v61.0 partie B — Britannia : héros fidèles (noms de techniques canoniques, même taille sauf Diane la géante),
+   pouvoirs propres visibles en combat (2D + 3D), intérieurs variés, fluidité (grande carte calculée par petits blocs) ===== */
+/* ---------- 1) héros : techniques canoniques, tailles, Meliodas (chemise blanche, gilet noir) ---------- */
+try {
+  const S = (h, k, nom) => { const H = BR_HEROS[h]; if (H && H.sp && H.sp[k]) H.sp[k].nom = nom; };
+  const U = (h, nom, cri) => { const H = BR_HEROS[h]; if (H && H.ult) { H.ult.nom = nom; if (cri) H.ult.cri = cri; } };
+  const T = (h, a, b) => { const H = BR_HEROS[h]; if (H && H.tb && H.tb.techs) for (const t of H.tb.techs) if (t.nom === a) t.nom = b; };
+  S("meliodas", "contre", "FULL COUNTER"); S("meliodas", "enfer", "HELLBLAZE"); S("meliodas", "ruee", "LOSTVAYNE"); U("meliodas", "MODE ASSAUT");
+  T("meliodas", "Contre Intégral", "Full Counter"); T("meliodas", "Flamme d'Enfer", "Hellblaze");
+  S("diane", "contre", "HEAVY METAL"); S("diane", "enfer", "GIDEON"); S("diane", "ruee", "SAND CRAWLER"); U("diane", "MOTHER CATASTROPHE");
+  T("diane", "Foudroyeur", "Gideon"); T("diane", "Rempart de Diane", "Heavy Metal");
+  S("ban", "contre", "FOX HUNT"); S("ban", "ruee", "PHYSICAL HUNT"); U("ban", "IMMORTEL");
+  T("ban", "Chasse du Renard", "Fox Hunt");
+  S("king", "contre", "CHASTIEFOL : GUARDIAN"); S("king", "enfer", "CHASTIEFOL : INCREASE"); S("king", "ruee", "CHASTIEFOL : ENVOL"); U("king", "CHASTIEFOL : SUNFLOWER");
+  T("king", "Pluie de lances", "Chastiefol : Increase"); T("king", "Bouclier des fées", "Chastiefol : Guardian");
+  S("gowther", "contre", "NIGHTMARE TELLER"); S("gowther", "enfer", "HERRITT (ARC DOUBLE)"); S("gowther", "ruee", "INVASION"); U("gowther", "INVASION TOTALE");
+  T("gowther", "Marionnette", "Invasion"); T("gowther", "Illusion", "Nightmare Teller");
+  S("merlin", "contre", "PERFECT CUBE"); U("merlin", "INFINITY");
+  T("merlin", "Barrière magique", "Perfect Cube");
+  // tailles : tous à la même échelle, sauf Diane (géante : exception logique déjà présente)
+  if (BR_HEROS.escanor) BR_HEROS.escanor.ech = 1;
+  Object.assign(BR_LOOKS.meliodas, { id: "l_meli61", c: "#f2f0ea", p: "#22222c", gilet: "#1e1e28" });
+} catch (e) { p610Err("heros", e); }
+try { const P = P536_TECH; if (P && P.hendrickson) { P.hendrickson[0].nom = "Acid Down"; P.hendrickson[1].nom = "Flamme du Purgatoire"; }
+  if (P && P.gilthunder) P.gilthunder[0].nom = "Thunder Bolt"; } catch (e) { p610Err("tech", e); }
+
+/* ---------- 2) pouvoirs propres : effets visibles (2D + 3D) à chaque technique ---------- */
+const P610_FX = {
+  meliodas: { contre: ["anneau", "#ffd84a", 70], enfer: ["flammes", "#3a1a4a", 0], ruee: ["trait", "#58a8ff", 0], ult: ["aura", "#8a1a9a", 60] },
+  diane: { contre: ["metal", "#c8d0dc", 44], enfer: ["onde", "#c8a070", 80], ruee: ["piques", "#a07a3a", 82], ult: ["piques", "#c89a5a", 120] },
+  ban: { contre: ["aura", "#e83a3a", 40], enfer: ["main", "#ff5050", 0], ruee: ["trait", "#e05a2a", 0], ult: ["aura", "#ff3030", 70] },
+  king: { contre: ["coussin", "#9ad860", 0], enfer: ["lances", "#d8f890", 0], ruee: ["plumes", "#a8e8ff", 0], ult: ["tournesol", "#f8d040", 90] },
+  gowther: { contre: ["coeurs", "#f89ad8", 62], enfer: ["trait", "#f8b8d8", 0], ruee: ["anneau", "#c8a0ff", 50], ult: ["coeurs", "#e870c8", 110] },
+  merlin: { contre: ["cube", "#a070ff", 30], enfer: ["meteores", "#ffa040", 95], ruee: ["eclair", "#80c8ff", 0], ult: ["anneau", "#c890ff", 120] },
+  escanor: { contre: ["soleil", "#ffb030", 0], enfer: ["soleil", "#ffd040", 1], ruee: ["arc", "#ffc040", 0], ult: ["soleil", "#fff0a0", 2] }
+};
+function p610Fx(hero, id, x0, y0) {
+  const D = (P610_FX[hero] || {})[id]; if (!D) return;
+  let dx = 1, dy = 0; try { [dx, dy] = brDir(); } catch (_) { }
+  const F = { k: D[0], c: D[1], r: D[2], x: perso.x, y: perso.y, x0, y0, dx, dy, t0: performance.now() / 1000, d: D[0] === "aura" ? 1.4 : D[0] === "cube" ? 1.1 : D[0] === "soleil" ? 1.2 : 0.8 };
+  P610.fx.push(F); if (P610.fx.length > 12) P610.fx.shift();
+  // particules 2D/3D complémentaires (moteur existant)
+  try { const col = D[1], n = 18; for (let i = 0; i < n; i++) { const g = i / n * 6.283, v = 50 + Math.random() * 60; particules.push({ x: perso.x, y: perso.y - 8, z: 6, vx: Math.cos(g) * v, vy: Math.sin(g) * v * 0.5, vz: 40 + Math.random() * 40, age: 0, vie: 0.6, col, g: 120 }); } } catch (_) { }
+}
+{ const bs = brSpecial; brSpecial = function (id) { const x0 = perso.x, y0 = perso.y, R = bs.apply(this, arguments); try { if (R && brIci()) p610Fx(BR.hero || "meliodas", id, x0, y0); } catch (e) { p610Err("fx", e); } return R; }; }
+function p610FxActifs() { const t = performance.now() / 1000; P610.fx = P610.fx.filter(f => t - f.t0 < f.d); return P610.fx; }
+// 2D
+{ const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try {
+      if (!brIci() || jeu.scene !== sceneMonde || !P610.fx.length || p610En3D()) return;
+      const L = p610FxActifs(); if (!L.length) return; const k = Math.max(1, e), t = performance.now() / 1000;
+      items.push({ y: 1e7 - 3, dessiner: () => { for (const f of L) { const u = Math.min(1, (t - f.t0) / f.d), X = (f.x - o.x) * e, Y = (f.y - o.y) * e, a = 1 - u;
+        const ring = (r, col, w) => { ctx.strokeStyle = col; ctx.lineWidth = w * k; ctx.beginPath(); ctx.ellipse(X, Y - 6 * e, r * e, r * 0.5 * e, 0, 0, 6.283); ctx.stroke(); };
+        ctx.save(); ctx.globalAlpha = Math.max(0, a);
+        if (f.k === "anneau" || f.k === "metal" || f.k === "onde") { ring(10 + f.r * u, f.c, 2); ring(6 + f.r * u * 0.6, "#ffffff", 1); }
+        else if (f.k === "aura") { ctx.fillStyle = f.c; ctx.globalAlpha = 0.25 * a; ctx.beginPath(); ctx.ellipse(X, Y - 14 * e, 16 * e, 22 * e, 0, 0, 6.283); ctx.fill(); }
+        else if (f.k === "piques" || f.k === "tournesol") { ctx.fillStyle = f.c; const n = 10; for (let i = 0; i < n; i++) { const g = i / n * 6.283, r = f.r * Math.min(1, u * 2.5), px = X + Math.cos(g) * r * e, py = Y + Math.sin(g) * r * 0.5 * e, h = 14 * Math.sin(Math.min(1, u * 3) * Math.PI) * e;
+            ctx.beginPath(); ctx.moveTo(px - 4 * e, py); ctx.lineTo(px, py - h - 2 * e); ctx.lineTo(px + 4 * e, py); ctx.fill(); } }
+        else if (f.k === "cube") { ctx.strokeStyle = f.c; ctx.lineWidth = 2 * k; const s = 26 * e; ctx.strokeRect(X - s, Y - 2 * s + 4 * e, 2 * s, 2 * s); ctx.globalAlpha = 0.15 * a; ctx.fillStyle = f.c; ctx.fillRect(X - s, Y - 2 * s + 4 * e, 2 * s, 2 * s); }
+        else if (f.k === "soleil") { const r = (f.r ? 9 : 14) * e * (0.8 + 0.2 * Math.sin(t * 12)), sx = X + (f.r ? f.dx * 40 * u * e : 0), sy = Y - (f.r ? 20 : 44) * e; ctx.fillStyle = "#fff4c0"; ctx.beginPath(); ctx.arc(sx, sy, r * 0.6, 0, 6.283); ctx.fill(); ctx.globalAlpha = 0.35 * a; ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc(sx, sy, r * 1.6, 0, 6.283); ctx.fill(); }
+        else if (f.k === "coussin") { ctx.fillStyle = f.c; ctx.globalAlpha = 0.8 * a; ctx.beginPath(); ctx.ellipse(X + f.dx * 18 * e, Y - 12 * e + f.dy * 10 * e, 14 * e, 10 * e, 0, 0, 6.283); ctx.fill(); ctx.fillStyle = "#e8f8c0"; ctx.fillRect(X + f.dx * 18 * e - 2 * e, Y - 14 * e + f.dy * 10 * e, 4 * e, 4 * e); }
+        else if (f.k === "lances") { ctx.fillStyle = f.c; for (let i = 0; i < 3; i++) { const d = 40 + i * 30, px = X + f.dx * d * e + (i - 1) * f.dy * 12 * e, py = Y + f.dy * d * 0.7 * e - (1 - u) * 60 * e; ctx.fillRect(px - 1 * e, py - 22 * e, 2 * e, 22 * e); ctx.fillRect(px - 3 * e, py - 2 * e, 6 * e, 3 * e); } }
+        else if (f.k === "main") { ctx.strokeStyle = f.c; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.moveTo(X, Y - 10 * e); ctx.lineTo(X + f.dx * 110 * u * e, Y - 10 * e + f.dy * 70 * u * e); ctx.stroke(); }
+        else if (f.k === "trait" || f.k === "eclair" || f.k === "plumes" || f.k === "arc") { const X0 = (f.x0 - o.x) * e, Y0 = (f.y0 - o.y) * e; ctx.strokeStyle = f.c; ctx.lineWidth = 4 * k * a; ctx.beginPath(); ctx.moveTo(X0, Y0 - 10 * e); ctx.lineTo(X, Y - 10 * e); ctx.stroke(); }
+        else if (f.k === "meteores") { ctx.fillStyle = f.c; for (let i = 0; i < 4; i++) { const px = X + f.dx * 55 * e + (i - 1.5) * 16 * e, py = Y + f.dy * 38 * e - (1 - u) * (90 + i * 20) * e; ctx.beginPath(); ctx.arc(px, py, 5 * e, 0, 6.283); ctx.fill(); } }
+        else if (f.k === "flammes") { for (let i = 0; i < 8; i++) { const g = i / 8 * 6.283 + t * 3, r = 14 + 30 * u; ctx.fillStyle = i & 1 ? "#2a0a3a" : "#8a3ac8"; ctx.fillRect(X + Math.cos(g) * r * e - 3 * e, Y - 10 * e + Math.sin(g) * r * 0.5 * e - 3 * e, 6 * e, 6 * e); } }
+        else if (f.k === "coeurs") { ctx.fillStyle = f.c; for (let i = 0; i < 8; i++) { const g = i / 8 * 6.283, r = f.r * u, px = X + Math.cos(g) * r * e, py = Y - 8 * e + Math.sin(g) * r * 0.5 * e; ctx.fillRect(px - 3 * e, py - 2 * e, 2.5 * e, 2.5 * e); ctx.fillRect(px + 0.5 * e, py - 2 * e, 2.5 * e, 2.5 * e); ctx.fillRect(px - 2 * e, py, 4 * e, 2.5 * e); } }
+        ctx.restore(); } } });
+    } catch (er) { if (!P610.ef2) { P610.ef2 = 1; p610Err("fx2d", er); } }
+  };
+}
+// 3D
+{ const x5 = E3X[5];
+  E3X[5] = function (U, A, Pl, I, TR, gy, now, dt) {
+    const r = x5.apply(this, arguments);
+    try {
+      if (!P610.fx.length || !brIci()) return r;
+      const L = p610FxActifs(), t = performance.now() / 1000;
+      const glow = (x, y, z, rr, c, a) => g3Mesh(U.sph, M4.trs(x, y, z, 0, 0, 0, rr, rr, rr), { tint: [c[0], c[1], c[2], 1], e: 1, a, add: true });
+      const disc = (x, y, z, rx, rz, c, a, ry = 0) => g3Mesh(U.disque, M4.trs(x, y, z, 0, ry, 0, rx, 0.3, rz), { tint: [c[0], c[1], c[2], 1], e: 1, a, add: true });
+      const box = (x, y, z, sx, sy, sz, c, a, ry = 0) => g3Mesh(U.cube, M4.trs(x, y, z, 0, ry, 0, sx, sy, sz), { tint: [c[0], c[1], c[2], 1], e: 1, a, add: true });
+      for (const f of L) {
+        const u = Math.min(1, (t - f.t0) / f.d), a = Math.max(0, 1 - u), c = g3RGB(f.c), h = e3Sol(f.x, f.y), x = f.x, z = f.y;
+        if (f.k === "anneau" || f.k === "metal" || f.k === "onde") { disc(x, h + 1.2, z, 10 + f.r * u, 10 + f.r * u, c, 0.55 * a, t * 2); disc(x, h + 1.4, z, 6 + f.r * u * 0.6, 6 + f.r * u * 0.6, [1, 1, 1], 0.4 * a); if (f.k === "metal") glow(x, h + 14, z, 14, c, 0.25 * a); }
+        else if (f.k === "aura") { glow(x, h + 14, z, 16 + 3 * Math.sin(t * 9), c, 0.3 * a); disc(x, h + 1, z, 18, 18, c, 0.4 * a, -t * 3); }
+        else if (f.k === "piques" || f.k === "tournesol") { const n = 10, rr = f.r * Math.min(1, u * 2.5), hh = 16 * Math.sin(Math.min(1, u * 3) * Math.PI); for (let i = 0; i < n; i++) { const g = i / n * 6.283; box(x + Math.cos(g) * rr, h + hh / 2, z + Math.sin(g) * rr, 4, Math.max(0.5, hh), 4, c, 0.8 * a, g); }
+          if (f.k === "tournesol") glow(x, h + 40, z, 12, [1, 0.85, 0.3], 0.6 * a); }
+        else if (f.k === "cube") { const s = 26; for (const [sx, sy, sz, ox, oy, oz] of [[2 * s, 1, 1, 0, 0, s], [2 * s, 1, 1, 0, 0, -s], [1, 1, 2 * s, s, 0, 0], [1, 1, 2 * s, -s, 0, 0], [2 * s, 1, 1, 0, 2 * s, s], [2 * s, 1, 1, 0, 2 * s, -s], [1, 1, 2 * s, s, 2 * s, 0], [1, 1, 2 * s, -s, 2 * s, 0], [1, 2 * s, 1, s, s, s], [1, 2 * s, 1, -s, s, s], [1, 2 * s, 1, s, s, -s], [1, 2 * s, 1, -s, s, -s]]) box(x + ox, h + oy + (oy ? 0 : 0) + (sy > 1 ? 0 : 0), z + oz, sx, sy, sz, c, 0.8 * a);
+          box(x, h + s, z, 2 * s, 2 * s, 2 * s, c, 0.12 * a); }
+        else if (f.k === "soleil") { const sx = x + (f.r ? f.dx * 40 * u : 0), sz = z + (f.r ? f.dy * 40 * u : 0), y = h + (f.r ? 20 : 46); glow(sx, y, sz, (f.r === 2 ? 22 : 12) * (0.9 + 0.1 * Math.sin(t * 12)), [1, 0.95, 0.75], 0.9 * a); glow(sx, y, sz, (f.r === 2 ? 40 : 22), c, 0.35 * a); }
+        else if (f.k === "coussin") glow(x + f.dx * 18, h + 12, z + f.dy * 18, 13, c, 0.55 * a);
+        else if (f.k === "lances") for (let i = 0; i < 3; i++) { const d = 40 + i * 30, px = x + f.dx * d + (i - 1) * f.dy * 12, pz = z + f.dy * d - (i - 1) * f.dx * 12; box(px, h + (1 - u) * 60, pz, 1.6, 24, 1.6, c, 0.9 * a); }
+        else if (f.k === "main") { const n = 8; for (let i = 0; i < n; i++) { const s = i / n * u; glow(x + f.dx * 110 * s, h + 10, z + f.dy * 110 * s, 4 + i * 0.5, c, 0.6 * a); } }
+        else if (f.k === "trait" || f.k === "eclair" || f.k === "plumes" || f.k === "arc") { const n = 8; for (let i = 0; i <= n; i++) { const s = i / n; glow(f.x0 + (x - f.x0) * s, h + 10, f.y0 + (z - f.y0) * s, 4, c, 0.5 * a); } }
+        else if (f.k === "meteores") for (let i = 0; i < 4; i++) glow(x + f.dx * 55 + (i - 1.5) * 16, h + 4 + (1 - u) * (90 + i * 20), z + f.dy * 55, 6, c, 0.85 * a);
+        else if (f.k === "flammes") for (let i = 0; i < 8; i++) { const g = i / 8 * 6.283 + t * 3, rr = 14 + 30 * u; glow(x + Math.cos(g) * rr, h + 10, z + Math.sin(g) * rr, 5, i & 1 ? [0.2, 0.05, 0.3] : [0.55, 0.25, 0.85], 0.7 * a); }
+        else if (f.k === "coeurs") for (let i = 0; i < 8; i++) { const g = i / 8 * 6.283, rr = f.r * u; glow(x + Math.cos(g) * rr, h + 12, z + Math.sin(g) * rr, 4, c, 0.75 * a); }
+      }
+    } catch (e) { if (!P610.ef3) { P610.ef3 = 1; p610Err("fx3d", e); } }
+    return r;
+  };
+}
+
+/* ---------- 3) intérieurs variés pour les maisons de Britannia (et non plus le même salon partout) ---------- */
+const P610_PLANS = {
+  brFerme(C, T, St) { const b = "#7a4a24";
+    C.fen(30, 10, 26, 22); C.fen(214, 10, 26, 22); C.mur("casseroles", 120, 8); C.mur("etagere", 160, 12, { w: 30 });
+    C.tapis(150, 100, 96, 54, "#7a5a2a", "rayures");
+    C.obj(v55Lit("#5a8a3a", b), 14, 56, { coll: [16, 60, 52, 112] }); C.lit(66, 98);
+    C.obj(v55Cuisine("#c8b090", b), 66, 36, { coll: "mur" });
+    C.obj(v55Tonneau("#7a4a24"), 254, 46, { coll: "mur" }); C.obj(v55Tonneau("#8a5a2a"), 276, 48, { coll: "mur" });
+    C.obj(v55Caisse("legumes"), 228, 52, { coll: "mur" });
+    C.obj(v55Table(b, "#f0e8d8", "pain"), 176, 108, { coll: "pied" });
+    C.obj(v55Chaise(b, null), 160, 114, { coll: "pied" }); C.obj(v55Chaise(b, null), 234, 114, { coll: "pied" });
+    C.hab(120, 150);
+    C.obj(v55Caisse("pommes"), 24, 150, { coll: "pied", opt: 1 }); C.obj(v55Plante(2), 290, 140, { coll: "pied", opt: 1 });
+    C.obj(v55Coffre(b), 286, 92, { coll: "pied", opt: 1 }); },
+  brAtelier(C, T, St) { const b = "#5a3a20";
+    C.mur("bouclier", 34, 12); C.mur("bouclier", 74, 12); C.fen(140, 10, 26, 22); C.mur("tableau", 196, 10, { c: "#8a2a3a" }); C.mur("etagere", 236, 14, { w: 40 });
+    C.tapis(110, 96, 100, 56, "#5a5a6a", "rayures");
+    C.obj(v55Armoire(b), 20, 24, { coll: "mur" });
+    C.obj(v55Commode(b, "#f0d890"), 96, 38, { coll: "mur" }); C.lum(103, 72, 41, 24, "#ffd890", 0.06);
+    const f = [0, 1, 2].map(i => v55Cheminee("#7a746a", i));
+    C.obj(f[0], 180, 22, { coll: "mur", anime: t => f[Math.floor(t * 7) % 3], feu: { x: 203, y: 66 } }); C.lum(203, 72, 60, 40, "#ff9040", 0.3);
+    C.obj(v55Lit(St.lit, b), 270, 56, { coll: [272, 60, 308, 112] }); C.lit(258, 100);
+    C.obj(v55Caisse("pain"), 60, 112, { coll: "pied" }); C.obj(v55Tonneau(), 86, 108, { coll: "pied" });
+    C.obj(v55Table(b, null, "fleurs"), 150, 112, { coll: "pied" }); C.obj(v55Chaise(b, "#3a5a9a"), 134, 118, { coll: "pied" });
+    C.hab(210, 150);
+    C.obj(v55Coffre(b), 18, 150, { coll: "pied", opt: 1 }); C.obj(v55Plante(3), 290, 146, { coll: "pied", opt: 1 }); },
+  brErudit(C, T, St) { const b = "#6a3e20";
+    C.banniere(40, 8, "#2a4a8a"); C.fen(100, 8, 22, 26); C.mur("carte", 150, 10); C.mur("portrait", 196, 10); C.mur("horloge", 226, 14);
+    C.tapis(96, 96, 128, 62, "#2a4a8a", "persan");
+    C.obj(v55Biblio(b, 1), 14, 22, { coll: "mur" }); C.obj(v55Biblio(b, 2), 254, 22, { coll: "mur" }); C.obj(v55Biblio(b, 4), 286, 22, { coll: "mur" });
+    C.obj(v55Horloge(b), 64, 28, { coll: "mur" });
+    C.obj(v55Lit("#2a4a8a", b), 14, 96, { coll: [16, 100, 52, 152] }); C.lit(66, 128);
+    C.obj(v55Table(b, "#e8dcc0", "the"), 176, 110, { coll: "pied" });
+    C.obj(v55Chaise(b, "#2a4a8a"), 160, 116, { coll: "pied" }); C.obj(v55Chaise(b, "#2a4a8a"), 234, 116, { coll: "pied" });
+    const bg = v55Spr("bougie", 6, 12, P => { P.r(1, 4, 4, 8, "#f0e8d0"); P.r(1, 4, 1, 8, "#ffffff"); P.ell(3, 2, 1.5, 2.5, "#ffb030"); P.p(3, 2, "#fff0a0"); P.r(0, 11, 6, 1, "#c8a040"); });
+    C.obj(bg, 202, 102, { base: 111, coll: null }); C.lum(205, 111, 104, 18, "#ffc060", 0.2);
+    C.hab(250, 152);
+    C.obj(v55Plante(0), 290, 140, { coll: "pied", opt: 1 }); C.obj(v55Coffre(b), 110, 150, { coll: "pied", opt: 1 }); }
+};
+try { for (const k in P610_PLANS) if (!V55_PLANS[k]) V55_PLANS[k] = P610_PLANS[k]; } catch (e) { p610Err("plans", e); }
+function p610PlanBR(S) {
+  const cle = (S && S.o && S.o.cle) || ""; const m = /^br(\d+)$/.exec(cle); if (!m) return null;
+  const n = +m[1], B = BR_BAT[n]; if (!B) return null;
+  const ville = (() => { for (const k in BR_VILLES) { const V = BR_VILLES[k]; if (B.x >= V.X0 - 20 && B.x <= V.X1 + 20 && B.y >= V.Y0 - 20 && B.y <= V.Y1 + 20) return k; } return ""; })();
+  const L = { liones: ["chateau", "brErudit", "brAtelier"], vaizel: ["brFerme", "brAtelier", "brFerme"], bernia: ["brFerme", "brErudit", "brAtelier"], ordan: ["marin", "marin", "brFerme"] }[ville] || ["chateau", "brFerme", "brAtelier", "brErudit"];
+  return L[n % L.length];
+}
+{ const vm = v55Maison; v55Maison = function (S) {
+  let plan = null; try { plan = p610PlanBR(S); } catch (_) { }
+  if (!plan || plan === "chateau" || !V55_FAM.br) return vm.apply(this, arguments);
+  const p0 = V55_FAM.br.plan; V55_FAM.br.plan = plan; try { return vm.apply(this, arguments); } finally { V55_FAM.br.plan = p0; } }; }
+/* habitants des maisons de Britannia : villageois du royaume (et non des looks d'un autre monde) */
+{ const en = v52Entrer; v52Entrer = function (src, M, o) {
+  try { if (o && /^br\d+$/.test(o.cle || "") && o.hab && !o.hab.img && typeof BR_LOOKS !== "undefined") {
+    const n = +o.cle.slice(2), Lk = BR_LOOKS[["aubergiste", "herboriste", "marchand", "fermier", "dame", "enfant"][n % 6]];
+    if (Lk) { o.hab.L = Lk; o.hab.img = (q, f) => imageKPNJ(Lk, q.vue || 0, f || 0, !!q.miroir, false); o.nom = ["Maison de Britannia", "Chaumière", "Logis", "Maison du royaume"][n % 4]; } } } catch (e) { p610Err("hab", e); }
+  return en.apply(this, arguments); }; }
+
+/* ---------- 4) fluidité : grande carte HD du monde 5 par petits blocs de 16 × 16 tuiles, ≤ 2,5 ms par image
+   (même méthode que v57 pour le monde 1 ; avant : un bloc de 256 × 256 tuiles toutes les 6 images = pics à l'arrivée) ---------- */
+const P610HD = { m: null, bloc: 0, fini: false, ms: 0, max: 0, n: 0 };
+function p610M5() { try { return (AV.monde || 1) === 5 && jeu && jeu.monde && jeu.monde.ALT && jeu.scene === sceneMonde; } catch (_) { return false; } }
+{ const hd0 = carteHDPas, pr0 = carteHDPrete;
+  carteHDPas = function () {
+    if (!p610M5()) return hd0.apply(this, arguments);
+    try {
+      const m = jeu.monde, T = CONFIG.TAILLE_MONDE, N = 64, B = T / N;
+      if (!(B >= 8) || B !== Math.floor(B)) return hd0.apply(this, arguments);
+      if (CARTE_HD.m !== m || !CARTE_HD.img || P610HD.m !== m) { CARTE_HD.m = m; CARTE_HD.img = nouveauCanvas(T, T); CARTE_HD.img.hd = true; CARTE_HD.bloc = 0; P610HD.m = m; P610HD.bloc = 0; P610HD.fini = false; }
+      if (P610HD.fini) { CARTE_HD.bloc = CARTE_HD.N * CARTE_HD.N; return true; }
+      const t0 = performance.now(), dst = CARTE_HD.img.getContext("2d");
+      do {
+        const bx = P610HD.bloc % N, by = Math.floor(P610HD.bloc / N), a = performance.now();
+        const c = genererLOD(m, bx * B, by * B, B, 1), tmp = nouveauCanvas(B, B); tmp.getContext("2d").drawImage(c, 0, 0);
+        ombrerCarte(m, tmp, 0, 0, B, B, 1, bx * B, by * B); dst.drawImage(tmp, bx * B, by * B);
+        P610HD.bloc++; const d = performance.now() - a; P610HD.n++; P610HD.ms += d; if (d > P610HD.max) P610HD.max = d;
+      } while (P610HD.bloc < N * N && performance.now() - t0 < 2.5);
+      if (P610HD.bloc >= N * N) { P610HD.fini = true; CARTE_HD.bloc = CARTE_HD.N * CARTE_HD.N; return true; }
+      CARTE_HD.bloc = 0; return false;
+    } catch (e) { p610Err("hd", e); return hd0.apply(this, arguments); }
+  };
+  carteHDPrete = function () {
+    if (!p610M5()) return pr0.apply(this, arguments);
+    try { return P610HD.fini && CARTE_HD.m === jeu.monde ? CARTE_HD.img : null; } catch (e) { p610Err("hdPrete", e); return null; }
+  };
+  // le bloc avance à chaque image (petit budget) au lieu d'une image sur 6
+  const ma = majAventure; majAventure = function (dt) { ma.apply(this, arguments); try { if (p610M5() && !P610HD.fini && !AV.cine) carteHDPas(); } catch (_) { } };
+}
+
+/* ===== v61.0 partie C — Britannia : pic après un grand déplacement réduit =====
+   Mesure Node : après une téléportation dans le monde 5, une image construisait d'un coup les volumes 3D (e3Vox) de
+   tous les grands sprites (~480 ms sur ~600). On réutilise la construction par étapes de la v57.1 (monde 1) :
+   même code, ≤ 6 ms par image, l'objet apparaît quand son volume est prêt. Autres mondes : chemin inchangé. */
+try {
+  if (typeof V571 !== "undefined" && V571.vox && V571.vox.gen) {
+    const vxW = e3Vox, base = V571.vox.base, clk = () => (P610.clk ? P610.clk() : performance.now());   // P610.clk : horloge réelle pour les tests Node
+    e3Vox = function (im) {
+      if (!im || !im.width || im.e3pk || im.e3mer || !brIci() || E3.sc || jeu.scene !== sceneMonde || E3.vox.get(im)) return vxW.apply(this, arguments);
+      const S = V571.vox;
+      if (S.fr !== E3.hNext) { S.fr = E3.hNext; S.ms = 0; S.n++; for (const [k, J] of S.jobs) if (S.n - J.vu > 30) { S.jobs.delete(k); S.abandons++; } }
+      let J = S.jobs.get(im);
+      if (!J) { if (S.ms > 6 || S.jobs.size >= 8) return null; J = { g: S.gen(im), vu: S.n }; S.jobs.set(im, J); }
+      J.vu = S.n;
+      try {
+        while (S.ms <= 6) { const t = clk(), r = J.g.next(), d = clk() - t; S.ms += d; if (d > S.pasMax) S.pasMax = d;
+          if (r.done) { S.jobs.delete(im); S.fini++; P610.vox = (P610.vox || 0) + 1; return r.value; } }
+      } catch (e) { S.jobs.delete(im); p610Err("vox", e); return base.apply(this, arguments); }
+      return null;
+    };
+    P610.voxOn = 1;
+  }
+} catch (e) { p610Err("vox init", e); }
+/* HUD : le nom affiché suit le héros joué (avant : toujours « MELIODAS », même en jouant King ou Diane) */
+try { const hd = p75HudDonnees; p75HudDonnees = function () { const d = hd.apply(this, arguments);
+  try { if (d && d.nom === "MELIODAS" && brIci() && BR.transforme) { const H = brHero(); if (H && H.id !== "meliodas" && H.nom) d.nom = String(H.nom).toUpperCase(); } } catch (e) { p610Err("hud", e); }
+  return d; }; } catch (e) { p610Err("hud init", e); }
+/* 3D : le héros joué (King, Diane, Ban, Escanor, Merlin, Gowther…) a son propre modèle articulé, tiré de son look
+   (avant : la 3D gardait toujours le modèle de Meliodas, seule la 2D changeait). Diane reste géante (×1,5 comme en 2D). */
+try {
+  const id0 = v41Id; v41Id = function () { if (P610.h3) return "pnj"; return id0.apply(this, arguments); };
+  const st0 = v41Style; v41Style = function (id, P) { const S = st0.apply(this, arguments); try { if (P610.h3 && id === "pnj" && P610.h3e > 1) S.sc = (S.sc || 1) * P610.h3e; } catch (_) { } return S; };
+  const eh = e3Hero;
+  e3Hero = function () {
+    let H = null; try { if (brIci() && BR.transforme && BR.hero !== "meliodas") { H = brHero(); if (!H || H.id === "meliodas") H = null; } } catch (_) { H = null; }
+    const L = H && brLooks(H.id); if (!L || typeof V41 === "undefined" || V41.off) return eh.apply(this, arguments);
+    const c0 = V41.cur552; V41.cur552 = { L }; P610.h3 = H.id; P610.h3e = H.ech || 1;
+    try { return eh.apply(this, arguments); } catch (e) { p610Err("hero3d", e); } finally { V41.cur552 = c0; P610.h3 = 0; P610.h3e = 1; }
+  };
+} catch (e) { p610Err("hero3d init", e); }
+/* changement de héros : le modèle 3D est rafraîchi dès l'image suivante (avant : jusqu'à 0,4 s avec l'ancien modèle) */
+try { const ch = brChoisirHero; brChoisirHero = function () { const r = ch.apply(this, arguments); try { if (typeof E3 !== "undefined" && E3) E3.palT = null; } catch (_) { } return r; }; } catch (e) { p610Err("choix init", e); }
 
 </script>
 </body>
