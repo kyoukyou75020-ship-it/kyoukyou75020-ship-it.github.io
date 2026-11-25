@@ -8636,7 +8636,7 @@ try { const p = JSON.parse(localStorage.getItem(PARAMS_CLE) || "null"); if (p &&
       : `<div class="ligne petit">🔒 Changement de personnage : va rencontrer Luffy près du bateau pirate Requin Rouge.</div>`;
     h += `<button data-action="avJournal" class="large">📜 Journal des missions (${missionsReussies()}/${Object.keys(MISSIONS).length})</button>`;
     h += AV.nuage.debloque ? `<button data-action="avNuage" class="large">☁ Appeler le nuage magique</button>` : `<div class="ligne petit">🔒 Nuage magique : Sangoku niveau 5 + 3 missions, puis Karine au sommet de la tour.</div>`;
-    h += `<button data-action="avIntro" class="large">🎬 Revoir l'intro de la capsule</button>`;
+    h += `<button data-action="avIntro" class="large">🎬 Revoir l'ouverture « Mondes Ouverts »</button>`;
     const div = document.createElement("div"); div.innerHTML = h;
     if (sec) P.insertBefore(div, sec); else P.appendChild(div);
   };
@@ -8647,7 +8647,7 @@ function clicPanneauAv(e) {
   if (act === "avPerso") { menuReglages.fermer(); changerPerso(); }
   else if (act === "avJournal") afficherJournal();
   else if (act === "avNuage") { menuReglages.fermer(); appelerNuage(); }
-  else if (act === "avIntro") { menuReglages.fermer(); if (dansMonde() && !AV.nav) lancerIntro(true); else messageInfo("Sors dehors (et descends du bateau) pour revoir l'intro"); }
+  else if (act === "avIntro") { menuReglages.fermer(); if (!AV.cine) lancerIntro(true); }
   else if (act === "accepter") { menuReglages.fermer(); accepterMission(a.dataset.id); }
   else if (act === "suivre") { AV.missions.suivi = a.dataset.id; son.jouer("clic"); afficherJournal(); }
 }
@@ -15136,7 +15136,7 @@ document.addEventListener("click", e => {
 })();
 // galerie : cinématiques rejouables sans effet sur la partie
 const GALERIE = [
-  { nom: "L'intro de la capsule", ok: () => true, lancer: () => { if (typeof lancerIntro === "function") lancerIntro(); } },
+  { nom: "L'ouverture « Mondes Ouverts »", ok: () => true, lancer: () => { if (typeof lancerIntro === "function") lancerIntro(true); } },
 ];
 // lancement : l'accueil s'affiche au démarrage (sauf juste après « Nouvelle partie »)
 setTimeout(() => {
@@ -39042,7 +39042,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "62.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "63.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -52601,6 +52601,598 @@ function p620D3D(dt) {
     try { if ((AV.monde || 1) === 1 && jeu.scene === sceneMonde && dansMonde()) { const tt = performance.now(), d = tP ? Math.min(0.1, (tt - tP) / 1000) : 0.016; tP = tt; p620D3D(d); } } catch (er) { p620Err("d3d", er); }
   };
 }
+
+
+/* =====================================================================
+   v63.0 — NOUVELLE CINÉMATIQUE D'OUVERTURE « MONDES OUVERTS » (~37 s)
+   Remplace lancerIntro (capsule). Plans :
+   1 · le cosmos (texte d'intro)  2 · les cinq mondes et leurs héros
+   3 · le titre MONDES OUVERTS   4 · la capsule et l'entrée dans l'atmosphère
+   5 · la chute sur la Terre (vrai monde, 3D ou 2D)  6 · l'éveil du héros
+   Bouton rond « Passer » (celui du jeu). Son WebAudio discret, seulement
+   si le son du jeu tourne déjà (donc après une touche du joueur).
+   ===================================================================== */
+const P630 = { V: "63.0", err: [], st: { frames: 0, plans: {}, son: 0, max: 0 }, cache: new Map(), pl: {}, m3: null, ancienne: typeof lancerIntro === "function" ? lancerIntro : null };
+function p630Err(w, e) { if (P630.err.length < 16) P630.err.push(w + ": " + (e && e.message || e)); try { console.warn("p630", w, e); } catch (_) { } }
+const P630_T = { p2: 5, dw: 2.4, p3: 17, p4: 23, pre: 26.5, p5: 27.5, imp: 29.7, p6: 30.5, ouvre: 31.8, sort: 32.3, carte: 33.2, fin: 37 };
+const p630cl = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const p630sm = x => { x = p630cl(x); return x * x * (3 - 2 * x); };
+const p630io = x => { x = p630cl(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const p630out = x => { x = p630cl(x); return 1 - Math.pow(1 - x, 3); };
+function p630Rnd(s) { return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function p630Cv(w, h) { const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+const P630_MONDES = [
+  { id: "pk", nom: "MONDE POKÉMON", sous: "Théo et Pikachu", col: "#ff6a5a", glow: [255, 110, 90], hx: () => imageDresseur("bas", 0, 0), cp: () => imagePk("pikachu") },
+  { id: "kn", nom: "VILLAGE DE KONOHA", sous: "Naruto Uzumaki", col: "#ffb040", glow: [255, 170, 60], hx: () => imageNaruto(0, "bas", 0) },
+  { id: "op", nom: "GRAND LINE", sous: "Monkey D. Luffy", col: "#5ab4ff", glow: [80, 170, 255], hx: () => imageLuffy("bas", 0, 0) },
+  { id: "br", nom: "BRITANNIA", sous: "Meliodas · Seven Deadly Sins", col: "#d0a0ff", glow: [190, 130, 255], hx: () => imageMeliodas(0, "bas", 0) },
+  { id: "sg", nom: "TERRE DE SANGOKU", sous: "Sangoku", col: "#8af080", glow: [110, 220, 120], hx: null },
+];
+/* ---------- planètes (texture 256 px, calculée une seule fois) ---------- */
+function p630Planete(id, big) {
+  const key = id + (big ? "+" : ""); if (P630.pl[key]) return P630.pl[key];
+  const S = 256, R = 128, Z = big ? 2 : 1, c = p630Cv(S * Z, S * Z), g = c.getContext("2d"); g.scale(Z, Z); const rnd = p630Rnd(id.charCodeAt(0) * 977 + id.charCodeAt(1) * 31);
+  g.save(); g.beginPath(); g.arc(R, R, R - 1, 0, 6.2832); g.clip();
+  const blob = (x, y, r, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.beginPath(); g.arc(x, y, Math.max(0.5, r), 0, 6.2832); g.fill(); g.globalAlpha = 1; };
+  const tache = (n, cols, r0, r1, zone) => { for (let i = 0; i < n; i++) { const x = rnd() * S, y = zone ? zone[0] + rnd() * (zone[1] - zone[0]) : rnd() * S, r = r0 + rnd() * (r1 - r0), col = cols[(rnd() * cols.length) | 0]; for (let k = 0; k < 5; k++) blob(x + (rnd() - 0.5) * r * 1.4, y + (rnd() - 0.5) * r, r * (0.5 + rnd() * 0.6), col); } };
+  const traits = (n, cols, a, w0, w1) => { g.globalAlpha = a; for (let i = 0; i < n; i++) { g.strokeStyle = cols[i % cols.length]; g.lineWidth = w0 + rnd() * (w1 - w0); g.beginPath(); const y = rnd() * S; g.moveTo(-10, y); g.bezierCurveTo(S * 0.3, y + (rnd() - 0.5) * 40, S * 0.7, y + (rnd() - 0.5) * 40, S + 10, y + (rnd() - 0.5) * 30); g.stroke(); } g.globalAlpha = 1; };
+  if (id === "sg") {
+    g.fillStyle = "#2464c8"; g.fillRect(0, 0, S, S); traits(10, ["#2e74d8", "#1c54b0"], 0.5, 6, 14);
+    tache(9, ["#3a9a48", "#4aae50", "#2f8a3e"], 10, 26); tache(4, ["#c8a868", "#d8b878"], 6, 12); tache(2, ["#eef2f8"], 8, 14, [0, 22]); tache(2, ["#eef2f8"], 8, 14, [232, 256]);
+    traits(12, ["#ffffff"], 0.5, 3, 8);
+  } else if (id === "kn") {
+    g.fillStyle = "#2c6e34"; g.fillRect(0, 0, S, S); tache(16, ["#3c8a40", "#4a9e46", "#245c2c", "#5aa84a"], 8, 20);
+    g.fillStyle = "#8a6a48"; g.fillRect(0, 160, S, 14); for (let x = 0; x < S; x += 20) blob(x + 10, 160, 8, "#a07a50");
+    tache(6, ["#c8603a", "#d87048", "#e8d8b0"], 3, 6, [178, 236]);
+    g.strokeStyle = "rgba(255,236,190,0.8)"; g.lineWidth = 7; g.lineCap = "round"; g.beginPath();
+    for (let a = 0; a < 11; a += 0.2) { const r = 5 + a * 4, x = R + Math.cos(a) * r * 0.95, y = 92 + Math.sin(a) * r * 0.8; if (a === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+    g.lineTo(R + 62, 92 - 40); g.stroke();
+  } else if (id === "pk") {
+    g.fillStyle = "#e83838"; g.fillRect(0, 0, S, R); g.fillStyle = "#f2f2f2"; g.fillRect(0, R, S, R);
+    tache(6, ["#d02a2e", "#f04848"], 8, 18, [10, 100]); tache(5, ["#dcdcdc", "#ffffff"], 8, 18, [160, 250]);
+    g.fillStyle = "#181818"; g.fillRect(0, R - 11, S, 22); blob(R, R, 34, "#181818"); blob(R, R, 24, "#f4f4f4"); blob(R, R, 13, "#ffffff");
+    g.strokeStyle = "#bcbcbc"; g.lineWidth = 3; g.beginPath(); g.arc(R, R, 13, 0, 6.2832); g.stroke();
+  } else if (id === "op") {
+    g.fillStyle = "#1a58b8"; g.fillRect(0, 0, S, S); traits(20, ["#3a8ae0", "#0e3a88"], 0.4, 4, 10);
+    g.fillStyle = "#a84a32"; g.beginPath(); g.moveTo(150, -4); for (let y = 0; y <= S + 8; y += 16) g.lineTo(148 + Math.sin(y * 0.05) * 8 + rnd() * 4, y); for (let y = S + 8; y >= -8; y -= 16) g.lineTo(166 + Math.sin(y * 0.05) * 8 + rnd() * 4, y); g.fill();
+    g.fillStyle = "rgba(130,210,255,0.25)"; g.fillRect(0, R - 14, S, 28); tache(10, ["#3aa050", "#e0c890"], 3, 7);
+  } else {
+    g.fillStyle = "#3a2a6a"; g.fillRect(0, 0, S, S); tache(10, ["#5a4a9a", "#4a3a84", "#6a5aa8"], 10, 26); tache(6, ["#2a6a4a", "#3a7a54"], 6, 14);
+    for (let i = 0; i < 26; i++) blob(rnd() * S, rnd() * S, 1.5 + rnd() * 2.5, "#ffd870", 0.9);
+    g.strokeStyle = "rgba(255,210,120,0.55)"; g.lineWidth = 3; g.beginPath(); g.arc(R, R + 10, 40, 0, 6.2832); g.stroke();
+    for (let k = 0; k < 7; k++) { const a = k / 7 * 6.2832 - 1.57; blob(R + Math.cos(a) * 40, R + 10 + Math.sin(a) * 40, 5, "#ffe090"); }
+  }
+  const gr = g.createRadialGradient(R * 0.62, R * 0.55, R * 0.1, R, R, R * 1.05);
+  gr.addColorStop(0, "rgba(255,255,240,0.3)"); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(0.8, "rgba(0,0,20,0.45)"); gr.addColorStop(1, "rgba(0,0,10,0.88)");
+  g.fillStyle = gr; g.fillRect(0, 0, S, S); g.restore();
+  return (P630.pl[key] = c);
+}
+function p630Terre() { // la Terre en grand, atmosphère comprise (une seule copie par image)
+  let c = P630.pl.terre; if (c) return c; c = P630.pl.terre = p630Cv(640, 640); const g = c.getContext("2d"), gr = g.createRadialGradient(320, 320, 250, 320, 320, 320);
+  gr.addColorStop(0, "rgba(120,190,255,0.75)"); gr.addColorStop(0.35, "rgba(90,170,255,0.35)"); gr.addColorStop(1, "rgba(60,140,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 640, 640);
+  g.drawImage(p630Planete("sg", true), 64, 64, 512, 512); return c;
+}
+function p630Copie(c, im, dx, dy, dw, dh, W, H) { // drawImage limité à la partie visible de l'écran
+  const x0 = Math.max(0, dx), y0 = Math.max(0, dy), x1 = Math.min(W, dx + dw), y1 = Math.min(H, dy + dh); if (x1 <= x0 || y1 <= y0) return;
+  const kx = im.width / dw, ky = im.height / dh; c.drawImage(im, (x0 - dx) * kx, (y0 - dy) * ky, (x1 - x0) * kx, (y1 - y0) * ky, x0, y0, x1 - x0, y1 - y0);
+}
+function p630Halo(rgb) {
+  const k = "h" + rgb.join(","); let c = P630.cache.get(k); if (c) return c;
+  c = p630Cv(128, 128); const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, `rgba(${rgb},0.9)`); gr.addColorStop(0.22, `rgba(${rgb},0.45)`); gr.addColorStop(0.55, `rgba(${rgb},0.12)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); P630.cache.set(k, c); return c;
+}
+function p630Nebuleuse() {
+  let c = P630.cache.get("neb"); if (c) return c;
+  c = p630Cv(256, 256); const g = c.getContext("2d"), rnd = p630Rnd(63);
+  const cols = [[120, 60, 200], [40, 90, 200], [30, 160, 170], [200, 70, 140], [90, 50, 160]];
+  for (let i = 0; i < 22; i++) { const r = 30 + rnd() * 70, x = rnd() * 256, y = 60 + rnd() * 136, cl = cols[i % cols.length], gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(${cl},${0.16 + rnd() * 0.14})`); gr.addColorStop(1, `rgba(${cl},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  P630.cache.set("neb", c); return c;
+}
+/* ---------- textes stylés (rendus une fois par taille, puis simplement copiés) ---------- */
+function p630Txt(txt, px, sty, col) {
+  px = Math.max(8, Math.round(px)); const k = sty + "|" + (col || "") + "|" + px + "|" + txt; let c = P630.cache.get(k); if (c) return c;
+  if (P630.cache.size > 120) for (const q of [...P630.cache.keys()]) if (q.includes("|")) P630.cache.delete(q);
+  const font = sty === "intro" ? "italic 400 " + px + "px Georgia, 'Times New Roman', serif" : sty === "sous" ? "700 " + px + "px 'Trebuchet MS', Verdana, sans-serif" : "900 " + px + "px 'Trebuchet MS', 'Arial Black', Verdana, sans-serif";
+  const sp = sty === "sous" ? px * 0.22 : sty === "titre" ? px * 0.05 : sty === "monde" ? px * 0.07 : 0;
+  const m = p630Cv(4, 4).getContext("2d"); m.font = font;
+  const chars = [...txt], ws = chars.map(ch => m.measureText(ch).width), w = sp ? ws.reduce((a, b) => a + b, 0) + sp * (chars.length - 1) : m.measureText(txt).width, pad = Math.ceil(px * 0.45);
+  c = p630Cv(w + pad * 2, px * 1.35 + pad * 2); const g = c.getContext("2d"); g.font = font; g.textBaseline = "middle"; g.lineJoin = "round";
+  const y = c.height / 2, passe = f => { if (!sp) return f(txt, pad); let x = pad; chars.forEach((ch, i) => { f(ch, x); x += ws[i] + sp; }); };
+  if (sty === "intro") { g.shadowColor = "rgba(255,190,110,0.85)"; g.shadowBlur = px * 0.6; g.fillStyle = "#fff4de"; passe((s, x) => g.fillText(s, x, y)); g.shadowBlur = 0; passe((s, x) => g.fillText(s, x, y)); }
+  else if (sty === "sous") { g.shadowColor = "rgba(0,0,0,0.9)"; g.shadowBlur = px * 0.35; g.fillStyle = col || "#f0e6c8"; passe((s, x) => g.fillText(s, x, y)); }
+  else {
+    const gr = g.createLinearGradient(0, y - px * 0.55, 0, y + px * 0.55);
+    if (sty === "titre") { gr.addColorStop(0, "#fffbe4"); gr.addColorStop(0.45, "#ffd84a"); gr.addColorStop(0.55, "#ffc020"); gr.addColorStop(1, "#e2700e"); }
+    else { gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.55, col || "#ffe070"); gr.addColorStop(1, col || "#ffe070"); }
+    g.shadowColor = sty === "titre" ? "rgba(255,140,30,0.95)" : (col || "#ffe070"); g.shadowBlur = px * 0.5;
+    g.strokeStyle = sty === "titre" ? "#2a0c02" : "rgba(12,6,24,0.92)"; g.lineWidth = Math.max(2, px * (sty === "titre" ? 0.13 : 0.12));
+    passe((s, x) => g.strokeText(s, x, y)); g.shadowBlur = 0; passe((s, x) => g.strokeText(s, x, y));
+    g.fillStyle = gr; passe((s, x) => g.fillText(s, x, y));
+    if (sty === "titre") { g.globalAlpha = 0.5; g.fillStyle = "#ffffff"; g.save(); g.beginPath(); g.rect(0, 0, c.width, y - px * 0.12); g.clip(); g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(255,255,255,0.35)"; g.fillRect(0, 0, c.width, y); g.restore(); g.globalAlpha = 1; }
+  }
+  P630.cache.set(k, c); return c;
+}
+// dessine un texte centré en (x, y), largeur max mw, échelle s
+function p630Ecrire(c, im, x, y, mw, a, s = 1) {
+  if (a <= 0.004) return; let k = s; if (mw && im.width * k > mw) k = mw / im.width;
+  c.globalAlpha = Math.min(1, a); c.drawImage(im, Math.round(x - im.width * k / 2), Math.round(y - im.height * k / 2), Math.round(im.width * k), Math.round(im.height * k)); c.globalAlpha = 1;
+}
+/* ---------- étoiles en perspective ---------- */
+function p630Etoiles(C, c, W, H, dpr, vit, dt, a = 1) {
+  const f = Math.min(W, H) * 0.55, cx = W / 2, cy = H / 2;
+  c.fillStyle = "#ffffff"; c.strokeStyle = "#ffffff"; const warp = vit > 0.5;
+  for (const s of C.etoiles) {
+    const z0 = s.z; s.z -= vit * dt * s.v;
+    if (s.z <= 0.03) { s.z = 1; s.x = (Math.random() - 0.5) * 2.4; s.y = (Math.random() - 0.5) * 2.4; continue; }
+    const sx = cx + s.x / s.z * f, sy = cy + s.y / s.z * f; if (sx < -20 || sy < -20 || sx > W + 20 || sy > H + 20) { if (s.z < 0.5) s.z = 1; continue; }
+    const al = Math.min(1, (1 - s.z) * 1.4) * a * (0.6 + 0.4 * Math.sin(C.t * 3 + s.p)), sz = Math.max(1, (1.25 - s.z) * 2.2 * dpr);
+    c.globalAlpha = al;
+    if (warp) { const px = cx + s.x / Math.min(1, z0 + vit * 0.03) * f, py = cy + s.y / Math.min(1, z0 + vit * 0.03) * f; c.lineWidth = sz; c.beginPath(); c.moveTo(px, py); c.lineTo(sx, sy); c.stroke(); }
+    else c.fillRect(sx, sy, sz, sz);
+  }
+  c.globalAlpha = 1;
+}
+function p630FondC(C, c, W, H, cle, f) {
+  const w = Math.max(64, Math.round(W / 3)), h = Math.max(64, Math.round(H / 3)), k = cle + "|" + w + "x" + h; let F = C.fonds && C.fonds.get(k);
+  if (!F) { if (!C.fonds || C.fonds.size > 16) C.fonds = new Map(); F = p630Cv(w, h); const g = F.getContext("2d"); try { f(g, w, h); } catch (e) { p630Err("fond", e); } C.fonds.set(k, F); }
+  c.imageSmoothingEnabled = true; c.drawImage(F, 0, 0, W, H);
+}
+function p630FondNeb(g, w, h, haut, bas, a, rot, glow) {
+  p630Fond(null, g, w, h, haut, bas); p630Neb(null, g, w, h, a, rot); if (glow) p630Lum(g, glow, w / 2, h / 2, Math.max(w, h) * 0.8, 0.25);
+}
+function p630Fond(C, c, W, H, haut, bas) { const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, haut); g.addColorStop(1, bas); c.fillStyle = g; c.fillRect(0, 0, W, H); }
+function p630Neb(C, c, W, H, a, rot) {
+  if (a <= 0) return; const n = p630Nebuleuse(), L = Math.max(W, H) * 1.7;
+  c.save(); c.globalAlpha = a; c.globalCompositeOperation = "lighter"; c.translate(W / 2, H / 2); c.rotate(rot); c.drawImage(n, -L / 2, -L / 2, L, L); c.restore();
+}
+function p630Lum(c, rgb, x, y, r, a) { if (a <= 0.004 || r <= 1) return; c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = Math.min(1, a); c.drawImage(p630Halo(rgb), x - r, y - r, r * 2, r * 2); c.restore(); }
+// planète + atmosphère + éléments en orbite
+function p630DessPlanete(C, c, M, x, y, R, a, t) {
+  if (a <= 0.004 || R < 2) return;
+  p630Lum(c, M.glow, x, y, R * 1.6, 0.55 * a);
+  const orb = (devant) => {
+    if (M.id === "op") { // anneau-chapeau de paille
+      c.save(); c.globalAlpha = a; c.translate(x, y); c.rotate(-0.32); c.lineCap = "butt";
+      for (const [w, col, rr] of [[R * 0.2, "#e8c860", 1.55], [R * 0.07, "#c83030", 1.36]]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.ellipse(0, 0, R * rr, R * rr * 0.26, 0, devant ? 0 : Math.PI, devant ? Math.PI : Math.PI * 2); c.stroke(); }
+      c.restore();
+    } else if (M.id === "br" || M.id === "sg" || M.id === "kn") {
+      const n = M.id === "br" ? 7 : M.id === "sg" ? 1 : 5, cols = ["#ff5050", "#5090ff", "#ffd040", "#50e070", "#d070ff", "#ff9040", "#f0f0f0"];
+      for (let k = 0; k < n; k++) {
+        const an = t * (M.id === "sg" ? 0.9 : 0.6) + k / n * 6.2832, d = Math.sin(an); if ((d > 0) !== devant) continue;
+        const ox = x + Math.cos(an) * R * 1.45, oy = y + d * R * 0.32 - Math.cos(an) * R * 0.12, s = R * (M.id === "sg" ? 0.16 : M.id === "kn" ? 0.07 : 0.075) * (1 + d * 0.25);
+        c.globalAlpha = a;
+        if (M.id === "sg") { p630Lum(c, [255, 170, 40], ox, oy, s * 3, 0.6 * a); const g = c.createRadialGradient(ox - s * 0.35, oy - s * 0.35, s * 0.1, ox, oy, s); g.addColorStop(0, "#fff2b0"); g.addColorStop(0.5, "#ffa020"); g.addColorStop(1, "#c05008"); c.fillStyle = g; c.beginPath(); c.arc(ox, oy, s, 0, 6.2832); c.fill();
+          c.fillStyle = "#d81818"; for (let q = 0; q < 4; q++) { const qa = q * 1.57 + 0.4; c.beginPath(); c.arc(ox + Math.cos(qa) * s * 0.34, oy + Math.sin(qa) * s * 0.34, s * 0.14, 0, 6.2832); c.fill(); } }
+        else if (M.id === "kn") { c.fillStyle = k & 1 ? "#5ac050" : "#3a9a3a"; c.save(); c.translate(ox, oy); c.rotate(an * 2); c.beginPath(); c.ellipse(0, 0, s * 1.6, s * 0.7, 0, 0, 6.2832); c.fill(); c.restore(); }
+        else { p630Lum(c, [255, 220, 150], ox, oy, s * 4, 0.5 * a); c.fillStyle = cols[k]; c.beginPath(); c.moveTo(ox, oy - s * 1.4); c.lineTo(ox + s, oy); c.lineTo(ox, oy + s * 1.4); c.lineTo(ox - s, oy); c.fill(); }
+        c.globalAlpha = 1;
+      }
+    }
+  };
+  orb(false);
+  c.globalAlpha = a; c.save(); c.translate(x, y); c.rotate(t * 0.05); c.drawImage(p630Planete(M.id), -R, -R, R * 2, R * 2); c.restore();
+  c.strokeStyle = `rgba(${M.glow},0.55)`; c.lineWidth = Math.max(1, R * 0.03); c.beginPath(); c.arc(x, y, R * 1.01, Math.PI * 0.85, Math.PI * 1.75); c.stroke(); c.globalAlpha = 1;
+  orb(true);
+}
+function p630Sprite(c, im, x, y, h, a) { // pieds en (x, y), hauteur h (échelle entière si possible)
+  if (!im || a <= 0.004) return; let k = h / im.height; if (k >= 2) k = Math.floor(k);
+  c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(im, Math.round(x - im.width * k / 2), Math.round(y - im.height * k), Math.round(im.width * k), Math.round(im.height * k)); c.globalAlpha = 1;
+}
+/* ---------- particules écran ---------- */
+function p630Parts(C, c, dt) {
+  const L = C.parts; c.save(); c.globalCompositeOperation = "lighter";
+  for (let i = L.length - 1; i >= 0; i--) { const p = L[i]; p.age += dt; if (p.age >= p.vie) { L.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt; const u = p.age / p.vie, a = (u < 0.2 ? u / 0.2 : 1 - (u - 0.2) / 0.8) * (p.a || 1);
+    c.globalAlpha = a; c.fillStyle = p.col; const s = p.s * (p.croit ? 1 + u * p.croit : 1); c.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
+  c.restore(); c.globalAlpha = 1;
+}
+function p630Ajout(C, p) { if (C.parts.length < 220) C.parts.push(Object.assign({ age: 0 }, p)); }
+/* ---------- bandes cinéma, vignette ---------- */
+function p630Bandes(C, c, W, H, dpr, k) {
+  if (k <= 0) return; const port = H > W, h = Math.round(H * (port ? 0.075 : 0.105) * p630sm(k));
+  c.globalAlpha = 1; c.fillStyle = "#000"; c.fillRect(0, 0, W, h); c.fillRect(0, H - h, W, h);
+  c.globalAlpha = 0.35 * k; c.fillStyle = "#c8a050"; c.fillRect(0, h, W, Math.max(1, dpr)); c.fillRect(0, H - h - Math.max(1, dpr), W, Math.max(1, dpr)); c.globalAlpha = 1;
+}
+function p630Vignette(c, W, H, a) { try { if (a > 0 && typeof v55Vignette === "function") { c.globalAlpha = a; c.imageSmoothingEnabled = true; c.drawImage(v55Vignette(), -W * 0.05, -H * 0.05, W * 1.1, H * 1.1); c.globalAlpha = 1; } } catch (_) { } }
+function p630Voile(c, W, H, col, a) { if (a <= 0.004) return; c.globalAlpha = Math.min(1, a); c.fillStyle = col; c.fillRect(0, 0, W, H); c.globalAlpha = 1; }
+/* ---------- PLANS 1 à 4 : l'espace (dessinés en 2D, identiques en 3D et en 2D) ---------- */
+function p630Espace(C, c, W, H, dpr, t, dt) {
+  const T = P630_T, U = Math.min(W, H), port = H > W;
+  c.imageSmoothingEnabled = true;
+  if (t < T.p2) { // 1 · le cosmos
+    P630.st.plans[1] = 1;
+    p630FondC(C, c, W, H, "p1", (g, w, h) => p630FondNeb(g, w, h, "#010108", "#060a1e", 0.65, 0.05)); p630Voile(c, W, H, "#000", 1 - p630sm(t / 2.5));
+    p630Etoiles(C, c, W, H, dpr, 0.05, dt);
+    p630Lum(c, [255, 220, 170], W * (0.78 - t * 0.02), H * 0.26, U * 0.35, 0.22 * p630sm(t / 2));
+    const L = [["Au-delà des étoiles…", 1.4, 3.1], ["… cinq mondes attendent leur héros.", 3.2, 4.9]];
+    for (const [s, a0, a1] of L) { const a = p630sm((t - a0) / 0.5) * p630sm((a1 - t) / 0.45); if (a <= 0) continue;
+      p630Ecrire(c, p630Txt(s, U * (port ? 0.065 : 0.072), "intro"), W / 2, H * 0.5 - (1 - a) * 10 * dpr, W * 0.9, a, 1 + 0.03 * (t - a0)); }
+    p630Voile(c, W, H, "#000", 1 - p630sm(t / 1.3));
+  } else if (t < T.p3) { // 2 · les cinq mondes
+    const i = Math.min(4, Math.floor((t - T.p2) / T.dw)), u = (t - T.p2 - i * T.dw) / T.dw, M = P630_MONDES[i], side = i % 2 ? 1 : -1;
+    P630.st.plans[2] = 1; P630.st["monde" + i] = 1;
+    const w = Math.max(p630sm((u - 0.84) / 0.16), i === 0 ? 0 : p630sm((0.1 - u) / 0.1));
+    p630FondC(C, c, W, H, "m" + i, (g, w, h) => p630FondNeb(g, w, h, "#02030c", "#0a0c22", 0.6, 0.1 + i * 0.6, M.glow));
+    p630Etoiles(C, c, W, H, dpr, 0.14 + 1.9 * w, dt);
+    const R = (port ? W * 0.34 : H * 0.36) * (0.72 + 0.6 * p630io(u)), pa = p630sm(u / 0.12) * (1 - p630sm((u - 0.9) / 0.1));
+    const px = port ? W / 2 + side * (W * 0.1 + W * 0.42 * u * u) : W / 2 + side * (W * 0.18 + W * 0.3 * u * u), py = port ? H * 0.32 : H * 0.5 + H * 0.03 * Math.sin(u * 3);
+    p630DessPlanete(C, c, M, px, py, R, pa, t);
+    // héros du monde
+    let im = C.heros[i]; const ha = p630sm(u / 0.16) * p630sm((1 - u) / 0.14);
+    const hx = port ? W / 2 - side * W * 0.14 + (1 - p630out(u / 0.22)) * -side * W * 0.15 : W / 2 - side * W * 0.22 + (1 - p630out(u / 0.22)) * -side * W * 0.12;
+    const hy = port ? H * 0.78 : H * 0.8, hh = port ? H * 0.24 : H * 0.44, bob = Math.sin(t * 3.2) * 2 * dpr;
+    p630Lum(c, M.glow, hx, hy - hh * 0.45, hh * 0.9, 0.55 * ha);
+    c.globalAlpha = 0.45 * ha; c.fillStyle = `rgb(${M.glow})`; c.beginPath(); c.ellipse(hx, hy, hh * 0.32, hh * 0.06, 0, 0, 6.2832); c.fill(); c.globalAlpha = 1;
+    if (im) p630Sprite(c, im, hx, hy + bob - hh * 0.02, hh, ha);
+    if (C.compagnon && i === 0) p630Sprite(c, C.compagnon, hx + side * -1 * 0 + hh * 0.42 * (port ? 1 : -side), hy + bob * 0.5, hh * 0.5, ha);
+    // nom du monde
+    const ta = p630sm((u - 0.1) / 0.18) * p630sm((0.93 - u) / 0.1), tx = port ? W / 2 : hx, ty = port ? H * 0.865 : H * 0.2;
+    const n1 = p630Txt(M.nom, U * (port ? 0.085 : 0.085), "monde", M.col), n2 = p630Txt(M.sous.toUpperCase(), U * 0.036, "sous");
+    p630Ecrire(c, n1, tx + (1 - ta) * side * 14 * dpr, ty, port ? W * 0.92 : W * 0.5, ta);
+    c.globalAlpha = 0.7 * ta; c.fillStyle = M.col; const lw = Math.min(n1.width, port ? W * 0.8 : W * 0.42) * 0.8 * p630out((u - 0.15) / 0.3); c.fillRect(tx - lw / 2, ty + U * 0.055, lw, Math.max(1, dpr * 1.5)); c.globalAlpha = 1;
+    p630Ecrire(c, n2, tx, ty + U * (port ? 0.085 : 0.09), port ? W * 0.9 : W * 0.48, ta);
+    // éclair de couleur au changement de monde, petites étincelles du monde
+    if (u < 0.12) { c.save(); c.globalCompositeOperation = "lighter"; p630Voile(c, W, H, `rgb(${M.glow})`, 0.3 * (1 - u / 0.12)); c.restore(); }
+    if (Math.random() < 0.6) p630Ajout(C, { x: px + (Math.random() - 0.5) * R * 2.4, y: py + (Math.random() - 0.5) * R * 1.6, vx: 0, vy: -20 * dpr, vie: 1.2, s: 2 * dpr, col: M.col, a: 0.8 });
+    p630Parts(C, c, dt);
+  } else if (t < T.p4) { // 3 · le titre
+    const v = t - T.p3, cx = W / 2, cy = H * (port ? 0.44 : 0.46);
+    P630.st.plans[3] = 1;
+    p630FondC(C, c, W, H, "p3", (g, w, h) => p630FondNeb(g, w, h, "#04030e", "#120a26", 0.8, 0.4));
+    p630Etoiles(C, c, W, H, dpr, 0.04 + (v > 5.2 ? (v - 5.2) * 2 : 0), dt);
+    // rayons divins
+    const ra = 0.1 * p630sm(v / 1.2) * (1 - p630sm((v - 5.4) / 0.6)); if (ra > 0) { c.save(); c.globalCompositeOperation = "lighter"; c.translate(cx, cy); c.rotate(t * 0.07); c.fillStyle = `rgba(255,200,110,${ra})`; const Lr = Math.max(W, H);
+      for (let k = 0; k < 14; k++) { c.rotate(6.2832 / 14); c.beginPath(); c.moveTo(0, 0); c.lineTo(Lr, -Lr * 0.09); c.lineTo(Lr, Lr * 0.09); c.fill(); } c.restore(); }
+    p630Lum(c, [255, 200, 120], cx, cy, U * 0.9, 0.5 * p630sm(v / 0.8));
+    // les cinq mondes en orbite autour du titre
+    const rx = port ? W * 0.44 : W * 0.47, ry = port ? H * 0.2 : H * 0.3, grow = p630out((v - 0.2) / 1.4), Ls = [];
+    for (let k = 0; k < 5; k++) { const an = v * 0.32 + k / 5 * 6.2832 + 1.2, d = Math.sin(an); Ls.push({ M: P630_MONDES[k], x: cx + Math.cos(an) * rx * grow, y: cy + d * ry * grow + (port ? 0 : H * 0.02), d, r: U * 0.075 * (1 + 0.38 * d) * grow }); }
+    Ls.sort((a, b) => a.d - b.d); const fade = 1 - p630sm((v - 5.3) / 0.5);
+    for (const P of Ls) if (P.d <= 0) p630DessPlanete(C, c, P.M, P.x, P.y, P.r, fade, t);
+    // titre
+    const ta = p630sm((v - 0.25) / 0.9) * fade, sc = 1 + 0.22 * (1 - p630out((v - 0.25) / 1.2)) + (v > 5.2 ? (v - 5.2) * 0.8 : 0);
+    const lignes = port ? ["MONDES", "OUVERTS"] : ["MONDES OUVERTS"], tp = port ? W * 0.2 : Math.min(H * 0.2, W * 0.085);
+    lignes.forEach((s, j) => { const im = p630Txt(s, tp, "titre"), y = cy + (port ? (j - 0.5) * tp * 1.12 : 0);
+      p630Ecrire(c, im, cx, y, W * (port ? 0.94 : 0.8), ta, sc);
+      const sh = (v - 1.6 - j * 0.12) / 1.1; if (sh > 0 && sh < 1 && ta > 0.5) p630Reflet(C, c, im, cx, y, W * (port ? 0.94 : 0.8), sc, sh); });
+    const sa = p630sm((v - 1.9) / 0.8) * fade;
+    p630Ecrire(c, p630Txt("CINQ MONDES · UNE SEULE AVENTURE", U * 0.038, "sous", "#ffe8b0"), cx, cy + (port ? tp * 1.25 : tp * 0.78), W * 0.92, sa);
+    for (const P of Ls) if (P.d > 0) p630DessPlanete(C, c, P.M, P.x, P.y, P.r, fade, t);
+    if (Math.random() < 0.9) p630Ajout(C, { x: cx + (Math.random() - 0.5) * W * 0.8, y: cy + U * 0.3 * Math.random(), vx: (Math.random() - 0.5) * 10 * dpr, vy: -(20 + Math.random() * 30) * dpr, vie: 1.6, s: (1 + Math.random() * 2) * dpr, col: Math.random() < 0.5 ? "#ffd870" : "#fff4d0" });
+    p630Parts(C, c, dt);
+    // la capsule file à travers l'écran (étoile filante)
+    if (v > 4.3) { const q = p630cl((v - 4.3) / 1.3), x0 = W * 1.1, y0 = H * 0.08, x1 = W * 0.4, y1 = H * 0.7, x = x0 + (x1 - x0) * q, y = y0 + (y1 - y0) * q;
+      c.save(); c.globalCompositeOperation = "lighter"; c.strokeStyle = "rgba(255,210,140,0.7)"; c.lineWidth = U * 0.012; c.lineCap = "round"; c.beginPath(); c.moveTo(x, y); c.lineTo(x + (x0 - x1) * 0.18, y + (y0 - y1) * 0.18); c.stroke(); c.restore();
+      p630Lum(c, [255, 220, 160], x, y, U * 0.09 * (1 + q), 0.9); }
+    p630Voile(c, W, H, "#ffffff", Math.max(1 - v / 0.6, p630sm((v - 5.75) / 0.25)));
+  } else { // 4 · la capsule entre dans l'atmosphère
+    const v = t - T.p4, h = p630sm((v - 1.5) / 1.3), sh = h * U * 0.007 * (C.court ? 0.5 : 1);
+    P630.st.plans[4] = 1;
+    c.save(); c.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+    p630FondC(C, c, W, H, "p4", (g, w, h) => p630FondNeb(g, w, h, "#02030c", "#0a1030", 0.5, 0.7));
+    if (h > 0) { c.globalAlpha = h; p630FondC(C, c, W, H, "p4c", (g, w, hh) => p630Fond(null, g, w, hh, "#1a0818", "#6a2010")); c.globalAlpha = 1; }
+    // étoiles qui défilent vers le haut (on tombe)
+    c.fillStyle = "#ffffff"; for (const s of C.filantes) { s.y -= (0.25 + 2.2 * h) * dt * s.v; if (s.y < -0.1) { s.y = 1.1; s.x = Math.random(); } c.globalAlpha = (0.5 + 0.5 * s.v) * (1 - h * 0.6); const l = (2 + 60 * h * s.v) * dpr; c.fillRect(s.x * W, s.y * H, Math.max(1, dpr * (h > 0.3 ? 2 : 1.4)), l); } c.globalAlpha = 1;
+    // la Terre
+    const R = Math.max(W, H) * (0.75 + 0.3 * v / 4.5), ey = H + R * 0.62 - H * 0.12 * (v / 4.5);
+    p630Copie(c, p630Terre(), W * 0.5 - R * 1.25 + v * U * 0.01, ey - R * 1.25, R * 2.5, R * 2.5, W, H);
+    if (h > 0) { const g = c.createLinearGradient(0, H, 0, 0); g.addColorStop(0, `rgba(255,140,40,${0.75 * h})`); g.addColorStop(0.6, `rgba(200,60,20,${0.35 * h})`); g.addColorStop(1, "rgba(60,10,30,0)"); c.fillStyle = g; c.fillRect(0, 0, W, H); }
+    // capsule
+    const s = U * (port ? 0.34 : 0.3), x = W * 0.5 + Math.sin(t * 2.1) * U * 0.02, y = H * 0.42 + Math.sin(t * 1.4) * U * 0.012, rot = Math.sin(t * 1.7) * 0.08 + h * Math.sin(t * 40) * 0.02;
+    if (h > 0) { // flammes derrière (vers le haut), plasma devant (en bas)
+      c.save(); c.globalCompositeOperation = "lighter"; c.translate(x, y);
+      for (let k = 0; k < 22; k++) { const ph = (k * 0.618) % 1, l = s * (0.8 + ph * 1.6) * h * (0.85 + 0.15 * Math.sin(t * 25 + k)), wd = s * (0.42 - ph * 0.3);
+        c.fillStyle = ["rgba(255,255,230,0.5)", "rgba(255,220,90,0.45)", "rgba(255,130,30,0.4)", "rgba(220,50,10,0.35)"][k & 3];
+        c.beginPath(); c.moveTo(-wd, s * 0.1); c.lineTo(wd, s * 0.1); c.lineTo(Math.sin(t * 17 + k) * wd * 0.6, -l); c.fill(); }
+      c.restore();
+      p630Lum(c, [255, 160, 60], x, y + s * 0.2, s * 1.4 * h, 0.9);
+      c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = 0.8 * h; c.fillStyle = "#fff0c0"; c.beginPath(); c.ellipse(x, y + s * 0.36, s * 0.55, s * 0.16, 0, 0, Math.PI); c.fill(); c.restore();
+      for (let k = 0; k < 3; k++) p630Ajout(C, { x: x + (Math.random() - 0.5) * s * 0.8, y: y + s * 0.3, vx: (Math.random() - 0.5) * 160 * dpr, vy: -(300 + Math.random() * 500) * dpr * h, vie: 0.45, s: (1.5 + Math.random() * 2.5) * dpr, col: Math.random() < 0.5 ? "#ffd060" : "#ff7020" });
+    }
+    c.save(); c.translate(x, y); c.rotate(rot); c.imageSmoothingEnabled = false; try { c.drawImage(IMG_CAPSULE[0], -s / 2, -s / 2, s, s); } catch (_) { } c.restore();
+    if (h > 0) { c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = 0.35 * h; c.drawImage(p630Halo([255, 150, 60]), x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2); c.restore(); }
+    p630Parts(C, c, dt);
+    c.restore();
+    const ca = p630sm((v - 0.3) / 0.5) * p630sm((2.6 - v) / 0.5);
+    p630Ecrire(c, p630Txt("Une capsule fend l'espace…", U * (port ? 0.058 : 0.062), "intro"), W / 2, H * (port ? 0.16 : 0.2), W * 0.9, ca);
+    p630Ecrire(c, p630Txt("CAP SUR LA TERRE", U * 0.036, "sous", "#c8e4ff"), W / 2, H * (port ? 0.16 : 0.2) + U * 0.075, W * 0.9, ca);
+    if (C.court) p630Voile(c, W, H, "#000", p630sm((v - 3.3) / 1.0));
+    else p630Voile(c, W, H, "#ffffff", Math.max(1 - v / 0.25, p630sm((v - 4.05) / 0.4)));
+  }
+}
+function p630Reflet(C, c, im, x, y, mw, sc, u) { // reflet qui balaie le titre
+  let k = sc; if (mw && im.width * k > mw) k = mw / im.width;
+  const w = Math.round(im.width * k), h = Math.round(im.height * k); if (w < 4 || h < 4) return;
+  let tmp = C.tmp; if (!tmp || tmp.width !== w || tmp.height !== h) tmp = C.tmp = p630Cv(w, h);
+  const g = tmp.getContext("2d"); g.globalCompositeOperation = "source-over"; g.clearRect(0, 0, w, h); g.drawImage(im, 0, 0, w, h); g.globalCompositeOperation = "source-in";
+  const bx = -w * 0.3 + u * w * 1.6, gr = g.createLinearGradient(bx - w * 0.12, 0, bx + w * 0.12, h * 0.4);
+  gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.5, "rgba(255,255,255,0.95)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  c.save(); c.globalCompositeOperation = "lighter"; c.drawImage(tmp, Math.round(x - w / 2), Math.round(y - h / 2)); c.restore();
+}
+/* ---------- PLANS 5 et 6 : la chute et l'éveil, dans le vrai monde ---------- */
+function p630Haut(t) { const u = p630cl((t - P630_T.p5) / (P630_T.imp - P630_T.p5)); return 380 * Math.pow(1 - u, 1.6); }
+function p630En3D(C) { return typeof E3 !== "undefined" && !!E3.actif && E3.cn === C; }
+function p630Monde(C, c, W, H, dpr, t, dt) {
+  const T = P630_T, U = Math.min(W, H), port = H > W, cr = AV.crater, en3D = p630En3D(C);
+  P630.st.plans[t < T.p6 ? 5 : 6] = 1; P630.st[en3D ? "m3d" : "m2d"] = 1;
+  if (t < T.imp && cr) { // capsule qui tombe (en 3D : maillage dans la scène ; ici seulement la lueur)
+    const z = p630Haut(t);
+    if (en3D) { const g0 = e3Sol(cr.x, cr.y), q = e3Ecran(cr.x, g0 + z + 9, cr.y); if (q) { p630Lum(c, [255, 170, 70], q[0], q[1], U * 0.16, 0.9); p630Lum(c, [255, 240, 200], q[0], q[1], U * 0.05, 0.9); } }
+    else {
+      const e = camera.echelle(), o = camera.origine(e), sx = (cr.x - o.x) * e, sy0 = (cr.y - o.y) * e, sy = sy0 - z * e, k = e;
+      const u = 1 - z / 380; c.globalAlpha = 0.25 + u * 0.5; try { c.drawImage(OMBRE_PERSO, sx - 14 * k * u, sy0 - 3 * k, 28 * k * u, 7 * k); } catch (_) { } c.globalAlpha = 1;
+      c.save(); c.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 14; i++) { const l = (16 + i * 7) * k * (0.9 + 0.1 * Math.sin(t * 30 + i)), w = (12 - (i % 5) * 2) * k * 0.5; c.fillStyle = ["rgba(255,250,210,0.5)", "rgba(255,210,80,0.45)", "rgba(255,120,30,0.4)", "rgba(210,40,10,0.35)"][i & 3]; c.beginPath(); c.moveTo(sx - w, sy - 10 * k); c.lineTo(sx + w, sy - 10 * k); c.lineTo(sx + Math.sin(t * 19 + i) * w * 0.5, sy - 10 * k - l); c.fill(); }
+      c.restore();
+      p630Lum(c, [255, 170, 70], sx, sy - 12 * k, 40 * k, 0.9);
+      c.imageSmoothingEnabled = false; try { c.drawImage(IMG_CAPSULE[0], sx - 13 * k, sy - 24 * k, 26 * k, 26 * k); } catch (_) { }
+    }
+  }
+  if (cr && t >= T.imp) { // onde de choc et lueur de l'impact (2D ; en 3D l'onde est dans la scène)
+    const v = t - T.imp;
+    let sx, sy, e;
+    if (en3D) { const g0 = e3Sol(cr.x, cr.y), q = e3Ecran(cr.x, g0 + 4, cr.y); if (q) { sx = q[0]; sy = q[1]; e = U / 300; } }
+    else { e = camera.echelle(); const o = camera.origine(e); sx = (cr.x - o.x) * e; sy = (cr.y - o.y) * e - 6 * e; }
+    if (sx != null) {
+      p630Lum(c, [255, 190, 110], sx, sy, (60 + v * 40) * e, 0.85 * (1 - p630sm(v / 1.6)));
+      if (!en3D && v < 0.9) { c.save(); c.globalCompositeOperation = "lighter"; c.strokeStyle = `rgba(255,235,190,${0.85 * (1 - v / 0.9)})`; c.lineWidth = Math.max(2, 5 * e * (1 - v)); c.beginPath(); c.ellipse(sx, sy + 6 * e, (12 + v * 170) * e, (6 + v * 80) * e, 0, 0, 6.2832); c.stroke(); c.restore(); }
+    }
+  }
+  // étalonnage chaud + vignette
+  c.save(); c.globalCompositeOperation = "lighter"; p630Voile(c, W, H, "#ff9a40", t < T.imp ? 0.06 : 0.04); c.restore();
+  p630Vignette(c, W, H, 0.85);
+  // carton : nom du héros
+  if (t > T.carte) {
+    const v = t - T.carte, a = p630sm(v / 0.6) * p630sm((T.fin - 0.45 - t) / 0.55), y = H * (port ? 0.15 : 0.21);
+    if (a > 0) {
+      const g = c.createLinearGradient(0, y - U * 0.16, 0, y + U * 0.16); g.addColorStop(0, "rgba(8,4,16,0)"); g.addColorStop(0.5, "rgba(8,4,16,0.55)"); g.addColorStop(1, "rgba(8,4,16,0)");
+      c.globalAlpha = a; c.fillStyle = g; c.fillRect(0, y - U * 0.16, W, U * 0.32); c.globalAlpha = 1;
+      const nom = (C.nomHeros || "SANGOKU"), n1 = p630Txt(nom, U * (port ? 0.14 : 0.13), "titre");
+      p630Ecrire(c, n1, W / 2, y - U * 0.025, W * 0.9, a, 1 + 0.15 * (1 - p630out(v / 0.8)));
+      const lw = W * (port ? 0.7 : 0.42) * p630out((v - 0.2) / 0.8); c.globalAlpha = 0.8 * a; c.fillStyle = "#e8c060"; c.fillRect(W / 2 - lw / 2, y + U * 0.055, lw, Math.max(1, 1.5 * dpr)); c.globalAlpha = 1;
+      p630Ecrire(c, p630Txt("L'AVENTURE COMMENCE", U * 0.042, "sous", "#ffe6a0"), W / 2, y + U * 0.095, W * 0.9, a * p630sm((v - 0.35) / 0.5));
+      p630Ecrire(c, p630Txt("Explore la carte… et les cinq mondes", U * 0.04, "intro"), W / 2, y + U * 0.15, W * 0.9, a * p630sm((v - 0.8) / 0.5));
+    }
+  }
+  if (t < T.p5 + 0.6) p630Voile(c, W, H, "#ffffff", 1 - (t - T.p5) / 0.6);
+  if (t >= T.imp && t < T.imp + 0.35) { c.save(); c.globalCompositeOperation = "lighter"; p630Voile(c, W, H, "#fff6e0", 0.7 * (1 - (t - T.imp) / 0.35)); c.restore(); }
+}
+/* ---------- caméra 3D des plans 5 et 6 ---------- */
+function p630Plan(C, D, pitch, port) {
+  const t = C.t, T = P630_T, kp = port ? 1.4 : 1; let d, p, yaw, ty;
+  if (t < T.imp + 0.2) { const u = p630cl((t - T.p5) / (T.imp - T.p5)), zc = p630Haut(t); d = 160 * kp; p = 0.24; yaw = -1.45 + 0.15 * u; const Dh0 = d * Math.cos(p), eh = 12 + d * Math.sin(p), an = Math.atan2(zc + 14 - eh, Dh0) - (port ? 0.3 : 0.2); ty = Math.max(8, eh + Math.tan(an) * Dh0 - 9); }
+  else if (t < T.p6) { const u = p630cl((t - T.imp - 0.2) / (T.p6 - T.imp - 0.2)); d = (170 + 10 * u) * kp; p = 0.34 + 0.04 * u; yaw = -1.25; ty = 8; }
+  else {
+    const u = p630cl((t - T.p6) / (T.fin - 1.2 - T.p6)), e = p630io(u); d = (165 - 40 * e) * kp; p = 0.42 + 0.22 * e; yaw = -1.7 + 0.75 * e; ty = 8 - 3 * e;
+    const r = p630sm((t - (T.fin - 1.2)) / 1.2); d += (D - d) * r; p += (pitch - p) * r; yaw += (0 - yaw) * r; ty += (0 - ty) * r;
+  }
+  const Dh = d * Math.cos(p);
+  return { D: d, p, dx: Dh * Math.sin(yaw), dz: Dh * (Math.cos(yaw) - 1), tx: 0, ty, tz: 0 };
+}
+function p630Mesh() {
+  if (P630.m3) return P630.m3;
+  const g = new G3Geo(), bl = [0.94, 0.95, 0.98], gr = [0.5, 0.53, 0.6], rg = [0.88, 0.12, 0.14];
+  g.sph(0, 0, 0, 9, 8.6, 9, 12, bl); g.cyl(0, -1.3, 0, 9.3, 9.3, 2.4, 14, gr, gr); g.sph(0, 1.8, 8.1, 3.8, 3.8, 1.8, 10, rg); g.sph(-1, 2.8, 9.2, 1.1, 1.1, 0.6, 6, [1, 0.9, 0.9]);
+  for (let k = 0; k < 3; k++) { const a = k * 2.094 + 0.5; g.box(Math.sin(a) * 6.2, -12.5, Math.cos(a) * 6.2, 1.6, 6, 1.6, gr); g.box(Math.sin(a) * 6.8, -13, Math.cos(a) * 6.8, 3.2, 0.9, 3.2, gr); }
+  return (P630.m3 = { caps: g.build() });
+}
+function p630Dessiner3D(U) {
+  const C = AV.cine, cr = AV.crater; if (!C || C.type !== "intro" || !C.v63 || C.court || !cr || C.t < P630_T.pre) return;
+  const t = C.t, T = P630_T, g0 = e3Sol(cr.x, cr.y);
+  if (t < T.imp) {
+    const z = p630Haut(t), y = g0 + z + 12;
+    g3Mesh(p630Mesh().caps, M4.trs(cr.x, y, cr.y, t * 1.6, 0.22, 0.1, 1.5, 1.5, 1.5));
+    for (let k = 0; k < 8; k++) { const s = (10 - k) * 1.6 * (1 + 0.15 * Math.sin(t * 30 + k)), col = k < 2 ? [1, 0.95, 0.75, 1] : k < 5 ? [1, 0.6, 0.15, 1] : [0.9, 0.3, 0.08, 1];
+      g3Mesh(U.sph, M4.trs(cr.x + Math.sin(t * 21 + k) * 1.4, y + 8 + k * 10, cr.y + Math.cos(t * 17 + k) * 1.4, 0, 0, 0, s, s * 1.5, s), { tint: col, a: 0.78 - k * 0.08, add: true, e: 1 }); }
+    if (Math.random() < 0.7) g3Part(cr.x + (Math.random() - 0.5) * 10, y + 8, cr.y + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 30, 40 + Math.random() * 40, (Math.random() - 0.5) * 30, 0.6, 2.4, "#ffb040", { gr: -2 });
+    const u = 1 - z / 380; g3Mesh(U.ombre, M4.trs(cr.x, g0 + 0.6, cr.y, 0, 0, 0, 16 * u + 2, 1, 11 * u + 1), { a: 0.4 * u, tint: [0, 0.02, 0.05, 1] });
+  } else {
+    const v = t - T.imp, fade = 1 - p630sm((t - (T.fin - 1.6)) / 1.6);
+    g3Mesh(U.ombre, M4.trs(cr.x, g0 + 0.55, cr.y + 2, 0, 0, 0, 30, 1, 20), { a: 0.55 * fade, tint: [0.1, 0.05, 0.02, 1] });
+    if (v < 0.9) { const r = 12 + v * 160, a = 0.85 * (1 - v / 0.9); for (let k = 0; k < 20; k++) { const an = k / 20 * 6.2832; g3Mesh(U.sph, M4.trs(cr.x + Math.cos(an) * r, g0 + 2.5, cr.y + Math.sin(an) * r * 0.9, an, 0, 0, 7, 2.4, 3.5), { tint: [1, 0.86, 0.6, 1], a, add: true, e: 1 }); } }
+    if (v < 0.6) { const s = 1 + v * 2.2; g3Mesh(U.sph, M4.trs(cr.x, g0 + 8, cr.y, 0, 0, 0, 26 * s, 16 * (1 + v), 26 * s), { tint: [1, 0.9, 0.7, 1], a: 0.65 * (1 - v / 0.6), add: true, e: 1 }); }
+    if (Math.random() < 0.35 && t < T.fin - 1.2) g3Part(cr.x + (Math.random() - 0.5) * 16, g0 + 12, cr.y + (Math.random() - 0.5) * 8, 3 + Math.random() * 3, 9 + Math.random() * 6, -2, 2.4, 4, "#a8a8b0", { add: false, gr: 3.2, fr: 0.3 });
+  }
+}
+/* ---------- son (WebAudio) : discret, seulement si le son du jeu tourne déjà ---------- */
+const P630_HZ = n => 440 * Math.pow(2, (n - 69) / 12);
+function p630Audio(C) {
+  if (C.au) return C.au; if (C.au === false) return null;
+  try {
+    if (!PARAMS.son || !(volMusique() > 0) || !(PARAMS.volume > 0) || !son.ctx || son.ctx.state !== "running") return null;
+    const ac = son.ctx, m = ac.createGain(), v = 0.2 * Math.min(1, volMusique()) * Math.min(1, PARAMS.volume * 1.4);
+    m.gain.setValueAtTime(0.0001, ac.currentTime); m.gain.linearRampToValueAtTime(v, ac.currentTime + 0.8);
+    const dl = ac.createDelay(1), fb = ac.createGain(), wet = ac.createGain(); dl.delayTime.value = 0.31; fb.gain.value = 0.38; wet.gain.value = 0.32;
+    m.connect(ac.destination); m.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(ac.destination);
+    let nb = null; try { const n = Math.floor(ac.sampleRate * 2); nb = ac.createBuffer(1, n, ac.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } catch (_) { }
+    P630.st.son++;
+    return (C.au = { ac, m, nodes: [dl, fb, wet], nb, v });
+  } catch (e) { C.au = false; p630Err("audio", e); return null; }
+}
+function p630Note(A, f, t0, d, type, vol, att = 0.02) {
+  const ac = A.ac, t = ac.currentTime + t0, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(A.m); o.start(t); o.stop(t + d + 0.05);
+}
+function p630Pad(A, notes, t0, d, vol) {
+  const ac = A.ac, t = ac.currentTime + t0, f = ac.createBiquadFilter(), g = ac.createGain(); f.type = "lowpass"; f.frequency.value = 1100; f.Q.value = 0.4;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(1.4, d * 0.35)); g.gain.setValueAtTime(vol, t + d - Math.min(1.6, d * 0.4)); g.gain.linearRampToValueAtTime(0.0001, t + d);
+  f.connect(g); g.connect(A.m);
+  for (const n of notes) for (const [ty, det] of [["sine", -4], ["triangle", 5]]) { const o = ac.createOscillator(); o.type = ty; o.frequency.value = P630_HZ(n); o.detune.value = det; o.connect(f); o.start(t); o.stop(t + d + 0.1); }
+}
+function p630Souffle(A, t0, d, f0, f1, vol) {
+  if (!A.nb) return; const ac = A.ac, t = ac.currentTime + t0, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = A.nb; s.loop = true; f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + d * 0.5); g.gain.linearRampToValueAtTime(0.0001, t + d);
+  s.connect(f); f.connect(g); g.connect(A.m); s.start(t); s.stop(t + d + 0.05);
+}
+function p630Cloche(A, notes, t0, pas, vol) { notes.forEach((n, i) => { p630Note(A, P630_HZ(n), t0 + i * pas, 1.6, "sine", vol, 0.01); p630Note(A, P630_HZ(n + 12), t0 + i * pas, 0.7, "sine", vol * 0.25, 0.01); }); }
+function p630Son(C) {
+  const T = P630_T, t = C.t;
+  const plan = t < T.p2 ? 0 : t < T.p3 ? 1 + Math.min(4, Math.floor((t - T.p2) / T.dw)) : t < T.p4 ? 6 : t < T.p5 ? 7 : t < T.imp ? 8 : t < T.p6 ? 9 : t < T.carte ? 10 : 11;
+  if (plan === C.sonPlan) return; const prev = C.sonPlan; C.sonPlan = plan;
+  const A = p630Audio(C); if (!A) return;
+  const reste = k => Math.max(0.3, k - t);
+  try {
+    if (plan === 0) { p630Pad(A, [45, 52, 59, 60], 0, reste(T.p2) + 0.4, 0.05); p630Cloche(A, [76, 79], 1.0, 2.1, 0.02); }
+    else if (plan >= 1 && plan <= 5) {
+      const ch = [[41, 53, 57, 60, 64], [43, 55, 59, 62], [40, 52, 55, 59], [45, 57, 60, 64], [48, 55, 60, 62, 67]][plan - 1];
+      p630Pad(A, ch, 0, T.dw + 0.4, 0.042); if (prev != null) p630Souffle(A, 0, 0.7, 300, 2400, 0.05);
+      p630Cloche(A, [[72, 76, 79], [74, 79, 81], [76, 79, 83], [69, 72, 76], [72, 76, 79, 84]][plan - 1], 0.25, 0.16, 0.022);
+    }
+    else if (plan === 6) { p630Note(A, 55, 0, 1.6, "sine", 0.16, 0.01); p630Pad(A, [36, 48, 55, 60, 64, 67, 74], 0, reste(T.p4) + 0.3, 0.05); p630Cloche(A, [72, 76, 79, 84, 88, 86, 91], 0.4, 0.13, 0.024); p630Cloche(A, [84, 88, 91], 1.7, 0.1, 0.016); p630Souffle(A, 4.6, 1.4, 600, 3500, 0.05); }
+    else if (plan === 7) { if (!C.court) { p630Pad(A, [38, 50, 57, 62], 0, reste(T.p5) + 0.3, 0.04); p630Souffle(A, 1.2, 3.4, 150, 900, 0.09); } else p630Pad(A, [48, 55, 60, 64], 0, 3.6, 0.04); }
+    else if (plan === 8) { p630Souffle(A, 0, T.imp - T.p5, 1600, 260, 0.08); }
+    else if (plan === 9) { p630Note(A, 70, 0, 0.9, "sine", 0.22, 0.005); p630Note(A, 45, 0, 1.4, "triangle", 0.12, 0.005); p630Souffle(A, 0, 1.2, 900, 120, 0.1); }
+    else if (plan === 10) { p630Pad(A, [48, 55, 60, 64], 0.2, reste(T.fin) + 0.6, 0.042); }
+    else if (plan === 11) { p630Cloche(A, [67, 72, 76, 79], 0, 0.14, 0.026); p630Pad(A, [41, 53, 57, 60, 65], 0.6, 3.2, 0.035); }
+  } catch (e) { p630Err("son", e); C.au = false; }
+}
+function p630Silence(C) {
+  const A = C && C.au; if (!A) return; C.au = false;
+  try { const t = A.ac.currentTime; A.m.gain.cancelScheduledValues(t); A.m.gain.setValueAtTime(A.m.gain.value, t); A.m.gain.linearRampToValueAtTime(0.0001, t + 0.35);
+    setTimeout(() => { try { A.m.disconnect(); for (const n of A.nodes) n.disconnect(); } catch (_) { } }, 1500); } catch (_) { }
+}
+/* textes, planètes et fonds calculés d'avance (sous l'écran noir du début, ou après un changement d'orientation) */
+function p630Preparer(C, W, H, dpr) {
+  try {
+    const cv = p630Cv(W, H), g = cv.getContext("2d"), F = Object.assign(Object.create(C), { parts: [], tmp: null, fonds: C.fonds || (C.fonds = new Map()) });
+    for (const id of ["pk", "kn", "op", "br", "sg"]) p630Planete(id); p630Terre();
+    const ts = [2.5, 4, 6.2, 8.6, 11, 13.4, 15.8, 17.8, 18.7, 20, 23.6, 25.8];
+    if (!C.court) ts.push(34.5);
+    for (const t of ts) { F.t = t; if (t < P630_T.p5) p630Espace(F, g, W, H, dpr, t, 0); else p630Monde(F, g, W, H, dpr, t, 0); }
+    P630.st.prep = (P630.st.prep || 0) + 1;
+  } catch (e) { p630Err("prep", e); }
+}
+/* ---------- la cinématique ---------- */
+lancerIntro = function (rejouer) {
+  try { return p630Lancer(rejouer); }
+  catch (e) { p630Err("lancer", e); AV.cine = null; if (P630.ancienne) return P630.ancienne.apply(this, arguments); }
+};
+function p630Lancer(rejouer) {
+  if (AV.cine) return;
+  rejouer = rejouer === true || !!AV.introVue;
+  const cr = AV.crater, P0 = { x: perso.x, y: perso.y }, cam0 = { x: camera.x, y: camera.y }, iz0 = camera.iZoom;
+  const monde = !!cr && (AV.monde || 1) === 1 && jeu.scene === sceneMonde && !AV.nav && (typeof dansMonde !== "function" || dansMonde());
+  const C = {
+    type: "intro", v63: true, t: 0, plein: true, cacherPerso: true, cacherHUD: true, particules: false, capsuleVolante: true, impact: false, ouverte: false,
+    court: !monde, rejouer, parts: [], sonPlan: null, au: null, heros: [], compagnon: null, nomHeros: "SANGOKU",
+    etoiles: Array.from({ length: 230 }, () => ({ x: (Math.random() - 0.5) * 2.4, y: (Math.random() - 0.5) * 2.4, z: Math.random(), v: 0.6 + Math.random() * 0.8, p: Math.random() * 6 })),
+    filantes: Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random() * 1.2, v: 0.3 + Math.random() * 0.7 })),
+    maj(dt) {
+      const t = this.t, T = P630_T; P630.st.frames++;
+      try { p630Son(this); } catch (e) { p630Err("son", e); }
+      if (this.court) { if (t >= T.p5) finCine(); return; }
+      // préchauffage caché sous l'écran (ciel étoilé opaque) : le monde autour du cratère est préparé tout de suite,
+      // en 2D le long du futur panoramique et au zoom du gros plan, pour éviter les à-coups pendant la chute
+      if (!this.chaud && t > 0.05) { this.chaud = 1; this.plein = false; this.izC = camera.iZoom; }
+      if (this.chaud === 1) {
+        const d3 = typeof E3 !== "undefined" && !!E3.actif, fin = d3 ? 0.4 : 1.25;
+        if (t > fin) { this.chaud = 2; this.plein = true; camera.iZoom = this.izC; }
+        else if (d3) { camera.x = cr.x; camera.y = cr.y; camera.iZoom = this.izC; }
+        else if (t < 0.5) { camera.iZoom = Math.min(CONFIG.ZOOMS.length - 1, this.izC + 1); camera.x = cr.x; camera.y = cr.y + 10 + 40 * p630cl((t - 0.05) / 0.4); }
+        else { camera.iZoom = this.izC; camera.x = cr.x; camera.y = cr.y + 40 - (40 + 12 + 380 * 0.62) * p630cl((t - 0.5) / 0.7); }
+        return;
+      }
+      if (t >= T.pre && this.plein) { this.plein = false; camera.x = cr.x; camera.y = cr.y; }   // le monde se prépare sous l'écran (1 s)
+      if (this.plein) return;
+      const en3D = typeof E3 !== "undefined" && !!E3.actif;
+      // caméra (2D : panoramique ; 3D : la caméra est dans p630Plan, centrée sur le cratère)
+      if (t < T.imp) { const u = p630sm((t - T.p5) / (T.imp - T.p5)); camera.x = cr.x; camera.y = en3D ? cr.y : cr.y - 12 - p630Haut(t) * 0.62 + 0 * u; }
+      else if (t < T.p6) { camera.x = cr.x; camera.y = cr.y - 8; }
+      else {
+        if (!en3D && this.iz0 == null) { this.iz0 = camera.iZoom; camera.iZoom = Math.min(CONFIG.ZOOMS.length - 1, camera.iZoom + 1); }
+        const yf = this.rejouer ? cr.y + 52 : cr.y + 52, r = p630sm((t - (T.fin - 1.6)) / 1.6), y0 = cr.y + 8 + 22 * p630sm((t - T.sort) / 2);
+        camera.x = cr.x; camera.y = y0 + (yf - y0) * r;
+      }
+      if (t >= T.imp && !this.impact) {
+        this.impact = true; this.capsuleVolante = false; jeu.tremble = 0.8; vibrer([90, 40, 140]);
+        try { son.jouer("boum"); } catch (_) { }
+        for (let i = 0; i < 26; i++) { const g = Math.random() * 6.28; particules.push({ x: cr.x + Math.cos(g) * 10, y: cr.y + Math.sin(g) * 5, z: 4, vx: Math.cos(g) * 110, vy: Math.sin(g) * 55, vz: 60 + Math.random() * 70, age: 0, vie: 1, col: i & 1 ? "#8a6038" : "#c8a070", g: 200, frein: 2, oscille: 0, taille: 2 }); }
+        if (en3D) { try { E3.shake = 1.1; const g0 = e3Sol(cr.x, cr.y); g3Burst(cr.x, g0 + 4, cr.y, 46, "#b08a60", 80, 1, 3.4, { add: false, g: 70, up: 34, fr: 1.2 }); g3Burst(cr.x, g0 + 6, cr.y, 30, "#ffd080", 110, 0.5, 1.8, { up: 20 }); } catch (e) { p630Err("burst", e); } }
+      }
+      if (this.impact && !en3D && Math.random() < 0.35 && t < T.fin - 1) particules.push({ x: cr.x + (Math.random() - 0.5) * 14, y: cr.y - 6, z: 8, vx: 6, vy: -4, vz: 22, age: 0, vie: 1.6, col: Math.random() < 0.5 ? "#9a9aa4" : "#c8c8d0", g: 0, frein: 0.4, oscille: 0, taille: 3 });
+      if (this.impact && !en3D) mettreAJourParticulesAv(dt);
+      if (t >= T.ouvre && !this.ouverte) { this.ouverte = true; try { son.jouer("porte"); } catch (_) { } }
+      if (t >= T.sort) {
+        this.cacherPerso = false; const u = Math.min(1, (t - T.sort) / 1.3);
+        perso.x = cr.x; perso.y = cr.y + 4 + u * 48; perso.dir = "bas"; perso.bouge = u < 1; perso.pas += dt * 40;
+      }
+      if (t >= T.fin) finCine();
+    },
+    fin() {
+      AV.introVue = true; jeu.tremble = 0; p630Silence(this);
+      if (this.iz0 != null) camera.iZoom = this.iz0; else camera.iZoom = iz0;
+      try { localStorage.setItem("mondes.intro63", "1"); } catch (_) { }
+      p630CacherProposition();
+      if (this.rejouer || this.court) { perso.x = P0.x; perso.y = P0.y; camera.x = cam0.x; camera.y = cam0.y; perso.bouge = false; }
+      else { perso.x = cr.x; perso.y = cr.y + 52; if (!perso.libre(perso.x, perso.y)) perso.placerPres(perso.x, perso.y, 200); camera.x = perso.x; camera.y = perso.y; perso.bouge = false; perso.dir = "bas"; messageInfo("Bienvenue sur Terre, Sangoku ! Explore la carte !"); }
+      sauvegarder(false);
+    },
+    dessiner(W, H, dpr) {
+      const t = this.t, c = ctx, dt = Math.max(0, Math.min(0.1, t - (this.tD == null ? t : this.tD))); this.tD = t;
+      const t0 = performance.now();
+      if (this.prepW !== W + "x" + H) { this.prepW = W + "x" + H; p630Preparer(this, W, H, dpr); }
+      try { if (t < P630_T.p5) p630Espace(this, c, W, H, dpr, t, dt); else p630Monde(this, c, W, H, dpr, t, dt); } catch (e) { p630Err("dess", e); }
+      c.globalAlpha = 1; c.globalCompositeOperation = "source-over";
+      p630Bandes(this, c, W, H, dpr, Math.min(p630sm(t / 0.8), p630sm((P630_T.fin - t) / 0.7)));
+      const ms = performance.now() - t0; if (ms > P630.st.max) P630.st.max = ms;
+    },
+  };
+  // sprites des héros (une seule fois)
+  for (const M of P630_MONDES) { let im = null; try { im = M.hx ? M.hx() : null; } catch (_) { } C.heros.push(im); }
+  try { C.compagnon = imagePk("pikachu"); } catch (_) { }
+  try { const a = AV.equipe && AV.equipe.actif; if (!a || a === "sangoku") C.heros[4] = perso.image().img; } catch (_) { }
+  if (!C.heros[4]) try { C.heros[4] = portraitSangokuBase(); } catch (_) { }
+  try { C.nomHeros = (rejouer ? nomActif() : "Sangoku").toUpperCase(); } catch (_) { }
+  if (monde && rejouer) { /* revoir : le héros réel est remis à sa place à la fin */ }
+  if (monde && !rejouer) { perso.x = cr.x; perso.y = cr.y + 4; }
+  AV.cine = C;
+  boutonPasser(true); document.body.classList.add("p630cine");
+  return C;
+}
+/* ---------- intégration : 3D, héros caché, bandes de la v55, musique ---------- */
+try { if (!E3_CINES.includes("intro")) E3_CINES.push("intro"); } catch (e) { p630Err("e3cines", e); }
+{ const pl0 = e3CinePlan; e3CinePlan = function (CN, D, pitch, port) {
+  if (CN && CN.type === "intro" && CN.v63) { try { const r = p630Plan(CN, D, pitch, port); if (r && isFinite(r.dx) && isFinite(r.dz) && isFinite(r.D)) { E3.cs = null; return r; } } catch (e) { p630Err("plan", e); } }
+  return pl0.apply(this, arguments); }; }
+{ const h0 = e3Hero; e3Hero = function () { const C = AV.cine; if (C && C.type === "intro" && C.v63 && C.cacherPerso) { E3.hx = null; return; } return h0.apply(this, arguments); }; }
+{ const x0 = e3Extra3D; e3Extra3D = function (U) { x0.apply(this, arguments); try { p630Dessiner3D(U); } catch (e) { p630Err("3d", e); } }; }
+{ const v0 = v55Cine; v55Cine = function () { const C = AV.cine; if (C && C.type === "intro" && C.v63) { V55.bar = 0; return; } return v0.apply(this, arguments); }; }
+{ const m0 = musiqueChoisir; musiqueChoisir = function () { const C = AV.cine; if (C && C.type === "intro" && C.v63) return null; return m0.apply(this, arguments); }; }
+{ const f0 = finCine; finCine = function () { const C = AV.cine; const r = f0.apply(this, arguments); if (C && C.v63) { document.body.classList.remove("p630cine"); p630Silence(C); } return r; }; }
+/* ---------- joueur qui a déjà une partie : proposition discrète (une seule fois) de voir la nouvelle intro ---------- */
+function p630CacherProposition() { const b = document.getElementById("p630Revoir"); if (b) { b.classList.add("p630out"); setTimeout(() => { try { b.remove(); } catch (_) { } }, 600); } }
+function p630Proposer() {
+  if (document.getElementById("p630Revoir")) return;
+  try { localStorage.setItem("mondes.intro63", "1"); } catch (_) { }
+  const b = document.createElement("button"); b.id = "p630Revoir"; b.innerHTML = "🎬<small>Nouvelle<br>intro</small>"; b.title = "Voir la nouvelle intro";
+  b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); try { son.init(); } catch (_) { } p630CacherProposition(); if (!AV.cine && !jeu.transition) lancerIntro(true); });
+  document.body.appendChild(b); setTimeout(p630CacherProposition, 16000);
+}
+{
+  const st = document.createElement("style");
+  st.textContent = `#p630Revoir{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));top:42%;z-index:31;width:64px;height:64px;border-radius:50%;padding:0;border:3px solid #ffd870;background:radial-gradient(circle at 35% 30%,#5a3a8a,#1a0c2a);color:#fff4d8;font:900 22px/1 "Trebuchet MS",Verdana,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(255,200,90,.65);animation:p630pulse 1.6s ease-in-out infinite;transition:opacity .5s,transform .5s}
+#p630Revoir small{font-size:9px;line-height:1.05;margin-top:2px}#p630Revoir.p630out{opacity:0;transform:scale(.6);pointer-events:none}
+@keyframes p630pulse{0%,100%{box-shadow:0 0 8px rgba(255,200,90,.5)}50%{box-shadow:0 0 22px rgba(255,210,110,.95)}}
+body.cine #p630Revoir,body.accueil #p630Revoir{display:none}
+body.p630cine #passerCine{border-color:#ffd870!important;box-shadow:0 0 12px rgba(255,200,90,.6)}`;
+  document.head.appendChild(st);
+}
+{
+  let vu = false; try { vu = localStorage.getItem("mondes.intro63") === "1"; } catch (_) { }
+  if (!vu && !window.MODE_APERCU) { let n = 0; const tic = setInterval(() => {
+    try {
+      if (++n > 900) return clearInterval(tic);
+      if (localStorage.getItem("mondes.intro63") === "1") return clearInterval(tic);
+      if (!jeu || !AV.introVue || !jeu.persoPret) return;                     // nouvelle partie : l'intro va se jouer d'elle-même
+      if ((typeof ACC !== "undefined" && ACC.visible) || AV.cine || jeu.pause || jeu.transition || document.body.classList.contains("accueil")) return;
+      clearInterval(tic); p630Proposer();
+    } catch (e) { clearInterval(tic); p630Err("prop", e); }
+  }, 1000); }
+}
+try { ACC_NOUVEAU.unshift("🎬 Nouvelle cinématique d'ouverture « Mondes Ouverts » : revois-la dans 🎬 Cinématiques"); } catch (_) { }
 
 </script>
 </body>
