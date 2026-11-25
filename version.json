@@ -1,7 +1,7 @@
 {
- "v": "66.0",
- "date": "2026-11-25 21:48",
+ "v": "67.0",
+ "date": "2026-11-25 22:48",
  "test": true,
  "publie": true,
- "notes": "Version de test 66.0 publiée (testée dans Node uniquement : non validée visuellement, ni navigateur, ni téléphone ; FPS non garantis) : quêtes améliorées (11 nouvelles quêtes, escortes, objets cachés chaud/froid, coupe de bois, scènes de dialogue avec portraits, récompenses selon le niveau + objet d'équipement, écran de récompense pour toutes les quêtes, boussole + distance + flèche vers l'objectif, journal « En cours » qui regroupe toutes les quêtes) ; météo aléatoire qui change petit à petit : soleil, nuages, pluie, brouillard, orage léger, en 3D et en 2D. Contient la 65.0. Sauvegardes compatibles."
+ "notes": "Version de test 67.0 publiée (testée dans Node uniquement : non validée visuellement, ni navigateur, ni téléphone ; FPS non garantis) : caméra 3D libre en yaw + pitch simultanés (glisser vertical pour regarder de haut en bas, du ras de l'épaule vers l'horizon et le ciel jusqu'au-dessus), rapprochement et visée au-dessus du héros à pitch bas, collision simple terrain/bâtiments, ciel/brouillard/chargement de chunks adaptés à la vue, réinitialisation par le bouton N ou double-appui, pitch sauvegardé, coalescence tactile par image. Contient la 66.0. Sauvegardes compatibles."
 }

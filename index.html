@@ -30048,24 +30048,28 @@ function e3Rendu() {
   if (window.__e3fixe != null) E3.tier = window.__e3fixe;
   const TR = E3_TIERS[E3.tier], W = ecran.width, H = ecran.height, dpr = DPR();
   const f = Math.min(1, Math.sqrt(TR.px / (W * H))), RW = Math.max(160, Math.round(W * f)), RH = Math.max(160, Math.round(H * f)), asp = RW / RH, port = asp < 1;
-  if (E3.scPrev !== E3.sc) { E3.scPrev = E3.sc; E3.pret = false; E3.hero.ok = false; for (const k of [...E3.ter.keys()]) e3Liberer(k); }
+  if (E3.scPrev !== E3.sc) { E3.scPrev = E3.sc; E3.pret = false; E3.hero.ok = false; if (typeof P67 !== "undefined") P67.snap = true; for (const k of [...E3.ter.keys()]) e3Liberer(k); }
   const Hr = E3.hero, CN = E3.cn = e3CineOK(AV.cine) ? AV.cine : null, px = CN ? camera.x : perso.x, pz = CN ? camera.y : perso.y;
   if (!E3.pret || Math.hypot(px - E3.cx, pz - E3.cz) > 400) { E3.cx = px; E3.cz = pz; }
   const k = 1 - Math.exp(-dt * 11); E3.cx += (px - E3.cx) * k; E3.cz += (pz - E3.cz) * k;
   const zk = CONFIG.ZOOMS[camera.iZoom] / CONFIG.ZOOMS[CONFIG.ZOOM_DEFAUT], cD = (jeu.scene && jeu.scene.camD) || 1, D = (CN || typeof p104Zk !== "function" ? 1 : 1 / p104Zk()) * Math.max(80, Math.min(340 * cD, (E3.sc && !(jeu.scene && jeu.scene.ile) ? (port ? 300 : 230) : port ? 250 : 200) * cD / Math.pow(zk, 0.9)));
   const INT = E3.sc && !(jeu.scene && jeu.scene.ile), pitch = INT ? (port ? 1.0 : 0.9) : port ? 1.02 : 0.95, fov = INT ? (port ? 1.04 : 0.86) : port ? 0.98 : 0.8;
-  if (INT && jeu.scene && jeu.scene.largeur) { const Sc = jeu.scene, Dv = Math.max(80, Math.min(340, (port ? 300 : 230) / Math.pow(zk, 0.9))), hwv = Dv * Math.tan(fov / 2) * asp * 0.92, lw = Sc.largeur, lh = Sc.hauteur;
-    E3.cx = lw <= hwv * 2 ? lw / 2 : Math.max(hwv, Math.min(lw - hwv, E3.cx)); E3.cz = Math.max(Math.min(lh / 2, port ? 130 : 110), Math.min(lh - (port ? 118 : 70), E3.cz)); }
+  if (INT && jeu.scene && jeu.scene.largeur) { const Sc = jeu.scene, Dv = Math.max(80, Math.min(340, (port ? 300 : 230) / Math.pow(zk, 0.9))), hwv = Dv * Math.tan(fov / 2) * asp * 0.92, lw = Sc.largeur, lh = Sc.hauteur, kCl = typeof p67EstPetitInt === "function" && !p67EstPetitInt() ? 1 - (E3.camSLow || 0) : 1;
+    const txCl = lw <= hwv * 2 ? lw / 2 : Math.max(hwv, Math.min(lw - hwv, E3.cx)), tzCl = Math.max(Math.min(lh / 2, port ? 130 : 110), Math.min(lh - (port ? 118 : 70), E3.cz));
+    E3.cx += (txCl - E3.cx) * kCl; E3.cz += (tzCl - E3.cz) * kCl; }
   const gy = e3Sol(E3.cx, E3.cz);
   E3.shake = Math.max(0, E3.shake - dt * 1.8); const sh = E3.shake * 7 * (jeu.tremble ? 1 : 1);
   const sot = e3CinePlan(CN, D, pitch, port), eye = [E3.cx + sot.dx + (Math.random() - 0.5) * sh, gy + 12 + sot.D * Math.sin(sot.p) + (Math.random() - 0.5) * sh, E3.cz + sot.D * Math.cos(sot.p) + sot.dz], tgt = [E3.cx + sot.tx, gy + 9 + sot.ty, E3.cz - 10 + sot.tz];
+  if (!CN && typeof p67CamPos === "function") p67CamPos(eye, tgt, D, pitch, port, INT, gy, dt);
   if (typeof v52CamApp === "function") v52CamApp(eye, tgt, CN);
-  const V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 6, 2600), VP = M4.mul(Pm, V); E3.VP = VP; E3.eye = eye;
-  const A = n3Ambiance(); e3Teinte(A); A.fog = [D + TR.R * 0.4, D + TR.R * 0.98]; if (A.pl) A.fog = [D + TR.R * 0.15, D + TR.R * 0.7]; try { if (typeof p660Amb === "function") p660Amb(A, D, TR.R); } catch (_) { } E3.A = A;
+  if (!CN && typeof p67CamCol === "function") p67CamCol(eye, tgt, gy, dt, INT);
+  const V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 3.5, 2600), VP = M4.mul(Pm, V); E3.VP = VP; E3.eye = eye;
+  const p67F = typeof p670Vue === "function" ? p670Vue(D, TR.R, eye, fov, tgt, CN) : { dFog: D, rFog: TR.R, fwdOff: 40, capX: px, capZ: pz, hz: 0.5, isInt: !!(E3.sc && !(jeu.scene && jeu.scene.ile)), fwdX: -Math.sin(E3.camA || 0), fwdZ: -Math.cos(E3.camA || 0) };
+  const A = n3Ambiance(); e3Teinte(A); A.fog = [p67F.dFog + p67F.rFog * 0.4, p67F.dFog + p67F.rFog * 0.98]; if (A.pl) A.fog = [p67F.dFog + p67F.rFog * 0.15, p67F.dFog + p67F.rFog * 0.7]; try { if (typeof p660Amb === "function") p660Amb(A, p67F.dFog, p67F.rFog); } catch (_) { } E3.A = A;
   if (window.__prof) { window.__prof.__l = null; e3P('debut'); }
   const shOn = E3.tier >= 1 && !window.__nosh && SH3.ok !== false; E3.shReal = shOn;
-  if (!E3.sc) e3Terrain(E3.cx - 40 * Math.sin(E3.camA || 0), E3.cz - 40 * Math.cos(E3.camA || 0), !E3.pret); E3.pret = true;
-  e3Capter(px, pz, Math.min(TR.R, 420));
+  if (!E3.sc) e3Terrain(E3.cx + p67F.fwdOff * p67F.fwdX, E3.cz + p67F.fwdOff * p67F.fwdZ, !E3.pret); E3.pret = true;
+  e3Capter(p67F.capX, p67F.capZ, Math.min(TR.R, 420));
   // ombres portées : passe de profondeur (maillages enregistrés à l'image précédente)
   let shDone = false;
   if (shOn) {
@@ -30077,15 +30081,16 @@ function e3Rendu() {
     SH3.on = SH3.ok !== false && ((SH3.fr + 1) % N === 0 || !SH3.valid);
   } else { SH3.on = false; SH3.valid = false; SH3.rec.length = 0; SH3.list = []; }
   e3P('ombres');
-  const ILs = E3.sc && jeu.scene && jeu.scene.ile; { const hI = E3.sc && !ILs ? [0.075, 0.055, 0.06] : A.hor, tI = E3.sc && !ILs ? [0.04, 0.03, 0.04] : A.top; g3Debut(RW, RH, { VP, cam: eye, fov, L: A.L, amb: A.amb, sun: A.sun, fog: E3.sc && !ILs ? [900, 2400] : A.fog, fogC: hI, ciel: [hI, tI], hz: 0.5, e3: 1 }); }
+  const ILs = E3.sc && jeu.scene && jeu.scene.ile; { const hI = p67F.isInt ? [0.075, 0.055, 0.06] : A.hor, tI = p67F.isInt ? [0.04, 0.03, 0.04] : A.top; g3Debut(RW, RH, { VP, cam: eye, fov, L: A.L, amb: A.amb, sun: A.sun, fog: p67F.isInt ? [900, 2400] : A.fog, fogC: hI, ciel: [hI, tI], hz: p67F.hz, e3: 1 }); }
   sh3Lier(shDone, A);
   const t = AV.temps || now, amp = 1.2 + A.pl * 0.9, deep = g3RGB(A.nu > 0.5 ? "#0e2a52" : "#1a5a9a"), shal = g3RGB("#3ac0c8"), ciel = A.hor, Pl = e3Plans(VP), I = M4.trs(0, 0, 0);
   if (!E3.sc || ILs) g3Eau(MD.large, { cr: 0.2, t, amp: amp * 0.7, off: [Math.round(E3.cx / 64) * 64, Math.round(E3.cz / 64) * 64], y: -3, deep, shal, ciel });
   e3P('eauLarge');
   let nT = 0;
   if (SH3.on) for (const C of E3.ter.values()) { if (C.m && !C.lod && Math.hypot((C.cx + 0.5) * 256 - E3.cx, (C.cy + 0.5) * 256 - E3.cz) < SH3.R + 120) SH3.rec.push(C.m, I); }
-  for (const C of E3.ter.values()) { if (!e3Vu(Pl, (C.cx + 0.5) * 256, 8, (C.cy + 0.5) * 256, 205)) continue; if (C.m) { g3Mesh(C.m, I); nT += C.n; } }
-  for (const C of E3.ter.values()) { if (!C.e || !e3Vu(Pl, (C.cx + 0.5) * 256, 0, (C.cy + 0.5) * 256, 205)) continue; g3Eau(C.e, { cr: 0.2, t, amp, off: [0, 0], deep, shal, ciel }); }
+  const maxTerD = A.fog[1] + 205;
+  for (const C of E3.ter.values()) { const cx3 = (C.cx + 0.5) * 256, cz3 = (C.cy + 0.5) * 256; if (Math.hypot(cx3 - eye[0], cz3 - eye[2]) > maxTerD || !e3Vu(Pl, cx3, 8, cz3, 205)) continue; if (C.m) { g3Mesh(C.m, I); nT += C.n; } }
+  for (const C of E3.ter.values()) { const cx3 = (C.cx + 0.5) * 256, cz3 = (C.cy + 0.5) * 256; if (!C.e || Math.hypot(cx3 - eye[0], cz3 - eye[2]) > maxTerD || !e3Vu(Pl, cx3, 0, cz3, 205)) continue; g3Eau(C.e, { cr: 0.2, t, amp, off: [0, 0], deep, shal, ciel }); }
   e3P('terrain+eauChunks');
   E3.nTri = nT;
   if (E3.sc) { const SM = e3SceneMesh(jeu.scene); if (SM) { if (SH3.on) SH3.rec.push(SM.w, I); g3Mesh(SM.g, I); g3Mesh(SM.w, I); } if (ILs) { try { e3IleScene(U, MD, A, I, now, t); } catch (e) { if (!E3.ilErr) { E3.ilErr = 1; console.warn('île 3D', e); } } } }
@@ -30104,8 +30109,12 @@ function e3Rendu() {
   E3.nVox = 0; let nb = 0; E3.hNext = [];
   for (const b of E3.ent) {
     if (nb > 140) break;
-    if (b.im.e3h && Math.hypot(b.x - px, b.y - pz) < TR.R * 0.95) { const g1 = e3Sol(b.x, b.y - 1); if (TR.ombre && !shDone) g3Mesh(U.ombre, M4.trs(b.x + 2, g1 + 0.5, b.y + 1, 0, 0, 0, 8, 1, 5.5), { a: 0.34, tint: [0, 0.02, 0.05, 1] }); if (e3Humain(b, dt, now)) { nb++; continue; } }
-    const v = e3Vox(b.im); if (!v) continue; if (Math.hypot(b.x - px, b.y - pz) > TR.R * 0.95) continue;
+    if (Math.hypot(b.x - p67F.capX, b.y - p67F.capZ) > TR.R * 0.95) continue;
+    const by3 = (E3.sc ? 0 : e3Sol(b.x, b.y)) + (b.lift || 0) + 18;
+    const br3 = Math.max(55, (b.im.width || 40) * (b.s || 1) * 0.85, (b.im.height || 40) * (b.sy || 1) * 0.85);
+    if (!e3Vu(Pl, b.x, by3, b.y, br3)) continue;
+    if (b.im.e3h) { const g1 = e3Sol(b.x, b.y - 1); if (TR.ombre && !shDone) g3Mesh(U.ombre, M4.trs(b.x + 2, g1 + 0.5, b.y + 1, 0, 0, 0, 8, 1, 5.5), { a: 0.34, tint: [0, 0.02, 0.05, 1] }); if (e3Humain(b, dt, now)) { nb++; continue; } }
+    const v = e3Vox(b.im); if (!v) continue;
     const g0 = e3Sol(b.x, b.y - 2); nb++;
     if (TR.ombre && !shDone && !b.proj && b.lift < 30) g3Mesh(U.ombre, M4.trs(b.x + 2, g0 + 0.5, b.y + 1, 0, 0, 0, Math.min(26, v.bw * 0.5 + 2), 1, Math.min(20, v.bw * 0.34 + 2)), { a: 0.34, tint: [0, 0.02, 0.05, 1] });
     const zO = (E3.sc || b.im.__v52f) && v.bw >= 40 && !ILs ? -Math.max(8, (v.dep || 12) - 1) * b.s : 0;   // v52 : façade alignée sur la base (le volume ne déborde plus devant la porte)
@@ -30135,7 +30144,7 @@ function e3Rendu() {
   n3Points(pa, false, RH); g3MajParts(dt); g3DessinerParts(RH);
   e3P('particules');
   // pluie
-  if (A.pl && Math.random() < 0.95) for (let i = 0; i < 5 * A.pl; i++) { const a = Math.random() * 6.28, r = 10 + Math.random() * 190; g3Part(E3.cx + Math.cos(a) * r, gy + 90, E3.cz + Math.sin(a) * r - 40, 0, -230, 0, 0.35, 1.6, [0.85, 0.92, 1, 0.6], { add: false }); }
+  if (A.pl && Math.random() < 0.95) for (let i = 0; i < 5 * A.pl; i++) { const a = Math.random() * 6.28, r = 10 + Math.random() * 190; g3Part(E3.cx + 40 * p67F.fwdX + Math.cos(a) * r, gy + 90, E3.cz + 40 * p67F.fwdZ + Math.sin(a) * r, 0, -230, 0, 0.35, 1.6, [0.85, 0.92, 1, 0.6], { add: false }); }
   e3P('pluie');
   SH3.on = false; sh3Lier(false);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; ctx.imageSmoothingEnabled = f < 0.75; ctx.drawImage(G3.cv, 0, 0, W, H); if (typeof e3Bloom === "function") { try { e3Bloom(W, H); } catch (_) { } }
@@ -34186,10 +34195,11 @@ function p92Besoin() {
     const m = jeu && jeu.monde;
     if (!m || typeof sceneMonde === "undefined" || jeu.scene !== sceneMonde || typeof perso === "undefined") r = true;
     else {
-      const tx = Math.floor(perso.x / 16), ty = Math.floor(perso.y / 16), n0 = typeof niveauIci === "function" ? niveauIci(perso.x, perso.y) : 0;
+      const tx = Math.floor(perso.x / 16), ty = Math.floor(perso.y / 16), n0 = typeof niveauIci === "function" ? niveauIci(perso.x, perso.y) : 0, ca = Math.cos(E3.camA || 0), sa = Math.sin(E3.camA || 0);
       for (let j = -1; j <= 8 && !r; j++) for (let i = -3; i <= 3 && !r; i++) {
-        const d = m.decor(tx + i, ty + j); if (d && EST_ARBRE(d)) { r = true; break; }
-        if ((i & 1) === 0 && j > 0 && (j & 1) === 0) { const x = (tx + i) * 16 + 8, y = (ty + j) * 16 + 8;
+        const rx = tx + Math.round(i * ca + j * sa), ry = ty + Math.round(-i * sa + j * ca);
+        const d = m.decor(rx, ry); if (d && EST_ARBRE(d)) { r = true; break; }
+        if ((i & 1) === 0 && j > 0 && (j & 1) === 0) { const x = rx * 16 + 8, y = ry * 16 + 8;
           if (!perso.libre(x, y) && !(typeof niveauIci === "function" && niveauIci(x, y) <= NIV.EAU)) r = true;
           else if (typeof niveauIci === "function" && niveauIci(x, y) > n0 + 1) r = true; }
       }
@@ -39049,7 +39059,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "66.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "67.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -41377,33 +41387,7 @@ function v52CamRot(vx, vy) {
   const c = Math.cos(th), s = Math.sin(th); return [vx * c + vy * s, -vx * s + vy * c];
 }
 function v52Sauver() { PARAMS.camYaw = +v52Norm(V52C.cible).toFixed(3); sauverParams(); }
-/* geste : un doigt libre (pas celui du joystick, pas sur un bouton) */
-try {
-  ecran.addEventListener("pointerdown", e => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    if (manette && e.pointerId === manette.id) return;
-    V52C.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (V52C.pts.size === 1 && v52CamLibre()) V52C.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, on: false };
-    else V52C.drag = null;   // deuxième doigt : c'est un pincement (zoom), on ne tourne plus
-  });
-  ecran.addEventListener("pointermove", e => {
-    if (manette && e.pointerId === manette.id) {   // ce doigt appartient au joystick : il ne tourne jamais la caméra
-      V52C.pts.delete(e.pointerId); if (V52C.drag && V52C.drag.id === e.pointerId) V52C.drag = null; return;
-    }
-    const p = V52C.pts.get(e.pointerId); if (p) { p.x = e.clientX; p.y = e.clientY; }
-    if (!V52C.drag && p && V52C.pts.size === 1 && v52CamLibre() && !P104Z.on) V52C.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, on: false };
-    const D = V52C.drag; if (!D || D.id !== e.pointerId) return;
-    if (!v52CamLibre() || P104Z.on) { V52C.drag = null; return; }
-    if (!D.on && Math.hypot(e.clientX - D.x0, e.clientY - D.y0) > 8) D.on = true;
-    if (D.on) {
-      const k = (PARAMS.camSens || 1) * (PARAMS.camInv ? -1 : 1) * 2 * Math.PI / Math.max(480, Math.max(innerWidth, innerHeight) * 1.5);
-      V52C.cible -= (e.clientX - D.x) * k;
-    }
-    D.x = e.clientX; D.y = e.clientY;
-  });
-  const fin = e => { V52C.pts.delete(e.pointerId); const D = V52C.drag; if (D && D.id === e.pointerId) { if (D.on) v52Sauver(); V52C.drag = null; } };
-  ecran.addEventListener("pointerup", fin); ecran.addEventListener("pointercancel", fin);
-} catch (e) { console.warn("v52 caméra", e); }
+/* geste v67 installé par p670a.js (coalescence par image + yaw + pitch + double-appui) */
 /* joystick « flottant » : le doigt posé sur la moitié droite de l'écran sert à tourner la caméra */
 {
   const md = manette.mode.bind(manette);
@@ -41419,10 +41403,10 @@ function v52Nord() {
     b.innerHTML = '<span>▲</span><b>N</b>';
     b.style.cssText = "position:fixed;z-index:40;width:42px;height:42px;border-radius:50%;border:2px solid #f5d27a;background:radial-gradient(#3a2a18,#1a1008);color:#fff;font:bold 12px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 2px 6px #0008;touch-action:manipulation";
     b.addEventListener("pointerdown", e => { e.stopPropagation(); });
-    b.addEventListener("click", e => { e.stopPropagation(); try { son.jouer("clic"); } catch (_) { } V52C.cible = 0; v52Sauver(); });
+    b.addEventListener("click", e => { e.stopPropagation(); try { son.jouer("clic"); } catch (_) { } if (typeof p67ResetCam === "function") p67ResetCam(); else { V52C.cible = 0; v52Sauver(); } });
     document.body.appendChild(b);
   }
-  const vis = E3.actif && !AV.cine && !(jeu && jeu.pause) && Math.abs(v52Norm(V52C.a)) > 0.04 && !document.body.classList.contains("accueil") && !((document.getElementById("panneau") || {}).hidden === false) && !(grandeCarte && grandeCarte.ouvert);
+  const vis = E3.actif && !AV.cine && !(jeu && jeu.pause) && (Math.abs(v52Norm(V52C.a)) > 0.04 || Math.abs(V52C.dp || 0) > 0.04) && !document.body.classList.contains("accueil") && !((document.getElementById("panneau") || {}).hidden === false) && !(grandeCarte && grandeCarte.ouvert);
   if (b.hidden === vis) b.hidden = !vis;
   if (!vis) return;
   const m = document.getElementById("minicarte"), r = m && m.offsetParent !== null ? m.getBoundingClientRect() : null;
@@ -55008,6 +54992,337 @@ document.addEventListener("click", e => {
     };
   } catch (e) { q66Err("contenu", e); }
 })();
+
+
+/* ==========================================================================
+   PATCH 67.0 : Caméra 3D libre (yaw + pitch simultanés, collision, horizon)
+   ========================================================================== */
+const P67 = {
+  V: "67.0",
+  MIN: -0.16,      // vue basse / ras de l'épaule vers l'horizon et le ciel
+  MAX: 1.36,       // vue quasi du dessus
+  SENS_P: 0.0052,  // sensibilité verticale douce (rad/px, ajustée par PARAMS.camSens)
+  err: [],
+  uCol: 1,
+  wasCN: false,
+  snap: false
+};
+function p67Err(w, e) {
+  if (P67.err.length < 12) P67.err.push(w + ": " + (e && e.message || e));
+}
+
+if (typeof V52C !== "undefined") {
+  V52C.pc = null;       // pitch cible (null = défaut selon mode/orientation)
+  V52C.p = 0.95;        // pitch lissé courant
+  V52C.dp = 0;          // écart signé par rapport au défaut courant
+  V52C.mdx = 0;         // delta tactile X accumulé entre deux images
+  V52C.mdy = 0;         // delta tactile Y accumulé entre deux images
+  V52C.lastTap = 0;
+  V52C.lastTapX = 0;
+  V52C.lastTapY = 0;
+}
+
+function p67DefPitch(INT, port) {
+  return INT ? (port ? 1.0 : 0.9) : (port ? 1.02 : 0.95);
+}
+
+function p67EstPetitInt() {
+  if (typeof E3 === "undefined" || !E3.sc || !jeu || !jeu.scene) return false;
+  if (jeu.scene.ile) return false;
+  if (typeof SceneVille !== "undefined" && jeu.scene instanceof SceneVille) return false;
+  if (typeof SceneFutur !== "undefined" && jeu.scene instanceof SceneFutur) return false;
+  return true;
+}
+
+/* ---------- Extension sauvegarde / chargement V52C ---------- */
+if (typeof v52Charger === "function") {
+  const _v52Ch = v52Charger;
+  v52Charger = function () {
+    _v52Ch();
+    try {
+      const sp = PARAMS && PARAMS.camPitch;
+      if (typeof sp === "number" && isFinite(sp)) {
+        V52C.pc = Math.max(P67.MIN, Math.min(P67.MAX, sp));
+        V52C.p = V52C.pc;
+      } else {
+        V52C.pc = null;
+      }
+    } catch (e) { p67Err("charger", e); }
+  };
+}
+if (typeof v52Sauver === "function") {
+  const _v52Sv = v52Sauver;
+  v52Sauver = function () {
+    try {
+      if (typeof PARAMS !== "undefined") {
+        PARAMS.camPitch = V52C.pc == null ? null : Math.round(V52C.pc * 1000) / 1000;
+      }
+    } catch (e) { p67Err("sauver", e); }
+    _v52Sv();
+  };
+}
+function p67Charger() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PARAMS_CLE) || "null") || {};
+    if (typeof p.camPitch === "number" && isFinite(p.camPitch)) {
+      V52C.pc = Math.max(P67.MIN, Math.min(P67.MAX, p.camPitch));
+      V52C.p = V52C.pc;
+      if (typeof PARAMS !== "undefined") PARAMS.camPitch = V52C.pc;
+    } else {
+      V52C.pc = null;
+      if (typeof PARAMS !== "undefined") PARAMS.camPitch = null;
+    }
+    if (Number.isFinite(+p.camYaw) && typeof V52C !== "undefined") {
+      V52C.cible = V52C.a = +p.camYaw;
+      if (typeof PARAMS !== "undefined") PARAMS.camYaw = V52C.cible;
+    }
+  } catch (_) { }
+}
+p67Charger();
+
+/* ---------- Coalescence des déplacements tactiles par image ---------- */
+function p67FlushDrag() {
+  if (typeof V52C === "undefined") return;
+  const dx = V52C.mdx || 0, dy = V52C.mdy || 0;
+  if (!dx && !dy) return;
+  V52C.mdx = 0; V52C.mdy = 0;
+  if (typeof AV !== "undefined" && AV.cine) return;
+  const sens = (typeof PARAMS !== "undefined" && PARAMS.camSens) || 1;
+  const inv = (typeof PARAMS !== "undefined" && PARAMS.camInv) ? -1 : 1;
+  const wRef = Math.max(480, Math.max(typeof innerWidth === "number" ? innerWidth : 960, typeof innerHeight === "number" ? innerHeight : 540) * 1.5);
+  if (dx) {
+    const ky = sens * inv * 2 * Math.PI / wRef;
+    V52C.cible -= dx * ky;
+    const lim = v52CamLim();
+    if (lim !== Infinity) V52C.cible = Math.max(-lim, Math.min(lim, v52Norm(V52C.cible)));
+  }
+  if (dy && !p67EstPetitInt()) {
+    const port = typeof ecran !== "undefined" && ecran.height > ecran.width;
+    const INT = typeof E3 !== "undefined" && E3.sc && !(jeu.scene && jeu.scene.ile);
+    const pDef = p67DefPitch(INT, port);
+    const cur = V52C.pc == null ? pDef : V52C.pc;
+    // Glisser vers le haut (dy < 0) => baisse le pitch pour regarder l'horizon et le ciel
+    const kp = P67.SENS_P * sens * (900 / wRef);
+    const np = Math.max(P67.MIN, Math.min(P67.MAX, cur + dy * kp));
+    V52C.pc = Math.abs(np - pDef) < 0.012 ? null : np;
+  }
+}
+
+function p67ResetCam() {
+  V52C.cible = 0; V52C.pc = null;
+  V52C.mdx = 0; V52C.mdy = 0;
+  v52Sauver();
+  if (typeof v52Nord === "function") v52Nord();
+}
+
+/* ---------- Écouteurs tactiles coalescés (yaw + pitch + double-appui) ---------- */
+try {
+  if (typeof ecran !== "undefined" && typeof V52C !== "undefined") {
+    ecran.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (typeof manette !== "undefined" && manette && e.pointerId === manette.id) return;
+      V52C.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (V52C.pts.size === 1 && v52CamLibre()) {
+        V52C.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, on: false, t0: performance.now() };
+      } else {
+        V52C.drag = null;
+      }
+    });
+    ecran.addEventListener("pointermove", e => {
+      if (typeof manette !== "undefined" && manette && e.pointerId === manette.id) {
+        V52C.pts.delete(e.pointerId); if (V52C.drag && V52C.drag.id === e.pointerId) V52C.drag = null; return;
+      }
+      const p = V52C.pts.get(e.pointerId); if (p) { p.x = e.clientX; p.y = e.clientY; }
+      if (!V52C.drag && p && V52C.pts.size === 1 && v52CamLibre() && !(typeof P104Z !== "undefined" && P104Z.on)) {
+        V52C.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, on: false, t0: performance.now() };
+      }
+      const D = V52C.drag; if (!D || D.id !== e.pointerId) return;
+      if (!v52CamLibre() || (typeof P104Z !== "undefined" && P104Z.on)) { V52C.drag = null; return; }
+      if (!D.on && Math.hypot(e.clientX - D.x0, e.clientY - D.y0) > 8) D.on = true;
+      if (D.on) {
+        V52C.mdx += e.clientX - D.x;
+        V52C.mdy += e.clientY - D.y;
+      }
+      D.x = e.clientX; D.y = e.clientY;
+    });
+    const fin = e => {
+      V52C.pts.delete(e.pointerId);
+      const D = V52C.drag;
+      if (D && D.id === e.pointerId) {
+        if (D.on) {
+          p67FlushDrag();
+          v52Sauver();
+        } else if (e.type === "pointerup" && v52CamLibre() && !E3.sc && !(typeof P104Z !== "undefined" && P104Z.on)) {
+          const now = performance.now();
+          if (now - V52C.lastTap < 310 && Math.hypot(e.clientX - V52C.lastTapX, e.clientY - V52C.lastTapY) < 42) {
+            V52C.lastTap = 0;
+            p67ResetCam();
+          } else {
+            V52C.lastTap = now; V52C.lastTapX = e.clientX; V52C.lastTapY = e.clientY;
+          }
+        }
+        V52C.drag = null;
+      }
+    };
+    ecran.addEventListener("pointerup", fin);
+    ecran.addEventListener("pointercancel", fin);
+  }
+} catch (e) { p67Err("ecoute", e); }
+
+/* ---------- Calcul pitch lissé + rapprochement / visée au-dessus du héros ---------- */
+function p67CamPos(eye, tgt, D, pitch, port, INT, gy, dt) {
+  const pDef = p67DefPitch(INT, port);
+  const smallInt = p67EstPetitInt();
+  if (smallInt) {
+    V52C.dp = 0;
+    E3.camP = pDef; E3.camDeff = D; E3.camSLow = 0; P67.uCol = 1;
+    p67FlushDrag();
+    return;
+  }
+  p67FlushDrag();
+  const tgtP = V52C.pc == null ? pDef : Math.max(P67.MIN, Math.min(P67.MAX, V52C.pc));
+  if (P67.snap) { V52C.p = tgtP; P67.snap = false; }
+  else {
+    V52C.p += (tgtP - V52C.p) * (1 - Math.exp(-dt * 14));
+    if (Math.abs(tgtP - V52C.p) < 1e-4) V52C.p = tgtP;
+  }
+  const p = V52C.p;
+  V52C.dp = V52C.pc == null ? 0 : (V52C.pc - pDef);
+  E3.camP = p;
+  const sLow = p < pDef ? Math.min(1, (pDef - p) / Math.max(0.2, pDef - P67.MIN)) : 0;
+  const sEase = sLow * sLow * (3 - 2 * sLow);
+  E3.camSLow = sEase;
+  const dEff = Math.max(64, D * (1 - 0.48 * sEase));
+  const shX = eye[0] - E3.cx;
+  const shY = eye[1] - (gy + 12 + D * Math.sin(pitch));
+  const liftHero = (typeof P76 !== "undefined" && P76 && P76.z > 0 ? P76.z * 0.65 : 0) + (typeof AV !== "undefined" && AV.nuageActif ? 10 : 0);
+  const tgtY = gy + 9 + 13 * sEase + liftHero;
+  const tgtFwd = 10 + 8 * sEase;
+  eye[0] = E3.cx + shX;
+  eye[1] = gy + 12 + dEff * Math.sin(p) + shY;
+  eye[2] = E3.cz + dEff * Math.cos(p);
+  tgt[0] = E3.cx;
+  tgt[1] = tgtY;
+  tgt[2] = E3.cz - tgtFwd;
+  E3.camDeff = dEff;
+}
+
+/* ---------- Collision caméra simple (terrain + bâtiments + remparts) ---------- */
+function p67SolMax(x, z) {
+  let g = e3Sol(x, z);
+  const r = 4.5;
+  const g1 = e3Sol(x + r, z), g2 = e3Sol(x - r, z), g3 = e3Sol(x, z + r), g4 = e3Sol(x, z - r);
+  if (g1 > g) g = g1; if (g2 > g) g = g2; if (g3 > g) g = g3; if (g4 > g) g = g4;
+  return g;
+}
+
+function p67CamCol(eye, tgt, gy, dt, INT) {
+  const dx = eye[0] - tgt[0], dy = eye[1] - tgt[1], dz = eye[2] - tgt[2];
+  const dist = Math.hypot(dx, dy, dz);
+  if (dist < 1) return;
+  let uCol = 1;
+  const smallInt = p67EstPetitInt();
+  if (!smallInt) {
+    const boxes = [];
+    if (E3.ent && E3.ent.length) {
+      for (let i = 0; i < E3.ent.length; i++) {
+        const b = E3.ent[i];
+        if (!b || !b.im || Math.abs(b.x - tgt[0]) > 240 || Math.abs(b.y - tgt[2]) > 240) continue;
+        const v = E3.vox && E3.vox.get ? E3.vox.get(b.im) : null;
+        if (!v || v.veg || v.bw < 40) continue;
+        const sc = Math.abs(b.s || 1), hw = Math.max(10, v.bw * sc * 0.44), hd = Math.max(8, (v.dep || 16) * sc * 0.44);
+        const zO = (E3.sc || b.im.__v52f) && !(jeu.scene && jeu.scene.ile) ? -Math.max(8, (v.dep || 12) - 1) * (b.s || 1) : 0;
+        const g0 = e3Sol(b.x, b.y - 2) + (b.lift || 0);
+        const bh = (v.bh || 48) * (b.sy || b.s || 1);
+        boxes.push({ x0: b.x - hw, x1: b.x + hw, z0: b.y + zO - hd, z1: b.y + zO + hd, y0: g0 - 2, y1: g0 + bh + 3 });
+      }
+    }
+    if (!E3.sc && jeu.monde && jeu.monde.lieux) {
+      for (const L of jeu.monde.lieux) {
+        if (tgt[0] < L.x0 - 220 || tgt[0] > L.x1 + 220 || tgt[2] < L.y0 - 220 || tgt[2] > L.y1 + 220) continue;
+        const hb = e3Sol((L.x0 + L.x1) / 2, (L.y0 + L.y1) / 2) - 1;
+        const mh = hb + (L.type === "metropole" ? 32 : 26);
+        boxes.push({ x0: L.x0 - 2, x1: L.x1 + 2, z0: L.y0 - 2, z1: L.y0 + 16, y0: hb - 2, y1: mh + 3 });
+        boxes.push({ x0: L.x0 - 2, x1: L.x0 + 12, z0: L.y0 - 2, z1: L.y1 + 2, y0: hb - 2, y1: mh + 3 });
+        boxes.push({ x0: L.x1 - 12, x1: L.x1 + 2, z0: L.y0 - 2, z1: L.y1 + 2, y0: hb - 2, y1: mh + 3 });
+      }
+    }
+    const N = 16;
+    for (let k = 1; k <= N; k++) {
+      const u = k / N;
+      const px = tgt[0] + dx * u, py = tgt[1] + dy * u, pz = tgt[2] + dz * u;
+      if (!E3.sc && py < p67SolMax(px, pz) + 4.8) {
+        uCol = Math.min(uCol, Math.max(0.2, (k - 0.5) / N));
+        break;
+      }
+      if (boxes.length) {
+        let hit = false;
+        for (let j = 0; j < boxes.length; j++) {
+          const b = boxes[j];
+          if (px >= b.x0 && px <= b.x1 && pz >= b.z0 && pz <= b.z1 && py >= b.y0 && py <= b.y1) { hit = true; break; }
+        }
+        if (hit) { uCol = Math.min(uCol, Math.max(0.22, (k - 1) / N)); break; }
+      }
+    }
+  }
+  if (uCol < P67.uCol) {
+    P67.uCol = uCol < P67.uCol - 0.12 ? uCol : P67.uCol + (uCol - P67.uCol) * (1 - Math.exp(-dt * 34));
+  } else {
+    P67.uCol += (uCol - P67.uCol) * (1 - Math.exp(-dt * 7));
+  }
+  if (P67.uCol < 0.999) {
+    eye[0] = tgt[0] + dx * P67.uCol;
+    eye[1] = tgt[1] + dy * P67.uCol;
+    eye[2] = tgt[2] + dz * P67.uCol;
+  }
+  if (!E3.sc) {
+    const gEye = p67SolMax(eye[0], eye[2]) + 5.5;
+    if (eye[1] < gEye) eye[1] = gEye;
+  }
+}
+
+/* ---------- Ciel, brouillard et chargement chunks selon la vue ---------- */
+function p670Hz(eye, tgt, fov) {
+  const dx = tgt[0] - eye[0], dy = tgt[1] - eye[1], dz = tgt[2] - eye[2];
+  const dl = Math.hypot(dx, dy, dz) || 1;
+  const sinP = Math.max(-0.98, Math.min(0.98, dy / dl));
+  const ang = Math.asin(sinP);
+  const hAng = Math.min(0.65, Math.max(-0.55, ang + fov * 0.48));
+  return Math.max(0.06, Math.min(0.95, 0.50 + Math.sin(hAng) * 0.82));
+}
+
+function p670Vue(D, R, eye, fov, tgt, CN) {
+  const port = typeof ecran !== "undefined" && ecran.height > ecran.width;
+  const INT = E3.sc && !(jeu.scene && jeu.scene.ile);
+  const pDef = p67DefPitch(INT, port);
+  if (P67.wasCN && !CN) V52C.p = pDef;
+  P67.wasCN = !!CN;
+  if (CN) {
+    E3.camP = pDef; E3.camDeff = D; E3.camSLow = 0; V52C.mdx = 0; V52C.mdy = 0;
+  }
+  const sLow = CN ? 0 : (E3.camSLow || 0);
+  const fwdX = -Math.sin(E3.camA || 0), fwdZ = -Math.cos(E3.camA || 0);
+  const fwdOff = Math.min(R * 0.24, 40 + 70 * sLow);
+  const px = CN ? camera.x : perso.x, pz = CN ? camera.y : perso.y;
+  const capX = px + fwdOff * 0.4 * fwdX;
+  const capZ = pz + fwdOff * 0.4 * fwdZ;
+  const dFog = D * (1 - 0.38 * sLow);
+  const rFog = R * (1 - 0.14 * sLow);
+  const hz = p670Hz(eye, tgt, fov);
+  E3.uHz = hz;
+  const isInt = p67EstPetitInt();
+  return { dFog, rFog, fwdOff, capX, capZ, hz, isInt, fwdX, fwdZ };
+}
+
+/* ---------- Bouton boussole N + réglages caméra ---------- */
+// v52Nord patché directement par patch670.py pour conserver création, position et flèche
+if (typeof p100Action === "function") {
+  const _p100Act = p100Action;
+  p100Action = function (act) {
+    if (act === "camN") { p67ResetCam(); if (typeof p100Rendu === "function") p100Rendu(); return; }
+    return _p100Act.apply(this, arguments);
+  };
+}
 
 </script>
 </body>
