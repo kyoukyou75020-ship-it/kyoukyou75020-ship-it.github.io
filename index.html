@@ -30061,7 +30061,7 @@ function e3Rendu() {
   const sot = e3CinePlan(CN, D, pitch, port), eye = [E3.cx + sot.dx + (Math.random() - 0.5) * sh, gy + 12 + sot.D * Math.sin(sot.p) + (Math.random() - 0.5) * sh, E3.cz + sot.D * Math.cos(sot.p) + sot.dz], tgt = [E3.cx + sot.tx, gy + 9 + sot.ty, E3.cz - 10 + sot.tz];
   if (typeof v52CamApp === "function") v52CamApp(eye, tgt, CN);
   const V = M4.look(eye, tgt), Pm = M4.persp(fov, asp, 6, 2600), VP = M4.mul(Pm, V); E3.VP = VP; E3.eye = eye;
-  const A = n3Ambiance(); e3Teinte(A); A.fog = [D + TR.R * 0.4, D + TR.R * 0.98]; if (A.pl) A.fog = [D + TR.R * 0.15, D + TR.R * 0.7]; E3.A = A;
+  const A = n3Ambiance(); e3Teinte(A); A.fog = [D + TR.R * 0.4, D + TR.R * 0.98]; if (A.pl) A.fog = [D + TR.R * 0.15, D + TR.R * 0.7]; try { if (typeof p660Amb === "function") p660Amb(A, D, TR.R); } catch (_) { } E3.A = A;
   if (window.__prof) { window.__prof.__l = null; e3P('debut'); }
   const shOn = E3.tier >= 1 && !window.__nosh && SH3.ok !== false; E3.shReal = shOn;
   if (!E3.sc) e3Terrain(E3.cx - 40 * Math.sin(E3.camA || 0), E3.cz - 40 * Math.cos(E3.camA || 0), !E3.pret); E3.pret = true;
@@ -39049,7 +39049,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "65.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "66.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -54164,6 +54164,850 @@ function p650Banniere(C, W, H, dpr) {
   ctx.font = `800 ${f2}px system-ui,sans-serif`; ctx.lineWidth = f2 * 0.2; ctx.strokeText(T.sous, x, y + f1 * 0.78); ctx.fillStyle = "#fff"; ctx.fillText(T.sous, x, y + f1 * 0.78);
   ctx.restore();
 }
+
+
+/* =====================================================================
+   v66 — MÉTÉO VIVANTE (W66) : soleil, nuages, pluie, orage, brouillard.
+   Transitions progressives (~40 s), états de quelques minutes, enchaînements
+   logiques (nuages → pluie → nuages → soleil…), variation par monde.
+   3D : ciel, lumière, brouillard de distance (via n3Ambiance + p660Amb).
+   2D et 3D : pluie + éclaboussures, ombres et voiles de nuages, bancs de
+   brume, flaques, assombrissement, éclairs. Son discret (si le son est actif).
+   Neutre dans les intérieurs, les cinématiques et l'arène.
+   ===================================================================== */
+const W66 = { e: "soleil", t: 0, duree: 200, cur: { c: 0.08, p: 0, f: 0, o: 0 }, tgt: null, k: 1, mouille: 0, hist: [], err: {}, spr: {}, audio: null, tAud: 0, prec: 0, ecl: 0, an: null, vu: 0 };
+const W66_E = {
+  soleil: { c: 0.06, p: 0, f: 0, o: 0, ic: "☀️", nom: "Soleil", d: [180, 330], msg: "☀️ Le soleil revient." },
+  nuages: { c: 0.78, p: 0, f: 0.08, o: 0, ic: "☁️", nom: "Nuageux", d: [120, 220], msg: "☁️ Le ciel se couvre…" },
+  pluie: { c: 0.96, p: 1, f: 0.22, o: 0, ic: "🌧️", nom: "Pluie", d: [120, 210], msg: "🌧️ Il commence à pleuvoir…" },
+  orage: { c: 1, p: 1.3, f: 0.3, o: 1, ic: "⛈️", nom: "Orage", d: [70, 130], msg: "⛈️ Un orage éclate !" },
+  brouillard: { c: 0.4, p: 0, f: 1, o: 0, ic: "🌫️", nom: "Brouillard", d: [110, 200], msg: "🌫️ Un épais brouillard se lève…" }
+};
+// enchaînements (poids) ; variation par monde : 2 = Grand Line (orages), 3 = Pokémon (beau temps), 4 = Konoha (brume), 5 = Britannia (brume, pluie)
+const W66_T = {
+  soleil: { soleil: 2, nuages: 6, brouillard: 1.5 },
+  nuages: { pluie: 4, soleil: 4, brouillard: 1, nuages: 1 },
+  pluie: { nuages: 5, orage: 2, pluie: 1 },
+  orage: { pluie: 1 },
+  brouillard: { soleil: 3, nuages: 2 }
+};
+const W66_MOD = { 1: {}, 2: { orage: 2, brouillard: 0.6 }, 3: { soleil: 1.6, orage: 0.4, pluie: 0.8 }, 4: { brouillard: 1.6 }, 5: { brouillard: 2, pluie: 1.2 } };
+const W66_TRANS = 40;   // secondes pour passer d'un état à l'autre
+function w66Err(k, e) { if (!W66.err[k]) { W66.err[k] = String(e && e.message || e); try { console.warn("w66", k, e); } catch (_) { } } }
+function w66Choisir(av) {
+  const w = AV.monde || 1, M = W66_MOD[w] || {}, T = W66_T[av] || W66_T.soleil; let h = 12; try { h = cycleHeure(); } catch (_) { }
+  const L = []; let s = 0;
+  for (const k in T) { let p = T[k] * (M[k] || 1); if (k === "brouillard" && h >= 4 && h < 9) p *= 2.5; if (k === "brouillard" && h >= 11 && h < 17) p *= 0.5; L.push([k, p]); s += p; }
+  let r = Math.random() * s; for (const [k, p] of L) { r -= p; if (r <= 0) return k; } return L[0][0];
+}
+function w66Lancer(e, instant) {
+  const D = W66_E[e]; if (!D) return; const av = W66.e;
+  W66.e = e; W66.t = 0; W66.duree = D.d[0] + Math.random() * (D.d[1] - D.d[0]);
+  W66.tgt = { c: D.c, p: D.p, f: D.f, o: D.o };
+  if (instant) { W66.cur = { ...W66.tgt }; try { EX.meteo.type = D.o > 0.5 ? "orage" : D.p > 0.45 ? "pluie" : "clair"; } catch (_) { } }
+  W66.hist.push(e); if (W66.hist.length > 12) W66.hist.shift();
+  try { if (e === "orage" && av !== "orage") EX.stats.orages++; } catch (_) { }
+  try { if (!instant && av !== e && w66Visible() && !AV.cine) messageInfo(D.msg); } catch (_) { }
+}
+function w66Visible() { try { return !!PARAMS.meteo && cycleDehors() && !(AV.cine && (AV.cine.plein || /p99|duel|arene/i.test(AV.cine.type || ""))) && !(typeof grandeCarte !== "undefined" && grandeCarte.ouvert); } catch (_) { return false; } }
+// état exploitable par le rendu : intensités × facteur de visibilité (intérieurs, cinématiques, arène → neutre)
+function w66Etat() { const k = W66.k, c = W66.cur; return { c: c.c * k, p: c.p * k, f: c.f * k, o: c.o * k, k }; }
+function w66Maj(dt) {
+  if (!PARAMS.meteo) { W66.cur = { c: 0, p: 0, f: 0, o: 0 }; W66.k = 0; EX.meteo.type = "clair"; return; }
+  if (!W66.tgt) w66Lancer(W66.e || "soleil", true);
+  W66.t += dt;
+  if (W66.t > W66.duree) w66Lancer(w66Choisir(W66.e));
+  const v = dt / W66_TRANS; for (const q of ["c", "p", "f", "o"]) { const a = W66.cur[q], b = W66.tgt[q]; W66.cur[q] = Math.abs(b - a) <= v * 1.3 ? b : a + Math.sign(b - a) * v * 1.3; }
+  // fondu rapide (≈1 s) quand on entre/sort d'un intérieur, d'une cinématique ou de l'arène
+  const vis = w66Visible() ? 1 : 0; W66.k += (vis - W66.k) * Math.min(1, dt * 2.5); if (Math.abs(vis - W66.k) < 0.01) W66.k = vis;
+  // sol mouillé : monte sous la pluie, sèche lentement
+  W66.mouille = Math.max(0, Math.min(1, W66.mouille + (W66.cur.p > 0.25 ? dt / 30 * W66.cur.p : -dt / 140)));
+  // compat : ancien type (sauvegarde, ombres de nuages p40, rayons dorés…)
+  const M = EX.meteo; M.type = W66.cur.o > 0.5 ? "orage" : W66.cur.p > 0.45 ? "pluie" : "clair";
+  // éclairs (orage)
+  if (W66.cur.o > 0.4) {
+    M.tEclair -= dt;
+    if (M.tEclair <= 0) { M.tEclair = 5 + Math.random() * 9; if (W66.k > 0.5) { M.flash = 1; M.eclair = { x: Math.random(), t: 0.22, seed: Math.random() * 1000 }; M.tonnerre = 0.4 + Math.random() * 0.9; } }
+  }
+  if (M.tonnerre > 0) { M.tonnerre -= dt; if (M.tonnerre <= 0 && W66.k > 0.5) { try { if (PARAMS.son && son.ctx && son.ctx.state === "running") { son.bruit(1.8, 0.45, 240); son.ton(68, 30, 1.5, "sawtooth", 0.1); } } catch (_) { } } }
+  M.flash = Math.max(0, (M.flash || 0) - dt * 3.2); if (M.eclair) { M.eclair.t -= dt; if (M.eclair.t <= 0) M.eclair = null; }
+  W66.tAud -= dt; if (W66.tAud <= 0) { W66.tAud = 0.25; try { w66Son(); } catch (e) { w66Err("son", e); } }
+}
+/* ---------- son : pluie (bruit filtré en boucle) + vent, seulement si le son du jeu est actif ---------- */
+function w66Son() {
+  const ok = PARAMS.son && PARAMS.volume > 0 && son.ctx && son.ctx.state === "running" && son.maitre;
+  if (!ok) { if (W66.audio) { try { W66.audio.gp.gain.value = 0; W66.audio.gv.gain.value = 0; } catch (_) { } } return; }
+  if (!W66.audio) {
+    const c = son.ctx, n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), x = b.getChannelData(0);
+    for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1;
+    const mk = (type, f, q) => { const s = c.createBufferSource(); s.buffer = b; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(son.maitre); s.start(); return g; };
+    W66.audio = { gp: mk("bandpass", 2600, 0.7), gv: mk("lowpass", 380, 0.5) };
+  }
+  const s = w66Etat(), t = son.ctx.currentTime;
+  W66.audio.gp.gain.setTargetAtTime(Math.min(0.09, 0.06 * s.p), t, 0.6);
+  W66.audio.gv.gain.setTargetAtTime(Math.min(0.08, 0.035 * s.o + 0.03 * s.f + 0.012 * s.c), t, 0.8);
+}
+/* ---------- 3D : ciel, lumière, brouillard ---------- */
+function w66Mix(a, b, k) { return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]; }
+{
+  const na = n3Ambiance;
+  n3Ambiance = function () {
+    const M = EX.meteo, ty = M.type; M.type = "clair";
+    let A; try { A = na.apply(this, arguments); } finally { M.type = ty; }
+    try {
+      const s = w66Etat(); if (s.k <= 0.001) { A.pl = 0; return A; }
+      const nuit = A.nu || 0, sombre = 1 - 0.78 * nuit;
+      const gC = [0.62 * sombre, 0.66 * sombre, 0.72 * sombre], gP = [0.42 * sombre, 0.46 * sombre, 0.52 * sombre], gO = [0.2 * sombre, 0.22 * sombre, 0.3 * sombre], gF = [0.78 * sombre + 0.04, 0.8 * sombre + 0.05, 0.82 * sombre + 0.07];
+      A.hor = w66Mix(A.hor, gC, s.c * 0.55); A.top = w66Mix(A.top, w66Mix(gC, [0.5, 0.56, 0.66].map(v => v * sombre), 0.5), s.c * 0.62);
+      const pp = Math.min(1, s.p); A.hor = w66Mix(A.hor, gP, pp * 0.45); A.top = w66Mix(A.top, gP, pp * 0.55);
+      A.hor = w66Mix(A.hor, gO, s.o * 0.5); A.top = w66Mix(A.top, gO, s.o * 0.6);
+      A.hor = w66Mix(A.hor, gF, s.f * 0.85); A.top = w66Mix(A.top, gF, s.f * 0.7);
+      const kS = (1 - 0.5 * s.c) * (1 - 0.25 * pp) * (1 - 0.3 * s.o) * (1 - 0.35 * s.f), kA = (1 - 0.08 * s.c) * (1 - 0.1 * pp) * (1 - 0.14 * s.o) * (1 + 0.06 * s.f);
+      A.sun = A.sun.map(v => v * kS); A.amb = [A.amb[0] * kA * 0.98, A.amb[1] * kA, A.amb[2] * kA * (1.02 + 0.04 * s.c)];
+      const fl = Math.min(1, (M.flash || 0) * 1.2) * s.k; if (fl > 0) { A.amb = A.amb.map(v => v + fl * 0.5); A.hor = w66Mix(A.hor, [0.9, 0.92, 1], fl * 0.6); }
+      A.pl = Math.min(1.6, s.p * 1.2); A.gris = Math.max(A.gris || 0, Math.min(1, s.c * 0.4 + pp * 0.6));
+      A.w66 = s;
+      // brouillard de distance (vue en mer) ; la vue à terre est réglée par p660Amb
+      const f0 = A.fog || [380, 1150]; A.fog = [f0[0] + (90 - f0[0]) * Math.min(1, s.f + pp * 0.4), f0[1] + (480 - f0[1]) * Math.min(1, s.f * 0.9 + pp * 0.35)];
+    } catch (e) { w66Err("amb", e); }
+    return A;
+  };
+}
+// appelée par e3Rendu juste après le réglage du brouillard (D = distance caméra, R = rayon de vue)
+function p660Amb(A, D, R) {
+  const s = A && A.w66; if (!s || s.k <= 0.001) return;
+  const pp = Math.min(1, s.p), base = [D + R * 0.4, D + R * 0.98], pl = [D + R * 0.18, D + R * 0.72], br = [D * 0.8, D + R * 0.24];
+  let a = w66Mix([base[0], base[1], 0], [pl[0], pl[1], 0], pp); a = w66Mix(a, [br[0], br[1], 0], Math.min(1, s.f));
+  A.fog = [a[0], Math.max(a[0] + 40, a[1])];
+}
+/* ---------- sprites (pré-calculés une fois) ---------- */
+function w66Spr(k) {
+  if (W66.spr[k]) return W66.spr[k];
+  const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+  let c;
+  if (k === "nuage" || k === "ombre") {
+    c = mk(160, 96); const g = c.getContext("2d"), col = k === "nuage" ? "255,255,255" : "10,16,30";
+    const B = [[80, 52, 36], [50, 58, 28], [110, 58, 30], [66, 38, 26], [96, 36, 24], [30, 64, 18], [132, 64, 18]];
+    for (const [x, y, r] of B) { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},0.9)`); gr.addColorStop(0.6, `rgba(${col},0.55)`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 160, 96); }
+  } else if (k === "banc") {
+    c = mk(256, 80); const g = c.getContext("2d");
+    for (let i = 0; i < 9; i++) { const x = 30 + i * 25, y = 40 + Math.sin(i * 1.7) * 8, r = 26 + (i % 3) * 8; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(255,255,255,0.5)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 256, 80); }
+  } else if (k === "vignette") {
+    c = mk(128, 128); const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 14, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.45, "rgba(255,255,255,0.35)"); gr.addColorStop(1, "rgba(255,255,255,1)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }
+  return (W66.spr[k] = c);
+}
+const w66H = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+/* ---------- dessin (au-dessus de la scène, en 2D comme en 3D) ---------- */
+function w66Dessiner() {
+  const s = w66Etat(); if (s.k <= 0.01 || !jeu || !jeu.monde) return;
+  const W = ecran.width, H = ecran.height, d = Math.max(1, W / Math.max(1, innerWidth)), now = performance.now() / 1000;
+  const dt = Math.min(0.05, Math.max(0, now - (W66.prec || now))); W66.prec = now;
+  const eco = !!(PARAMS.eco || PARAMS.qualite === "basse");
+  const e3on = typeof E3 !== "undefined" && E3.actif && E3.cx != null && E3.VP, n3on = typeof N3 !== "undefined" && N3.actif;
+  let nu = 0; try { nu = cycleNuit(); } catch (_) { }
+  const sombre = 1 - 0.8 * nu;
+  // projection monde → écran (2D : caméra du jeu ; 3D : e3Ecran) ; null si hors champ
+  let e2 = 1, o2 = null; if (!e3on && !n3on) { try { e2 = camera.echelle(); o2 = camera.origine(e2); } catch (_) { return; } }
+  // proj → [x écran, y écran, pixels par unité du monde]
+  const proj = (x, y, h) => { if (e3on) { const gy = e3Sol(x, y) + (h || 0), q = e3Ecran(x, gy, y); if (!q) return null; const q2 = e3Ecran(x + 10, gy, y); return [q[0], q[1], q2 ? Math.min(40, Math.abs(q2[0] - q[0]) / 10 + 0.01) : 1]; } if (o2) return [(x - o2.x) * e2, (y - o2.y) * e2, e2]; return null; };
+  const PR = window.__w66prof, HR = window.__hr || (() => performance.now()); let t0p = PR ? HR() : 0; const T = k => { if (PR) { const t = HR(); PR[k] = (PR[k] || 0) + t - t0p; t0p = t; } };
+  ctx.save(); ctx.imageSmoothingEnabled = false;   // v66 : agrandissements « au plus proche » (bien moins coûteux, style pixel)
+  try {
+    /* 1. assombrissement (nuages, pluie, orage), plus marqué en haut */
+    const ao = (s.c * 0.1 + Math.min(1, s.p) * 0.13 + s.o * 0.13) * (1 - 0.75 * nu);
+    if (ao > 0.01 && !e3on && !n3on) { ctx.fillStyle = `rgba(${s.o > 0.4 ? "18,22,40" : "34,44,64"},${ao.toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+    else if (ao > 0.01) { ctx.fillStyle = `rgba(30,38,56,${(ao * 0.45).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+    T('sombre');
+    /* 2. ombres de nuages qui glissent sur le sol */
+    if (s.c > 0.3 && nu < 0.85 && !n3on) {
+      const om = w66Spr("ombre"), L = 1500, vx = now * 11, vy = now * 4.5, a = Math.min(0.3, s.c * 0.26) * (1 - nu);
+      const cx = e3on ? E3.cx : perso.x, cy = e3on ? E3.cz : perso.y; ctx.globalAlpha = a;
+      for (let i = 0; i < (eco || !e3on ? 3 : 5); i++) {
+        const wx = ((w66H(i, 7) * L + vx) % L + L) % L, wy = ((w66H(i, 3) * L + vy) % L + L) % L, sc = 1.6 + w66H(i, 9) * 1.4;
+        const bx = Math.floor((cx - L / 2) / L) * L + wx, by = Math.floor((cy - L / 2) / L) * L + wy;
+        for (const ox of [0, L]) for (const oy of [0, L]) {
+          const X = bx + ox, Y = by + oy; if (Math.abs(X - cx) > 700 || Math.abs(Y - cy) > 700) continue;
+          const p = proj(X, Y, 0); if (!p) continue; const ww = 160 * sc * p[2], hh = 96 * sc * p[2] * (e3on ? 0.6 : 1);
+          if (p[0] + ww / 2 < 0 || p[0] - ww / 2 > W || p[1] + hh / 2 < 0 || p[1] - hh / 2 > H) continue;
+          ctx.drawImage(om, p[0] - ww / 2, p[1] - hh / 2, ww, hh);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    T('ombres');
+    /* 3. flaques (après la pluie) */
+    if (W66.mouille > 0.05 && !AV.nav && !n3on) {
+      const m = jeu.monde, cx = e3on ? E3.cx : perso.x, cy = e3on ? E3.cz : perso.y, G = 88, R = e3on ? 3 : Math.ceil(Math.max(W, H) / e2 / G / 2) + 1, a = W66.mouille * 0.42;
+      const tx0 = Math.floor(cx / G), ty0 = Math.floor(cy / G); let n = 0;
+      ctx.lineWidth = Math.max(1, d * 0.8);
+      for (let j = -R; j <= R && n < 14; j++) for (let i = -R; i <= R && n < 14; i++) {
+        const gx = tx0 + i, gy = ty0 + j, h = w66H(gx, gy); if (h > 0.2) continue;
+        const x = gx * G + w66H(gy, gx) * G * 0.7, y = gy * G + w66H(gx + 3, gy) * G * 0.7;
+        let lv = -1; try { lv = m.niveauPx(Math.floor(x), Math.floor(y)); } catch (_) { }
+        if (lv !== NIV.HERBE && lv !== NIV.SABLE) continue;
+        const p = proj(x, y, 0.3); if (!p || p[0] < -40 || p[0] > W + 40 || p[1] < -20 || p[1] > H + 20) continue;
+        const r = (6 + h * 40) * p[2] * 0.8; n++;
+        ctx.globalAlpha = a; ctx.fillStyle = nu > 0.5 ? "#1c2434" : "#6a7f9c"; ctx.beginPath(); ctx.ellipse(p[0], p[1], r, r * 0.42, 0, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = a * 0.8; ctx.strokeStyle = "#dce8ff"; ctx.beginPath(); ctx.ellipse(p[0] - r * 0.25, p[1] - r * 0.1, r * 0.45, r * 0.12, 0, 3.4, 5.6); ctx.stroke();
+        if (s.p > 0.2) { const u = (now * 1.6 + h * 7) % 1; ctx.globalAlpha = a * (1 - u); ctx.beginPath(); ctx.ellipse(p[0] + r * 0.2, p[1], r * u * 0.7, r * u * 0.28, 0, 0, 6.2832); ctx.stroke(); }
+      }
+      ctx.globalAlpha = 1;
+    }
+    T('flaques');
+    /* 4. pluie en perspective (3 plans) + éclaboussures */
+    if (s.p > 0.02) {
+      const orage = s.o > 0.4, N = Math.round((orage ? 95 : 70) * Math.min(1.3, s.p) * (eco ? 0.55 : 1) * (1 - 0.35 * nu) * Math.min(1.6, W * H / (824 * 1830) + 0.4));
+      if (!W66.g || W66.g.length !== N) { W66.g = []; for (let i = 0; i < N; i++) W66.g.push([Math.random() * W, Math.random() * H, i % 3]); }
+      const vent = orage ? -0.3 : -0.12, fx = W / 2 + vent * H * 2.2, fy = H * 2.4;
+      const LAY = [{ v: 0.75, L: 0.012, w: 0.7, a: 0.5 }, { v: 1, L: 0.02, w: 1, a: 0.42 }, { v: 1.35, L: 0.034, w: 1.5, a: 0.26 }];
+      const ka = Math.min(1, s.p) * s.k;
+      for (let k = 0; k < 3; k++) {
+        const Ly = LAY[k], vv = (orage ? 1350 : 1000) * d * Ly.v;
+        ctx.strokeStyle = `rgba(210,225,250,${(Ly.a * ka * (orage ? 1.1 : 1)).toFixed(2)})`; ctx.lineWidth = Math.max(1, Math.round(d * Ly.w)); ctx.beginPath();
+        for (const g of W66.g) { if (g[2] !== k) continue;
+          let ux = fx - g[0], uy = fy - g[1]; const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
+          g[0] += ux * vv * dt; g[1] += uy * vv * dt;
+          if (g[1] > H + 10 || g[0] < -40 || g[0] > W + 40) { g[1] = -Math.random() * 40 * d; g[0] = Math.random() * (W + 160 * d) - 80 * d; }
+          const LL = vv * Ly.L * (0.6 + g[1] / H * 0.8); ctx.moveTo(g[0], g[1]); ctx.lineTo(g[0] - ux * LL, g[1] - uy * LL); }
+        ctx.stroke();
+      }
+      if (!W66.ec) W66.ec = [];
+      const nE = Math.round((orage ? 18 : 12) * Math.min(1, s.p) * (eco ? 0.5 : 1)); while (W66.ec.length < nE) W66.ec.push({ t: Math.random() * 0.4, ok: false }); if (W66.ec.length > nE) W66.ec.length = nE;
+      ctx.strokeStyle = `rgba(225,238,255,${(0.55 * ka).toFixed(2)})`; ctx.lineWidth = Math.max(1, Math.round(d)); ctx.beginPath();
+      for (const e of W66.ec) {
+        e.t += dt; if (e.t > 0.4 || !e.ok) { e.t = e.ok ? 0 : e.t; e.ok = true; if (e3on) { const a = Math.random() * 6.28, r = 12 + Math.random() * 150; e.x = E3.cx + Math.cos(a) * r; e.z = E3.cz + Math.sin(a) * r * 0.8 - 20; e.y = e3Sol(e.x, e.z); e.s = null; } else e.s = [Math.random() * W, H * 0.2 + Math.random() * H * 0.8]; }
+        let sx, sy, sc = 1; if (e.s) { sx = e.s[0]; sy = e.s[1]; } else { const q = e3Ecran(e.x, e.y + 0.5, e.z); if (!q) continue; sx = q[0]; sy = q[1]; sc = Math.max(0.5, Math.min(1.6, 230 / q[2])); }
+        const u = e.t / 0.4, r = (1.5 + u * 5) * d * sc; if (u > 1) continue;
+        ctx.moveTo(sx + r, sy); ctx.ellipse(sx, sy, r, r * 0.38, 0, 0, 6.2832);
+        if (u < 0.3) { ctx.moveTo(sx - r * 0.5, sy - (1 + u * 9) * d * sc); ctx.lineTo(sx - r * 0.6, sy - (2 + u * 12) * d * sc); ctx.moveTo(sx + r * 0.5, sy - (1 + u * 9) * d * sc); ctx.lineTo(sx + r * 0.6, sy - (2 + u * 12) * d * sc); }
+      }
+      ctx.stroke();
+    }
+    T('pluie');
+    /* 5. voiles de nuages bas (passent entre la caméra et le sol) */
+    if (s.c > 0.35 && s.p < 0.25 && !eco) {
+      const nb = w66Spr("nuage"), a = (s.c - 0.35) * (nu > 0.5 ? 0.25 : 0.42) * sombre, L = 1300, vx = now * 22, vy = now * 7;
+      const cx = e3on ? E3.cx : n3on ? 0 : perso.x, cy = e3on ? E3.cz : n3on ? 0 : perso.y;
+      ctx.globalAlpha = a;
+      for (let i = 0; i < (e3on ? 4 : 2); i++) {
+        let X, Y, ww, hh;
+        if (e3on) { const wx = ((w66H(i, 11) * L + vx) % L + L) % L, wy = ((w66H(i, 13) * L + vy) % L + L) % L; const px = Math.floor((cx - L / 2) / L) * L + wx, pz = Math.floor((cy - L / 2) / L) * L + wy;
+          const gy = e3Sol(cx, cy) + 95, q = e3Ecran(px, gy, pz); if (!q) continue; const q2 = e3Ecran(px + 10, gy, pz); const u = q2 ? Math.min(40, Math.abs(q2[0] - q[0]) / 10) : 2; X = q[0]; Y = q[1]; ww = 170 * u; hh = 100 * u; }
+        else { X = (((w66H(i, 11) * W * 2 + now * 14 * d * (1 + i * 0.3)) % (W * 1.6)) + W * 1.6) % (W * 1.6) - W * 0.3; Y = (w66H(i, 17) * 0.8 + 0.05) * H; ww = W * 0.5; hh = ww * 0.6; }
+        if (X + ww / 2 < 0 || X - ww / 2 > W || Y + hh / 2 < 0 || Y - hh / 2 > H) continue;
+        ctx.drawImage(nb, X - ww / 2, Y - hh / 2, ww, hh);
+      }
+      ctx.globalAlpha = 1;
+    }
+    T('voiles');
+    /* 6. brouillard : vignette autour du héros + bancs de brume qui dérivent */
+    if (s.f >= 0.45) {
+      let px = W / 2, py = H * 0.55; if (!e3on && !n3on && o2) { px = (perso.x - o2.x) * e2; py = (perso.y - o2.y) * e2; } else if (e3on) { const q = e3Ecran(perso.x, e3Sol(perso.x, perso.y) + 8, perso.y); if (q) { px = q[0]; py = q[1]; } }
+      const col = nu > 0.5 ? "#4a5260" : "#dde2e8", R = Math.max(W, H) * (e3on || n3on ? 1.05 : 0.95) * (1.15 - 0.3 * s.f);
+      // vignette teintée (sprite blanc pré-calculé, teinté par composition)
+      if (!W66.vt || W66.vtc !== col) { const v = w66Spr("vignette"), c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d"); g.drawImage(v, 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = col; g.fillRect(0, 0, 128, 128); W66.vt = c; W66.vtc = col; }
+      const vig = s.f >= 0.45; if (vig) { ctx.globalAlpha = Math.min(0.92, s.f * (e3on || n3on ? 0.75 : 0.88)); ctx.drawImage(W66.vt, px - R, py - R, R * 2, R * 2); }
+      // remplissage hors du disque de la vignette
+      ctx.fillStyle = col; if (vig && px - R > 0) ctx.fillRect(0, 0, px - R + 1, H); if (vig && px + R < W) ctx.fillRect(px + R - 1, 0, W - px - R + 1, H); if (vig && py - R > 0) ctx.fillRect(0, 0, W, py - R + 1); if (vig && py + R < H) ctx.fillRect(0, py + R - 1, W, H - py - R + 1);
+      // voile général léger + bancs
+      ctx.globalAlpha = s.f * 0.16; ctx.fillRect(0, 0, W, H);
+      const bc = w66Spr("banc"); ctx.globalAlpha = Math.min(0.55, s.f * 0.45) * (nu > 0.5 ? 0.5 : 1);
+      for (let i = 0; i < (eco ? 2 : vig ? 4 : 2); i++) { const ww = W * (0.9 + w66H(i, 2) * 0.6), x = ((w66H(i, 5) * W * 3 + now * (10 + i * 5) * d) % (W + ww)) - ww * 0.5, y = H * (0.12 + i * 0.19 + Math.sin(now * 0.2 + i) * 0.02); ctx.drawImage(bc, x, y, ww, ww * 0.3); }
+      ctx.globalAlpha = 1;
+    }
+    T('brume');
+    /* 7. éclair + flash */
+    const M = EX.meteo;
+    if (M.eclair && s.k > 0.5) {
+      const r = mulberry32(M.eclair.seed | 0); let x = M.eclair.x * W, y = 0; ctx.strokeStyle = "rgba(255,255,240,0.95)"; ctx.lineWidth = Math.max(2, 2 * d); ctx.beginPath(); ctx.moveTo(x, y);
+      while (y < H * 0.55) { const nx = x + (r() - 0.5) * 50 * d, ny = y + (12 + r() * 26) * d; ctx.lineTo(nx, ny); if (r() < 0.18) { ctx.lineTo(nx + (r() - 0.5) * 60 * d, ny + 30 * d); ctx.moveTo(nx, ny); } x = nx; y = ny; } ctx.stroke();
+    }
+    if (M.flash > 0 && s.k > 0.5) { ctx.fillStyle = `rgba(235,240,255,${Math.min(0.7, M.flash * 0.75).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+    T('eclair');
+  } catch (e) { w66Err("dessin", e); }
+  ctx.restore();
+}
+meteoMaj = function (dt) { try { w66Maj(dt); } catch (e) { w66Err("maj", e); } };
+meteoDessiner = function () { try { w66Dessiner(); } catch (e) { w66Err("dess", e); } };
+/* ---------- indicateur discret dans le HUD (à gauche de l'horloge) ---------- */
+function w66Icone(e) {
+  W66.ic = W66.ic || {}; if (W66.ic[e]) return W66.ic[e];
+  const c = document.createElement("canvas"); c.width = c.height = 24; const g = c.getContext("2d");
+  const nuage = (x, y, col) => { g.fillStyle = "#1a2030"; for (const [a, b, r] of [[x, y, 5.5], [x + 5, y - 2, 6.5], [x + 10, y, 5]]) { g.beginPath(); g.arc(a, b, r + 1, 0, 6.3); g.fill(); } g.fillStyle = col; for (const [a, b, r] of [[x, y, 5.5], [x + 5, y - 2, 6.5], [x + 10, y, 5]]) { g.beginPath(); g.arc(a, b, r, 0, 6.3); g.fill(); } g.fillRect(x, y, 10, 5); };
+  const soleil = (x, y, r) => { g.strokeStyle = "#ffcf3a"; g.lineWidth = 2; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(x + Math.cos(a) * (r + 2), y + Math.sin(a) * (r + 2)); g.lineTo(x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5)); g.stroke(); } g.fillStyle = "#ffe066"; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); g.fillStyle = "#fff6c0"; g.beginPath(); g.arc(x - 1.5, y - 1.5, r * 0.4, 0, 6.3); g.fill(); };
+  if (e === "soleil") soleil(12, 12, 5.5);
+  else if (e === "nuages") { soleil(8, 8, 4); nuage(7, 15, "#e8edf4"); }
+  else if (e === "pluie") { nuage(6, 10, "#b8c4d4"); g.strokeStyle = "#7ac0ff"; g.lineWidth = 1.6; for (const x of [7, 12, 17]) { g.beginPath(); g.moveTo(x, 17); g.lineTo(x - 2, 22); g.stroke(); } }
+  else if (e === "orage") { nuage(6, 9, "#6a7488"); g.fillStyle = "#ffe040"; g.beginPath(); g.moveTo(13, 13); g.lineTo(9, 19); g.lineTo(12, 19); g.lineTo(10, 24); g.lineTo(16, 17); g.lineTo(13, 17); g.lineTo(15, 13); g.fill(); }
+  else if (e === "brouillard") { g.globalAlpha = 0.6; soleil(12, 9, 4); g.globalAlpha = 1; g.strokeStyle = "#e4e8ee"; g.lineWidth = 2.4; g.lineCap = "round"; for (const [y, a, b] of [[13, 3, 19], [17, 6, 21], [21, 2, 16]]) { g.beginPath(); g.moveTo(a, y); g.lineTo(b, y); g.stroke(); } }
+  return (W66.ic[e] = c);
+}
+function w66DominantEtat() { // état affiché : celui dont les intensités sont les plus proches de l'état courant
+  const c = W66.cur; let best = W66.e, bd = 1e9;
+  for (const k in W66_E) { const D = W66_E[k], dd = Math.abs(D.c - c.c) * 0.7 + Math.abs(D.p - c.p) * 1.2 + Math.abs(D.f - c.f) + Math.abs(D.o - c.o) * 1.4; if (dd < bd) { bd = dd; best = k; } }
+  return best;
+}
+{
+  const ch = cycleDessinerHUD;
+  cycleDessinerHUD = function () {
+    ch.apply(this, arguments);
+    try {
+      if (!PARAMS.meteo || !jeu || AV.cine || W66.k < 0.5 || (jeu.scene !== sceneMonde && !cycleDehors())) return;
+      const d = DPR(), p = Math.max(2, Math.round(2 * d)), r = CYCLE.rect, w = 11 * p + 4 * d + 20 * p, hh = 11 * p + 4 * d;
+      const x0 = r ? Math.round(r.right * d - w) : ecran.width - w - 10 * d, y = r ? Math.round(r.bottom * d + 4 * d) : 10 * d;
+      const S = hh, x = x0 - 3 * d - S - 3 * d;
+      const e = w66DominantEtat(); W66.affiche = e;
+      ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = "#0a1020"; ctx.beginPath(); ctx.arc(x + S / 2, y - 2 * d + S / 2, S / 2 + d, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(w66Icone(e), x + S * 0.1, y - 2 * d + S * 0.1, S * 0.8, S * 0.8);
+      // petit anneau qui indique un changement en cours
+      if (W66.t < W66_TRANS && W66.hist.length > 1) { ctx.strokeStyle = "rgba(255,230,140,0.8)"; ctx.lineWidth = Math.max(1, d); ctx.beginPath(); ctx.arc(x + S / 2, y - 2 * d + S / 2, S / 2 + d, -Math.PI / 2, -Math.PI / 2 + 6.2832 * W66.t / W66_TRANS); ctx.stroke(); }
+      ctx.restore();
+    } catch (e) { w66Err("hud", e); }
+  };
+}
+/* ---------- sauvegarde (rétro-compatible : l'ancien champ extras.meteo est gardé) ---------- */
+function w66Export() { return { e: W66.e, t: Math.round(W66.t), d: Math.round(W66.duree), c: { ...W66.cur }, m: +W66.mouille.toFixed(2), h: W66.hist.slice(-6) }; }
+function w66Import(d) {
+  const x = d && d.meteo66;
+  if (x && W66_E[x.e]) { W66.e = x.e; W66.t = +x.t || 0; W66.duree = +x.d || 180; W66.tgt = { c: W66_E[x.e].c, p: W66_E[x.e].p, f: W66_E[x.e].f, o: W66_E[x.e].o }; const c = x.c || {}; W66.cur = { c: +c.c || 0, p: +c.p || 0, f: +c.f || 0, o: +c.o || 0 }; W66.mouille = +x.m || 0; W66.hist = Array.isArray(x.h) ? x.h.filter(k => W66_E[k]) : []; return; }
+  const old = d && d.extras && d.extras.meteo; w66Lancer(old === "orage" ? "orage" : old === "pluie" ? "pluie" : "soleil", true);
+}
+{
+  const es = etatSauvegarde; etatSauvegarde = function () { const d = es.apply(this, arguments); try { if (d) d.meteo66 = w66Export(); } catch (e) { w66Err("sv", e); } return d; };
+  const re = restaurer; restaurer = function (d) { const r = re.apply(this, arguments); try { w66Import(d); } catch (e) { w66Err("re", e); } return r; };
+  try { const s = localStorage.getItem(SAUVE.CLE); if (s) w66Import(JSON.parse(s)); else w66Lancer("soleil", true); } catch (e) { w66Lancer("soleil", true); }
+  try { const o = OPTIONS_MENU.find(o => o[0] === "meteo"); if (o) o[1] = "Météo (soleil, nuages, pluie, brouillard, orage)"; } catch (_) { }
+}
+// outils de test / débogage
+function w66Forcer(e, instant) { w66Lancer(e, instant !== false); }
+
+/* ===== v66 · QUÊTES : cœur (nouvelles étapes, scènes de dialogue, récompenses, suivi, journal « En cours ») ===== */
+const Q66 = { err: {}, esc: null, derRec: null, lastB: null, t: 0, sc: null, fl: 0, dernAmb: 0, hud: null, tamp: 0 };
+function q66Err(k, e) { if (!Q66.err[k]) { Q66.err[k] = String(e && e.message || e); try { console.warn("q66", k, e); } catch (_) { } } }
+const Q66_TYPES = ["bois", "trouver", "escorte"];
+const q66Pan = () => { const p = document.getElementById("panneau"); return !!(p && !p.hidden); };
+function q66Niv(w) { try { if (w === 4 && typeof KN !== "undefined") return KN.niv || 1; } catch (_) { } return (typeof prog !== "undefined" && prog.niveau) || 1; }
+/* ---------- conditions d'apparition (« apres ») ---------- */
+(() => {
+  const d0 = q49Dispo;
+  q49Dispo = function (Q) { if (!d0.apply(this, arguments)) return false; try { if (Q.apres && !(q49Q(Q.apres) && q49Q(Q.apres).st === "fini")) return false; } catch (_) { } return true; };
+})();
+function q66Dispo(Q) { return q49Dispo(Q); }
+/* ---------- objet caché (« trouver ») ---------- */
+function q66TrouverPos(id) {
+  const Q = Q49_BY[id], st = q49Q(id), E = q49Etape(id); if (!E || E.t !== "trouver" || q49W() !== Q.w) return null;
+  if (!st.tp) { const c = q49Pos(Q.w, E.a[0], E.a[1], E.a[2]); if (!c) return null; const r = q49Rnd(id + ":t" + st.e); let p = null;
+    for (let i = 0; i < 80 && !p; i++) { const a = r() * 6.28, d = 60 + r() * (E.r || 200), x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d; if (q49Ok(x, y)) p = [Math.round(x), Math.round(y)]; }
+    st.tp = p || [Math.round(c.x + 40), Math.round(c.y)]; st.tc = [Math.round(c.x), Math.round(c.y)]; }
+  return st.tp;
+}
+function q66Items(id) { const E = q49Etape(id); if (!E) return null; if (E.t === "trouver") { const p = q66TrouverPos(id); return p ? [p] : null; } return null; }
+function q66Chaud(id) { const p = q66TrouverPos(id); if (!p) return ""; const P = q49P(), d = Math.hypot(P.x - p[0], P.y - p[1]);
+  return d < 70 ? "TRÈS CHAUD !" : d < 160 ? "CHAUD" : d < 320 ? "TIÈDE" : "FROID"; }
+/* ---------- escorte ---------- */
+function q66EscDepart(id) { const Q = Q49_BY[id], E = q49Etape(id); if (!E || E.t !== "escorte" || q49W() !== Q.w) return null; return q49Pos(Q.w, E.de[0], E.de[1], E.de[2]); }
+function q66EscDest(id) { const Q = Q49_BY[id], E = q49Etape(id); if (!E || E.t !== "escorte" || q49W() !== Q.w) return null; return q49Pos(Q.w, E.a[0], E.a[1], E.a[2]); }
+function q66Bulle(x, y, t, d) { try { bulleMonde(x, y - 34, t, d || 2.4); } catch (_) { } }
+function q66Embuscade(S, E) {
+  const w = q49W(), L = [], A = E.amb; if (!A || !A.n) return L;
+  for (let i = 0; i < A.n; i++) { const a = i / A.n * 6.28 + 0.7, d = 90 + (i % 2) * 25; let x = S.x + Math.cos(a) * d, y = S.y + Math.sin(a) * d;
+    const sp = q49Spot(x, y, 120); if (sp) { x = sp.x; y = sp.y; }
+    try { let n = null;
+      if (w === 4 && typeof knCreerEnnemi === "function") n = knCreerEnnemi(A.type || "bandit", x, y);
+      else if (w === 5 && typeof brCreerEnnemi === "function") n = brCreerEnnemi(A.type || "brigand", x, y);
+      else if (w === 1 && typeof creerAnimal === "function") n = creerAnimal(A.type || "loup", x, y);
+      if (n) { n.etat = n.etat === "erre" ? "chasse" : n.etat; n.q66 = 1; L.push(n); } } catch (e) { q66Err("amb", e); } }
+  return L;
+}
+function q66Vivant(n) { if (!n || n.pv <= 0 || n.mort) return false; const w = q49W();
+  try { if (w === 4) return KN.en.includes(n); if (w === 5) return BR.en.includes(n); if (w === 1) return animaux.includes(n); } catch (_) { } return false; }
+function q66MajEscorte(dt) {
+  const S = q49S(), w = q49W(), P = q49P();
+  if (Q66.esc && (!q49Etape(Q66.esc.id) || Q49_BY[Q66.esc.id].w !== w || q49Etape(Q66.esc.id).t !== "escorte")) Q66.esc = null;
+  if (!Q66.esc) {
+    for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E || E.t !== "escorte") continue;
+      const p = q66EscDepart(Q.id); if (!p) continue;
+      if (Math.hypot(P.x - p.x, P.y - p.y) < (AV.nav ? 110 : 46)) { const D = q66EscDest(Q.id); if (!D) continue;
+        Q66.esc = { id: Q.id, x: p.x, y: p.y, d0: Math.max(1, Math.hypot(D.x - p.x, D.y - p.y)), amb: [], ambF: false, peur: false, tb: 0, tA: 0, bouge: false, mir: false };
+        S.suivi = Q.id; q66Bulle(p.x, p.y, (E.dit && E.dit.go) || "Je te suis !", 3);
+        try { son.jouer("orbe"); } catch (_) { } try { p105Notif(E.nom + " te suit", "🛡️ Escorte", "Reste près de " + E.nom + " jusqu'à l'arrivée"); } catch (_) { }
+        break; } }
+    return;
+  }
+  const C = Q66.esc, E = q49Etape(C.id), D = q66EscDest(C.id); if (!D) return;
+  C.tb -= dt; C.tA += dt;
+  const dp = Math.hypot(P.x - C.x, P.y - C.y), dd = Math.hypot(D.x - C.x, D.y - C.y);
+  if (C.peur) { const vivants = C.amb.filter(q66Vivant); if (!vivants.length || C.tA > 75) { C.peur = false; Q66.dernAmb = C.amb.length; q66Bulle(C.x, C.y, (E.dit && E.dit.ouf) || "Ouf… merci !", 2.6); }
+    else if (C.tb <= 0) { C.tb = 3.2; q66Bulle(C.x, C.y, (E.dit && E.dit.peur) || "Au secours !", 2); } C.bouge = false; return; }
+  if (!C.ambF && E.amb && E.amb.n && dd < C.d0 * 0.58) { C.ambF = true; C.amb = q66Embuscade(C, E);
+    if (C.amb.length) { C.peur = true; C.tA = 0; C.tb = 0; try { son.jouer("erreur"); } catch (_) { } try { p105Notif("Embuscade !", "⚔️ " + E.nom + " est attaqué", "Bats les ennemis pour continuer"); } catch (_) { } return; } }
+  const lim = AV.nav ? 420 : 230;
+  if (dp > lim) { C.bouge = false; if (C.tb <= 0) { C.tb = 3.5; q66Bulle(C.x, C.y, (E.dit && E.dit.att) || "Attends-moi !", 2.2); } }
+  else { const garde = AV.nav ? 70 : 30; if (dp > garde) { const v = Math.min(dp * 2.4, AV.nav ? 260 : 150) * dt, ux = (P.x - C.x) / dp, uy = (P.y - C.y) / dp; let nx = C.x + ux * v, ny = C.y + uy * v;
+      if (!AV.nav && !q49Ok(nx, ny)) { /* contourne : glisse sur un axe */ if (q49Ok(nx, C.y)) ny = C.y; else if (q49Ok(C.x, ny)) nx = C.x; else { nx = P.x - ux * garde; ny = P.y - uy * garde; } }
+      const mv = Math.hypot(nx - C.x, ny - C.y); C.blk = mv < v * 0.3 ? (C.blk || 0) + dt : 0;
+      if (C.blk > 1.2) { /* coincé derrière un obstacle : il rattrape le joueur (comme un compagnon) */ C.blk = 0; const sp = AV.nav ? null : q49Spot(P.x - ux * 24, P.y - uy * 24, 80); nx = sp ? sp.x : P.x - ux * 20; ny = sp ? sp.y : P.y - uy * 20; }
+      C.mir = nx < C.x; C.x = nx; C.y = ny; C.bouge = true; } else { C.bouge = false; C.blk = 0; } }
+  const dPD = Math.hypot(D.x - P.x, D.y - P.y), dCD = Math.hypot(D.x - C.x, D.y - C.y);
+  if (dCD < (AV.nav ? 120 : 60) || (dPD < (AV.nav ? 220 : 160) && dp < (AV.nav ? 260 : 150))) { const id = C.id; Q66.esc = null; q66Bulle(D.x, D.y, (E.dit && E.dit.fin) || "On est arrivés !", 3); q49Avancer(id); }
+}
+/* ---------- progression / base / boucle ---------- */
+(() => {
+  const pr = q49Prog;
+  q49Prog = function (id) { const E = q49Etape(id); if (E && E.t === "bois") return Math.min(E.n, Math.floor(q49Q(id).n || 0)); if (E && (E.t === "trouver" || E.t === "escorte")) return 0; return pr.apply(this, arguments); };
+  const ba = q49Base;
+  q49Base = function (id) { const r = ba.apply(this, arguments); try { const st = q49Q(id); if (st) { st.tp = null; st.tc = null; } if (Q66.esc && Q66.esc.id === id) Q66.esc = null; } catch (e) { q66Err("base", e); } return r; };
+  const mj = q49Maj;
+  q49Maj = function (dt) {
+    const r = mj.apply(this, arguments);
+    try {
+      if (!jeu || !jeu.monde || document.body.classList.contains("accueil")) return r;
+      const B = (typeof P620 !== "undefined" && P620.st) ? P620.st.buches | 0 : 0, dB = Q66.lastB == null ? 0 : Math.max(0, B - Q66.lastB); Q66.lastB = B;
+      if (!q49Libre()) return r;
+      const w = q49W(), P = q49P(); q66MajEscorte(Math.min(0.1, dt || 0.016));
+      Q66.t += dt || 0.016; if (Q66.t < 0.12 && !dB) return r; Q66.t = 0;
+      for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E) continue; const st = q49Q(Q.id);
+        if (E.t === "bois" && dB) { const av = Math.floor(st.n || 0); st.n = (st.n || 0) + dB / 3; const ap = Math.floor(st.n); if (ap > av) try { nombreFlottant(P.x, P.y - 34, "🪵 " + Math.min(ap, E.n) + "/" + E.n, "#ffe060"); son.jouer("orbe"); } catch (_) { } if (st.n >= E.n) q49Avancer(Q.id); }
+        else if (E.t === "trouver") { const p = q66TrouverPos(Q.id); if (p && Math.hypot(P.x - p[0], P.y - p[1]) < (AV.nav ? 60 : 24)) { try { son.jouer("fanfare"); nombreFlottant(p[0], p[1] - 24, "✨ " + (E.nom || "Trouvé !"), "#ffe060", true); } catch (_) { } q49Avancer(Q.id); } }
+      }
+    } catch (e) { q66Err("maj", e); }
+    return r;
+  };
+})();
+/* ---------- cible (flèche / minimap / balise 3D) ---------- */
+(() => {
+  const c0 = q49Cible;
+  q49Cible = function () {
+    try { const S = q49S(), id = S.suivi, w = q49W(); const E = id && Q49_BY[id] && Q49_BY[id].w === w ? q49Etape(id) : null;
+      if (E && E.t === "escorte") { const C = Q66.esc; if (!C || C.id !== id) return q66EscDepart(id); const P = q49P(); if (Math.hypot(P.x - C.x, P.y - C.y) > (AV.nav ? 380 : 200)) return { x: C.x, y: C.y }; return q66EscDest(id); }
+      if (E && E.t === "trouver") { q66TrouverPos(id); const st = q49Q(id); return st.tc ? { x: st.tc[0], y: st.tc[1], zone: 1 } : null; }
+      if (E && E.t === "bois") return null;
+    } catch (e) { q66Err("cible", e); }
+    return c0.apply(this, arguments);
+  };
+  const ts = texteSuivi;
+  texteSuivi = function () { const t = ts.apply(this, arguments);
+    try { const id = q49S().suivi, E = id && q49Etape(id); if (E && t && Q49_BY[id].w === q49W()) { if (E.t === "trouver") return q66Chaud(id) + " — " + t; if (E.t === "escorte" && Q66.esc && Q66.esc.peur) return "EMBUSCADE ! — " + t; } } catch (_) { }
+    return t; };
+  // la police pixel n'a pas d'emoji : on les retire du texte de suivi (sinon « ? »)
+  const ts2 = texteSuivi;
+  texteSuivi = function () { const t = ts2.apply(this, arguments); return typeof t === "string" ? t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/^\s+/, "") : t; };
+})();
+/* ---------- dessin : escorté, objet caché ---------- */
+(() => {
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) {
+    ea.apply(this, arguments);
+    try { if (jeu && jeu.scene === sceneMonde) q66Elements(items, o, e, visible); } catch (er) { q66Err("dess", er); }
+  };
+})();
+function q66Elements(items, o, e, visible) {
+  const w = q49W(), t = AV.temps || performance.now() / 1000, img = (im, x, y, ax, ay) => poserImg(im, x, y, ax, ay, o, e);
+  const d3 = typeof p106En3D === "function" && p106En3D();
+  // escorté (en attente au départ ou en route)
+  for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E || E.t !== "escorte") continue;
+    const C = Q66.esc && Q66.esc.id === Q.id ? Q66.esc : null; const p = C || q66EscDepart(Q.id); if (!p || !visible(p.x, p.y, 40)) continue;
+    const qui = E.qui || {}, f = C && C.bouge ? (Math.floor(t * 8) & 3) : 0, mir = C ? C.mir : (q49P().x < p.x);
+    if (qui.radeau && !d3) items.push({ y: p.y - 4, dessiner: () => img(q49Spr("radeau"), p.x, p.y + 6 + Math.sin(t * 2 + p.x) * 1.5, 17, 10) });
+    items.push({ y: p.y, dessiner: () => {
+      if (qui.pk) { const im = imagePk(qui.pk, !mir); img(im, p.x, p.y - (C && C.bouge ? Math.abs(Math.sin(t * 10)) * 2 : 0), im.width / 2, im.height); }
+      else { const L = Q49_LK[qui.L]; if (L) img(imageKPNJ(L, 0, f, mir, !!(C && C.peur && (Math.floor(t * 6) & 1))), p.x, p.y, 8, 23); }
+      if (!C && !d3) img(q49Spr("qu"), p.x, p.y - 30 - Math.abs(Math.sin(t * 4)) * 3, 7, 16);
+    } });
+  }
+  // objet caché : invisible de loin, scintille quand on approche
+  for (const Q of Q49_Q) { if (Q.w !== w) continue; const E = q49Etape(Q.id); if (!E || E.t !== "trouver") continue; const p = q66TrouverPos(Q.id); if (!p) continue;
+    const P = q49P(), d = Math.hypot(P.x - p[0], P.y - p[1]); if (d > 110 || !visible(p[0], p[1], 20)) continue; const im = q49Spr(E.ic || "coffre");
+    items.push({ y: p[1], dessiner: () => { if (d < 60) img(im, p[0], p[1] - 2, im.width / 2, im.height); if ((Math.floor(t * 5 + p[0]) % 2) === 0) img(q49Spr("bulle"), p[0] + 4, p[1] - 12 - Math.sin(t * 3) * 3, 5, 5); } });
+  }
+}
+/* ---------- récompenses : selon le niveau + objet d'équipement, écran pour TOUTES les quêtes ---------- */
+function q66Rec(Q) {
+  const n = q66Niv(Q.w), f = Math.max(1, Math.min(2.2, 0.85 + 0.06 * n)) * (Q.main ? 1.2 : 1);
+  const xp = Math.round(Q.rec.xp * f / 5) * 5, z = Math.round(Q.rec.z * f / 10) * 10;
+  let it = null; try { if (typeof eqGen === "function" && typeof EQ_ORDRE !== "undefined") { const r = q49Rnd(Q.id + ":obj")(), slot = EQ_ORDRE[Math.floor(r * EQ_ORDRE.length) % EQ_ORDRE.length];
+    const rar = Q.main ? 2 : (Q.e.length >= 3 ? 1 : 0); it = eqGen(slot, Math.max(1, prog.niveau || 1), rar, { 1: "Kame", 2: "Grand Line", 3: "Kanto", 4: "Konoha", 5: "Liones" }[Q.w]); } } catch (e) { q66Err("obj", e); it = null; }
+  return { xp, z, it, f };
+}
+q49Finir = function (id) {
+  const Q = Q49_BY[id], st = q49Q(id), S = q49S(); if (!Q || !st || st.st === "fini") return;
+  st.st = "fini"; st.d = Date.now(); st.it = null; st.tp = null; if (S.suivi === id) S.suivi = q49ProchaineSuivie();
+  const R = q66Rec(Q); q49Gain(R.xp, R.z);
+  let objTxt = "";
+  if (R.it) try { eqAjouter(R.it); const SL = EQ_SL[R.it.s], RR = EQ_RAR[R.it.r]; objTxt = SL.ic + " " + R.it.n + " · " + RR.n; } catch (e) { q66Err("eqA", e); objTxt = ""; }
+  try { son.jouer("fanfare"); } catch (_) { }
+  Q66.derRec = { id, xp: R.xp, z: R.z, obj: objTxt };
+  try { p105Notif(Q.titre, "✅ Quête terminée !", "+" + R.xp + " XP · +" + R.z + " 💰"); } catch (_) { }
+  const lignes = [(Q.main ? "🏅 Trophée : Héros — " + Q49_MONDES[Q.w] : ""), "⭐ +" + R.xp + " XP", "💰 +" + R.z, objTxt ? "🎁 " + echapHTML(objTxt) : ""];
+  try { p37Recompense(Q.titre, lignes, (Q.main ? "SAGA TERMINÉE · " : "") + Q49_MONDES[Q.w] + (Q.fin ? " — " + Q.fin : "")); } catch (e) { q66Err("rec", e); }
+  q49Sv();
+};
+/* ---------- écran de récompense : couleurs du monde, compteurs, carte d'objet, bouton rond ✔, attend la fin d'un dialogue ---------- */
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+#p37Recomp .c { position: relative; border-radius: 22px !important; padding-top: 22px !important; overflow: hidden; }
+#p37Recomp .c::before { content: ""; position: absolute; left: -40%; top: -60%; width: 180%; height: 120%; background: radial-gradient(closest-side, rgba(255,240,170,.28), transparent 70%); animation: q66Rot 6s linear infinite; pointer-events: none; }
+@keyframes q66Rot { to { transform: rotate(360deg); } }
+#p37Recomp .c.w2 { background: linear-gradient(#1a4a7a, #0a2240) !important; border-color: #8ad0ff !important; }
+#p37Recomp .c.w3 { background: linear-gradient(#a8282a, #5a1012) !important; border-color: #ffe060 !important; }
+#p37Recomp .c.w4 { background: linear-gradient(#3a5a2a, #1a2a10) !important; border-color: #ff9a30 !important; }
+#p37Recomp .c.w5 { background: linear-gradient(#3a2a5a, #160e2a) !important; border-color: #c8a8ff !important; }
+#p37Recomp .l.obj { display: block; padding: 10px; border: 2px solid #ffd860; background: linear-gradient(rgba(255,216,96,.18), rgba(0,0,0,.3)); box-shadow: 0 0 12px rgba(255,216,96,.45); font-size: 14px; }
+#p37Recomp .l.obj::before { content: "NOUVEL OBJET"; display: block; font-size: 10px; letter-spacing: 2px; color: #ffd860; margin-bottom: 3px; }
+#p37Recomp button.q66ok { width: 74px !important; height: 74px !important; min-width: 0 !important; min-height: 0 !important; border-radius: 50% !important; font-size: 30px !important; line-height: 1; padding: 0 !important; margin-top: 14px !important; box-shadow: 0 0 0 4px rgba(255,228,128,.35), 0 6px 16px #0008; }
+#p37Recomp .q66et { position: absolute; left: 0; right: 0; top: 4px; font-size: 22px; letter-spacing: 6px; animation: q66Bril 1.4s ease-in-out infinite alternate; }
+@keyframes q66Bril { from { opacity: .5; transform: scale(.94); } to { opacity: 1; transform: scale(1.06); } }`;
+  document.head.appendChild(st);
+  const s0 = p37RecompenseSuite;
+  p37RecompenseSuite = function () {
+    try { if (P37R.file.length && (q66Pan() || (Q66.sc && q66Pan()))) { P37R.on = true; clearTimeout(Q66.p37t); Q66.p37t = setTimeout(p37RecompenseSuite, 450); return; } } catch (_) { }
+    const r = s0.apply(this, arguments);
+    try { const el = document.getElementById("p37Recomp"); if (el && !el.hidden) { const c = el.querySelector(".c"); if (c && !c.dataset.q66) { c.dataset.q66 = 1; const w = q49W(); c.classList.add("w" + w);
+        c.insertAdjacentHTML("afterbegin", `<div class="q66et">✦ ✦ ✦</div>`);
+        const b = c.querySelector("button"); if (b) { b.classList.add("q66ok"); b.textContent = "✔"; b.setAttribute("aria-label", "Continuer"); }
+        for (const l of c.querySelectorAll(".l")) { if (l.textContent.includes("🎁")) l.classList.add("obj");
+          const m = /^(.*?\+)(\d+)(.*)$/.exec(l.innerHTML); if (m && !/</.test(l.innerHTML)) { const n = +m[2], t0 = performance.now() + 250; const k = () => { const a = Math.min(1, (performance.now() - t0) / 700); l.innerHTML = m[1] + Math.round(n * Math.max(0, a)) + m[3]; if (a < 1 && !el.hidden) requestAnimationFrame(k); }; requestAnimationFrame(k); } }
+        clearTimeout(P37R.tm); P37R.tm = setTimeout(() => { try { P37R.fermer(); } catch (_) { } }, 12000); } } } catch (e) { q66Err("p37", e); }
+    return r;
+  };
+})();
+function q66FermerRec(tout) { try { if (tout) P37R.file = []; const el = document.getElementById("p37Recomp"); if (el && !el.hidden && P37R.fermer) P37R.fermer(); } catch (_) { } }
+/* ---------- scènes de dialogue (portraits, bouton rond ▶) ---------- */
+function q66Nom(k) { if (k === "moi") { try { return (AV.equipe && AV.equipe.actif === "luffy") ? "Luffy" : (q49W() === 4 ? "Toi" : q49W() === 3 ? "Toi" : "Sangoku"); } catch (_) { return "Toi"; } } const N = Q49_PNJ[k]; return N ? N.nom : (Q66_INV[k] && Q66_INV[k].nom) || k; }
+const Q66_INV = {};   // intervenants sans place fixe : { nom, L | pk }
+function q66Portrait(cv, k) {
+  try { const x = cv.getContext("2d"); x.imageSmoothingEnabled = false; x.clearRect(0, 0, cv.width, cv.height);
+    let im = null; const N = Q49_PNJ[k] || Q66_INV[k];
+    if (N && N.pk) im = imagePk(N.pk); else if (N && Q49_LK[N.L]) im = imageKPNJ(Q49_LK[N.L], 0, 0, false, false);
+    else if (k === "moi") { try { im = imageKPNJ(Q49_LK.inv ? Object.assign({}, Q49_LK.inv, { id: "q66moi", s: "#f0c8a0", h: "#1a1a1a", c: "#e8902a", p: "#2a4a9a" }) : null, 0, 0, false, false); } catch (_) { im = null; } }
+    if (!im) return; const s = Math.min((cv.width - 4) / im.width, (cv.height - 4) / im.height); const w = im.width * s, h = im.height * s; x.drawImage(im, (cv.width - w) / 2, cv.height - h - 2, w, h); } catch (e) { q66Err("por", e); }
+}
+function q66Scene(lignes, fin, sur, boutonsFin) {
+  Q66.sc = { L: lignes, i: 0, fin, sur, bf: boutonsFin }; q66SceneAff();
+}
+function q66SceneAff() {
+  const S = Q66.sc; if (!S) return; const [k, txt] = S.L[S.i], der = S.i >= S.L.length - 1, nom = q66Nom(k), moi = k === "moi";
+  const bt = der && S.bf ? `<div class="q49bt">${S.bf.map(([a, l]) => `<button data-q49="${q49Html(a)}">${q49Html(l)}</button>`).join("")}</div>`
+    : `<div class="q66nav"><span>${S.i + 1}/${S.L.length}</span><button class="q66rond" data-q66s="${der ? "f" : "n"}" aria-label="${der ? "Terminer" : "Suite"}">${der ? "✔" : "▶"}</button></div>`;
+  const h = `${S.sur ? `<div class="q49sur">${q49Html(S.sur)}</div>` : ""}<div class="q66dlg ${moi ? "moi" : ""}"><canvas class="q66por" width="72" height="96" data-k="${q49Html(k)}"></canvas><div class="q66b"><div class="q66n">${q49Html(nom)}</div><div class="q66t">${q49Html(txt)}</div></div></div>${bt}`;
+  try { son.jouer("clic"); } catch (_) { }
+  ouvrirPanneauAv(h);
+  try { const cv = document.querySelector("#panneau canvas.q66por"); if (cv) q66Portrait(cv, k); } catch (_) { }
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-q66s]"); if (!b || !b.closest("#panneau")) return;
+  e.stopPropagation(); e.preventDefault();
+  try { const S = Q66.sc; if (!S) { q49Fermer(); return; }
+    if (b.dataset.q66s === "n") { S.i = Math.min(S.L.length - 1, S.i + 1); q66SceneAff(); }
+    else { Q66.sc = null; q49Fermer(); if (S.fin) S.fin(); } } catch (er) { q66Err("scClic", er); }
+}, true);
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+#panneau .q66dlg { display: flex; gap: 10px; align-items: flex-end; margin: 6px 0 4px; text-align: left; }
+#panneau .q66dlg.moi { flex-direction: row-reverse; text-align: right; }
+#panneau .q66por { flex: none; width: 72px; height: 96px; border-radius: 50% 50% 14px 14px; background: radial-gradient(circle at 50% 35%, #fff4d0, #c8a060 70%, #6a4a2a); border: 3px solid #e8b840; image-rendering: pixelated; }
+#panneau .q66b { flex: 1; position: relative; padding: 10px 12px; border-radius: 16px; background: #fff8e6; color: #2a1808; border: 2px solid #8a6a3a; font-size: 15px; line-height: 1.35; }
+#panneau .q66n { font-weight: bold; color: #a0401a; font-size: 13px; margin-bottom: 3px; }
+#panneau .q66nav { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+#panneau .q66nav span { font-size: 12px; opacity: .7; }
+#panneau button.q66rond { width: 62px; height: 62px; min-width: 0; min-height: 0; padding: 0; margin: 0; border-radius: 50%; font-size: 24px; line-height: 1; flex: none; }
+#panneau .q66cours .q49c .h .pt { min-height: 40px; min-width: 40px; border-radius: 50%; padding: 0 8px; }
+#panneau .q66sys { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 9px; background: #e8b84033; border: 1px solid #e8b840; margin-left: 4px; vertical-align: middle; }
+#panneau .q66bar { height: 7px; border-radius: 4px; background: #3a2a1a; margin: 4px 0; overflow: hidden; } #panneau .q66bar i { display: block; height: 100%; background: linear-gradient(90deg, #5ad860, #c8ff80); }`;
+  document.head.appendChild(st);
+})();
+/* dialogues : scènes à plusieurs répliques pour les étapes « parler » et les introductions qui en ont */
+(() => {
+  const p0 = q49Parler;
+  q49Parler = function (k) {
+    try {
+      const N = Q49_PNJ[k];
+      if (N) {
+        for (const Q of Q49_Q) { const E = q49Etape(Q.id); if (!E || E.p !== k) continue;
+          if (E.t === "parler" && Array.isArray(E.dit)) { const id = Q.id; q66Scene(E.dit, () => { if (q49Etape(id) === E) q49Avancer(id); }, Q.titre); return; }
+          break; }
+        let dejaEtape = false; for (const Q of Q49_Q) { const E = q49Etape(Q.id); if (E && E.p === k && Q49_ICI.includes(E.t)) { dejaEtape = true; break; } }
+        if (!dejaEtape) { const Q = Q49_Q.find(Q => Q.giver === k && q49Dispo(Q));
+          if (Q && Array.isArray(Q.intro)) { q66Scene(Q.intro, null, (Q.main ? "⭐ QUÊTE PRINCIPALE — " : "📌 QUÊTE SECONDAIRE — ") + Q.titre, [["acc:" + Q.id, "✅ Accepter"], ["x", "Plus tard"]]); return; } }
+      }
+    } catch (e) { q66Err("parler", e); }
+    return p0.apply(this, arguments);
+  };
+  // portrait dans tous les dialogues simples Q49
+  const d0 = q49Dialogue;
+  q49Dialogue = function (nom, txt, boutons, sur) {
+    const r = d0.apply(this, arguments);
+    try { const k = Object.keys(Q49_PNJ).find(k => Q49_PNJ[k].nom === nom); const P = document.getElementById("panneau"); const t = P && P.querySelector(".q49dit");
+      if (k && t && !P.querySelector(".q66por")) { const cv = document.createElement("canvas"); cv.className = "q66por"; cv.width = 72; cv.height = 96; cv.style.cssText = "float:left;margin:0 10px 4px 0;width:58px;height:78px"; t.parentNode.insertBefore(cv, t); q66Portrait(cv, k); } } catch (e) { q66Err("por2", e); }
+    return r;
+  };
+})();
+/* ---------- intro texte : une intro en scène reste lisible ailleurs (journal) ---------- */
+function q66IntroTxt(Q) { return Array.isArray(Q.intro) ? Q.intro.filter(l => l[0] !== "moi").map(l => l[1]).join(" ") : Q.intro; }
+/* ---------- suivi : boussole, distance, barre de progression ---------- */
+function q66Proj(x, y, h) {
+  try {
+    if (typeof E3 !== "undefined" && E3.actif && E3.VP) return e3Ecran(x, e3Sol(x, y) + (h || 0), y);
+    if (typeof N3 !== "undefined" && N3.actif && N3.VP) return n3Ecran(x, h || 0, y);
+    const e = camera.echelle(), o = camera.origine(e); return [(x - o.x) * e, (y - o.y) * e, 1];
+  } catch (_) { return null; }
+}
+function q66Angle(P, c) {   // direction écran du joueur vers la cible
+  const dx = c.x - P.x, dy = c.y - P.y, l = Math.hypot(dx, dy) || 1;
+  const a = q66Proj(P.x, P.y, 6), b = q66Proj(P.x + dx / l * 24, P.y + dy / l * 24, 6);
+  if (a && b && (Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]) > 0.5)) return Math.atan2(b[1] - a[1], b[0] - a[0]);
+  return Math.atan2(dy, dx);
+}
+function q66Cible() { try { if (typeof mm41Cible === "function") return mm41Cible(); const c = cibleMission(); return c && isFinite(c.x) ? c : null; } catch (_) { return null; } }
+function q66Fleche(c2, x, y, R, ang, p, coul) {
+  c2.save(); c2.translate(x, y);
+  c2.fillStyle = "rgba(20,12,4,.82)"; c2.beginPath(); c2.arc(0, 0, R, 0, 6.2832); c2.fill();
+  c2.lineWidth = Math.max(2, p); c2.strokeStyle = coul || "#e8b840"; c2.stroke();
+  c2.rotate(ang); c2.fillStyle = coul || "#ffd860"; c2.beginPath(); c2.moveTo(R * 0.72, 0); c2.lineTo(-R * 0.42, -R * 0.46); c2.lineTo(-R * 0.18, 0); c2.lineTo(-R * 0.42, R * 0.46); c2.closePath(); c2.fill();
+  c2.restore();
+}
+function q66Dist(c) { const P = q49P(); return Math.round(Math.hypot(c.x - P.x, c.y - P.y) / 16); }
+(() => {
+  const s0 = p105Suivi;
+  p105Suivi = function (x, y, s, txt) {
+    const r = s0.apply(this, arguments);
+    try {
+      const B = P105.box, c = q66Cible(); if (!B) return r;
+      const dpr = DPR(), p = Math.max(2, Math.round(1.1 * dpr));
+      // barre de progression (quête Q49 suivie avec compteur)
+      const id = q49S().suivi, E = id && q49Etape(id);
+      if (E && E.n && E.t !== "course" && Q49_BY[id].w === q49W()) { const f = Math.max(0, Math.min(1, q49Prog(id) / E.n)); ctx.fillStyle = "#2a1608"; ctx.fillRect(B.x, B.y + B.h, B.w, 2 * p); ctx.fillStyle = "#5ad860"; ctx.fillRect(B.x, B.y + B.h, Math.round(B.w * f), 2 * p); }
+      if (c) { const R = Math.max(12 * dpr, Math.min(B.h * 0.42, 22 * dpr)), cx = B.x + B.w + R + 3 * p, cy = B.y + R;
+        if (cx + R < ecran.width) { const P = q49P(); q66Fleche(ctx, cx, cy, R, q66Angle(P, c), p);
+          const d = q66Dist(c), im = imageTexte(d >= 1000 ? (d / 1000).toFixed(1) + " KM" : d + " M", "#fff4d8", "#140a0c"), q = Math.max(1, p - 1);
+          ctx.drawImage(im, Math.round(cx - im.width * q / 2), Math.round(cy + R + p), im.width * q, im.height * q); Q66.hud = { x: cx, y: cy, R }; } }
+    } catch (e) { q66Err("suivi", e); }
+    return r;
+  };
+  const h0 = dessinerHUD;
+  dessinerHUD = function () {
+    const r = h0.apply(this, arguments);
+    try { q66FlecheBord(); } catch (e) { q66Err("bord", e); }
+    return r;
+  };
+})();
+function q66FlecheBord() {
+  if (!jeu || jeu.scene !== sceneMonde || AV.cine || jeu.pause || q66Pan() || document.body.classList.contains("accueil")) return;
+  if (typeof grandeCarte !== "undefined" && grandeCarte.ouvert) return;
+  const c = q66Cible(); if (!c) return; const P = q49P(); const dpr = DPR(), W = ecran.width, H = ecran.height, m = 46 * dpr;
+  const s = q66Proj(c.x, c.y, 14), dans = s && s[0] > m && s[0] < W - m && s[1] > m && s[1] < H - m;
+  const t = performance.now() / 1000;
+  if (dans) { if (typeof E3 !== "undefined" && E3.actif) return; if (c.zone) return;   // en 3D : la balise existe déjà
+    const y = s[1] - 40 * dpr - Math.abs(Math.sin(t * 4)) * 6 * dpr, x = s[0], k = 7 * dpr;
+    ctx.save(); ctx.fillStyle = "#140a0c"; ctx.beginPath(); ctx.moveTo(x - k - 2, y - 2); ctx.lineTo(x + k + 2, y - 2); ctx.lineTo(x, y + k + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffd860"; ctx.beginPath(); ctx.moveTo(x - k, y); ctx.lineTo(x + k, y); ctx.lineTo(x, y + k); ctx.closePath(); ctx.fill(); ctx.restore(); return; }
+  const a = q66Angle(P, c); let ps = q66Proj(P.x, P.y, 6) || [W / 2, H / 2]; const cx = Math.max(m, Math.min(W - m, ps[0])), cy = Math.max(m, Math.min(H - m, ps[1]));
+  // point sur le bord dans la direction a
+  const ux = Math.cos(a), uy = Math.sin(a); let k = 1e9; if (ux > 1e-3) k = Math.min(k, (W - m - cx) / ux); if (ux < -1e-3) k = Math.min(k, (m - cx) / ux); if (uy > 1e-3) k = Math.min(k, (H - m - cy) / uy); if (uy < -1e-3) k = Math.min(k, (m * 2 - cy) / uy);
+  if (!isFinite(k) || k < 60 * dpr) return;
+  const x = cx + ux * k, y = cy + uy * k, R = 15 * dpr * (1 + 0.06 * Math.sin(t * 5));
+  ctx.save(); ctx.globalAlpha = 0.92; q66Fleche(ctx, x, y, R, a, Math.max(2, Math.round(dpr)), "#ffd860");
+  const d = q66Dist(c), im = imageTexte(d + " M", "#fff4d8", "#140a0c"), q = Math.max(1, Math.round(dpr));
+  ctx.drawImage(im, Math.round(x - im.width * q / 2), Math.round(y + R + 2 * q), im.width * q, im.height * q); ctx.restore();
+}
+/* ---------- journal : onglet « 📍 En cours » (toutes les quêtes actives de tous les systèmes) ---------- */
+function q66Actives() {
+  const L = [], w = q49W(), push = o => L.push(o);
+  try { for (const Q of Q49_Q) { const E = q49Etape(Q.id); if (!E) continue; const st = q49Q(Q.id);
+    push({ sys: "q49", id: Q.id, w: Q.w, titre: Q.titre, main: !!Q.main, txt: E.txt + (E.t === "trouver" && Q.w === w ? " — " + q66Chaud(Q.id) : ""), n: E.n && E.t !== "course" ? E.n : 0, p: q49Prog(Q.id), pas: [st.e, Q.e.length], suivi: q49S().suivi === Q.id, tag: Q.main ? "⭐ Saga" : "📌 Secondaire" }); } } catch (e) { q66Err("a49", e); }
+  try { for (const id of Object.keys(MISSIONS)) { const E = etatM(id); if (E && E.st === "actif") { const M = MISSIONS[id]; push({ sys: "m", id, w: 1, titre: M.titre, txt: M.desc, n: M.but, p: Math.min(M.but, progresMission(id)), suivi: AV.missions.suivi === id && !q49S().suivi, tag: "📜 Mission" }); } } } catch (e) { q66Err("am", e); }
+  try { for (const id of Object.keys(PK.q || {})) { const E = PK.q[id]; if (E.st !== "actif" || !PKQ[id]) continue; const Q = PKQ[id]; push({ sys: "pk", id, w: 3, titre: Q.titre, txt: Q.desc, n: Q.but, p: Math.min(Q.but, typeof pkProgres === "function" ? pkProgres(id) : 0), suivi: PK.suivi === id, tag: "⚡ Pokémon", rec: Q.rec }); } } catch (e) { q66Err("apk", e); }
+  try { for (const id of Object.keys(KN.q || {})) { const E = KN.q[id]; if (E.st !== "actif" || !KN_MIS[id]) continue; const M = KN_MIS[id]; push({ sys: "kn", id, w: 4, titre: "Rang " + M.r + " · " + M.titre, txt: M.desc, n: 0, suivi: KN.suivi === id, tag: "🍥 Mission ninja" }); } } catch (e) { q66Err("akn", e); }
+  try { for (const id of Object.keys(BR.q || {})) { const E = BR.q[id]; if (E.st !== "actif" || !BR_Q[id]) continue; const Q = BR_Q[id], S = Q.steps[E.n]; push({ sys: "br", id, w: 5, titre: Q.titre, main: !!Q.main, txt: S ? S.txt : Q.desc, n: S && S.n ? S.n : 0, p: S && S.n ? Math.min(S.n, E.o | 0) : 0, pas: [E.n, Q.steps.length], suivi: BR.suivi === id, tag: Q.main ? "🗡️ Quête royale" : "🗡️ Britannia" }); } } catch (e) { q66Err("abr", e); }
+  try { for (const id of MQ_IDS) { const e = mqE(id); if (mqActif(id) && e.st > 0 && e.st < 9) push({ sys: "mq", id, w: 1, titre: "Ouvrir " + ({ gl: "Grand Line", pk: "le Monde Pokémon", kn: "Konoha", br: "Britannia" }[id]), txt: mqTexte(id), n: 0, suivi: false, tag: "🌍 Monde" }); } } catch (e) { q66Err("amq", e); }
+  try { for (const I of ILES) { if ((ILE.q[I.id] | 0) === 1 || (ILE.q[I.id] | 0) === 2) push({ sys: "ile", id: I.id, w: 2, titre: I.q.titre.charAt(0) + I.q.titre.slice(1).toLowerCase(), txt: ILE.q[I.id] === 2 ? "Retourne voir le donneur : quête accomplie !" : I.q.cours.replace(/^[^«]*« ?| ?»$/g, ""), n: 0, suivi: false, tag: "🏝️ " + I.nom.charAt(0) + I.nom.slice(1).toLowerCase() }); } } catch (e) { q66Err("aile", e); }
+  return L;
+}
+function q66Suivre(sys, id) {
+  const S = q49S();
+  if (sys === "q49") { S.suivi = id; return; }
+  S.suivi = null;
+  try { if (sys === "m") AV.missions.suivi = id; if (sys === "pk") PK.suivi = id; if (sys === "kn") KN.suivi = id; if (sys === "br") BR.suivi = id; } catch (e) { q66Err("suivre", e); }
+}
+function q66JournalCours() {
+  const w = q49W(), L = q66Actives().sort((a, b) => (a.w === w ? 0 : 10) - (b.w === w ? 0 : 10) || (b.suivi - a.suivi) || (b.main ? 1 : 0) - (a.main ? 1 : 0) || a.w - b.w);
+  const tab = (k, l) => `<button data-q49="j:${k}" class="${k === "cours" ? "on" : ""}">${l}</button>`;
+  let h = `<div class="titre">📜 Journal des quêtes</div><div class="q49tabs">${tab("cours", "📍 En cours")}${tab("main", "⭐ Sagas")}${tab("side", "📌 Second.")}${tab("jour", "☀️ Jour")}${tab("troph", "🏅")}</div><div class="q49liste q66cours">`;
+  if (!L.length) h += `<div class="ligne">Aucune quête en cours. Cherche les « ❗ » au-dessus des personnages !</div>`;
+  let mw = 0;
+  for (const o of L) {
+    if (o.w !== mw) { mw = o.w; h += `<div class="q49st">${Q49_MONDES[o.w]}${o.w === w ? " · ici" : ""}</div>`; }
+    const pas = o.pas ? `<div class="pas">${Array.from({ length: o.pas[1] }, (_, i) => `<span class="${i < o.pas[0] ? "ok" : i === o.pas[0] ? "cur" : ""}"></span>`).join("")}</div>` : "";
+    const bar = o.n ? `<div class="q66bar"><i style="width:${Math.round(100 * Math.min(1, (o.p || 0) / o.n))}%"></i></div>` : "";
+    const peutSuivre = o.sys !== "mq" && o.sys !== "ile";
+    h += `<div class="q49c actif ${o.suivi ? "suivi" : ""}"><div class="h"><span>${q49Html(o.titre)} <span class="q66sys">${q49Html(o.tag)}</span></span>${peutSuivre && o.w === w ? `<button class="pt" data-q66j="${o.sys}:${q49Html(o.id)}" aria-label="Suivre">${o.suivi ? "📍" : "🧭"}</button>` : ""}</div>
+      ${pas}<div class="et">▶ ${q49Html(o.txt)}${o.n ? ` <b>${o.p || 0}/${o.n}</b>` : ""}</div>${bar}${o.suivi ? `<div class="r">📍 Suivie : flèche à l'écran et sur la mini-carte</div>` : ""}</div>`;
+  }
+  h += `</div><div class="q49bt"><button data-q49="ancien">📜 Missions d'origine</button><button data-q49="x">✖ Fermer</button></div>`;
+  ouvrirPanneauAv(h);
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-q66j]"); if (!b || !b.closest("#panneau")) return;
+  e.stopPropagation(); e.preventDefault();
+  try { const v = b.dataset.q66j, i = v.indexOf(":"); q66Suivre(v.slice(0, i), v.slice(i + 1)); son.jouer("clic"); q66JournalCours(); } catch (er) { q66Err("jclic", er); }
+}, true);
+(() => {
+  const j0 = q49Journal;
+  q49Journal = function (onglet) {
+    if (onglet == null || onglet === "cours") { try { q66JournalCours(); return; } catch (e) { q66Err("journal", e); } return j0.call(this, "main"); }
+    const r = j0.apply(this, arguments);
+    try { const T = document.querySelector("#panneau .q49tabs"); if (T && !T.querySelector('[data-q49="j:cours"]')) { T.insertAdjacentHTML("afterbegin", `<button data-q49="j:cours">📍 En cours</button>`); }
+      // intros en scène : texte lisible dans le journal
+    } catch (e) { q66Err("tabs", e); }
+    return r;
+  };
+  afficherJournal = function () { try { q49Journal("cours"); } catch (e) { q66Err("aj", e); try { Q49.ancienJ(); } catch (_) { } } };
+})();
+/* ---------- Konoha : un appui d'attaque pendant la recharge est mémorisé (fini les coups « perdus ») ---------- */
+(() => {
+  if (typeof knAttaque !== "function") return;
+  const a0 = knAttaque;
+  knAttaque = function () {
+    const r = a0.apply(this, arguments);
+    try { if (r === false && KN.cd && (KN.cd.att || 0) > 0 && KN.cd.att <= 0.24 && !perso.ko && !jeu.pause) Q66.tamp = performance.now(); } catch (_) { }
+    if (r) Q66.tamp = 0;
+    return r;
+  };
+  const m0 = majAventure;
+  majAventure = function () {
+    const r = m0.apply(this, arguments);
+    try { if (Q66.tamp && performance.now() - Q66.tamp < 320) { if (knIci() && KN.transforme && (KN.cd.att || 0) <= 0) { Q66.tamp = 0; knAttaque(); } } else Q66.tamp = 0; } catch (e) { q66Err("tamp", e); }
+    return r;
+  };
+})();
+
+/* ===== v66 · QUÊTES : contenu (nouveaux personnages, 2 à 3 quêtes par monde, scènes des sagas, récompenses rééquilibrées) ===== */
+(() => {
+  try {
+    /* ---- nouveaux visages (même gabarit que tous les PNJ : même taille) ---- */
+    Object.assign(Q49_LK, {
+      chichi: q49L("chichi", "#f8d8c0", "#1a1a1a", "#c83a5a", "#3a2a6a", { chignon: true }),
+      gohan: q49L("gohan", "#f8d8c0", "#1a1a1a", "#e8902a", "#2a4a9a"),
+      yamcha: q49L("yamcha", "#e0b080", "#1a1a1a", "#e8902a", "#2a4a9a", { cheveux: "long" }),
+      nami: q49L("nami", "#f8d8c0", "#f07a2a", "#3ab0c8", "#2a4a9a", { cheveux: "long" }),
+      coby: q49L("coby", "#f8d8c0", "#e890c0", "#f0f0f0", "#3a5a8a"),
+      mia: q49L("mia", "#f8d8c0", "#8a4a1a", "#f0a0c0", "#5a3a8a", { chapeau: "#f0f0f0" }),
+      joelle: q49L("joelle", "#f8d8c0", "#f080b0", "#f0f0f0", "#f0a0c0", { chignon: true }),
+      lee: q49L("lee", "#f0c8a0", "#1a1a1a", "#3a8a3a", "#3a8a3a", { bandeau: true }),
+      hinata: q49L("hinata", "#f8e0d0", "#2a2a5a", "#c8c0e0", "#2a2a5a", { cheveux: "long" }),
+      griamore: q49L("griamore", "#e0b080", "#6a4a2a", "#8a8aa0", "#4a4a5a", { masque: true }),
+      veronica: q49L("veronica", "#f8d8c0", "#e0c060", "#8a2a3a", "#4a2a2a", { cheveux: "long" }),
+      elaine: q49L("elaine", "#f8e0d0", "#f0e0a0", "#f0f0f0", "#d0e8f0", { cheveux: "long" })
+    });
+    Object.assign(Q49_PNJ, {
+      chichi: { w: 1, nom: "Chichi", L: "chichi", a: ["dep", -70, -70], ligne: "Un vrai homme rapporte du bois ET étudie ses leçons !" },
+      yamcha: { w: 1, nom: "Yamcha", L: "yamcha", a: ["plaine", 90, -40], ligne: "Le Loup Solitaire du désert, c'est moi ! … enfin, c'était." },
+      nami: { w: 2, nom: "Nami", L: "nami", a: ["dep", 220, -160], radeau: 1, ligne: "Une carte du Grand Line, ça vaut une fortune… en berrys !" },
+      coby: { w: 2, nom: "Coby", L: "coby", a: ["dep", -220, -200], radeau: 1, ligne: "Un jour, je serai Amiral de la Marine !" },
+      mia: { w: 3, nom: "Fillette Mia", L: "mia", a: ["azur", 60, -60], ligne: "Tu n'as pas vu mon Évoli ? Il a une collerette toute douce…" },
+      joelle: { w: 3, nom: "Infirmière Joëlle", L: "joelle", a: ["bourg", -80, 40], ligne: "Bienvenue au Centre Pokémon ! Vos Pokémon ont l'air en forme." },
+      lee: { w: 4, nom: "Rock Lee", L: "lee", a: ["acad", 120, 60], ligne: "La fougue de la jeunesse brûle en moi !!" },
+      hinata: { w: 4, nom: "Hinata", L: "hinata", a: ["place", -40, 110], ligne: "Je… je voudrais devenir plus forte…" },
+      griamore: { w: 5, nom: "Griamore", L: "griamore", a: ["liones", -90, 120], ligne: "Je protège Dame Veronica. Toujours." },
+      elaine: { w: 5, nom: "Elaine", L: "elaine", a: ["fees", 120, 40], ligne: "Je garde la Fontaine de Jouvence depuis 700 ans…" }
+    });
+    Object.assign(Q66_INV, { gohan: { nom: "Gohan", L: "gohan" }, evoli: { nom: "Évoli", pk: "evoli" }, veronica: { nom: "Veronica", L: "veronica" } });
+    /* ---- nouvelles quêtes ---- */
+    const NQ = [
+      // ===== Sangoku =====
+      { id: "w1x", w: 1, titre: "Du bois pour l'hiver", giver: "chichi", rec: { xp: 180, z: 320 }, fin: "Chichi te prépare un festin",
+        intro: [["chichi", "Toi ! Oui, toi ! Le feu de la maison va s'éteindre et Sangoku est ENCORE parti s'entraîner !"], ["moi", "Je peux aider ?"], ["chichi", "Abats trois arbres à coups de poing et rapporte-moi le bois. Et pas de bêtises !"]],
+        e: [{ t: "bois", n: 3, txt: "Abats 3 arbres (frappe-les à coups de poing)" },
+            { t: "parler", p: "chichi", txt: "Rapporte le bois à Chichi", dit: [["chichi", "Ooh ! Quelle pile de bûches ! Tu es bien plus sérieux que mon mari."], ["chichi", "Tiens, des zénis. Et reviens dîner : il y aura du riz pour dix !"]] }] },
+      { id: "w1y", w: 1, titre: "Gohan s'est perdu", giver: "chichi", apres: "w1x", rec: { xp: 260, z: 450 }, fin: "Gohan est rentré sain et sauf",
+        intro: [["chichi", "GOHAN ! Il est parti chercher des champignons dans la forêt et il n'est pas rentré !"], ["chichi", "Les loups rôdent là-bas… Ramène-le-moi, je t'en supplie !"]],
+        e: [{ t: "escorte", qui: { L: "gohan" }, nom: "Gohan", de: ["foret", 60, -40], a: ["dep", -40, -40], amb: { type: "loup", n: 3 }, txt: "Trouve Gohan dans la forêt et ramène-le chez Chichi",
+              dit: { go: "Tu connais mon papa ? Je te suis !", att: "Attends-moi ! J'ai des petites jambes !", peur: "Des loups ! Au secours !", ouf: "Waouh… tu es fort comme papa !", fin: "Maman ! Je suis là !" } },
+            { t: "parler", p: "chichi", txt: "Parle à Chichi", dit: [["chichi", "Mon bébé ! Tu n'as rien ?"], ["moi", "Il a été très courageux face aux loups."], ["chichi", "Courageux… il ferait mieux d'être savant ! Merci, voilà pour toi."]] }] },
+      { id: "w1z", w: 1, titre: "Les éclaireurs du Ruban Noir", giver: "yamcha", rec: { xp: 300, z: 520 }, fin: "La capsule est récupérée",
+        intro: [["yamcha", "Psst ! Des soldats du Ruban Noir m'ont volé une capsule… elle contient ma moto !"], ["yamcha", "Je… je les ai laissés partir. Stratégiquement. Tu peux leur donner une leçon ?"]],
+        e: [{ t: "vaincre", n: 5, txt: "Bats 5 ennemis dans la plaine" },
+            { t: "trouver", a: ["plaine", 0, 0], r: 260, ic: "coffre", nom: "Capsule de Yamcha", txt: "Fouille la plaine : trouve la capsule cachée (suis le chaud/froid)" },
+            { t: "parler", p: "yamcha", txt: "Rends la capsule à Yamcha", dit: [["yamcha", "Ma moto ! Tu es génial !"], ["yamcha", "Ne dis à personne que je me suis fait avoir, d'accord ? Tiens, pour ton silence."]] }] },
+      // ===== Grand Line =====
+      { id: "w2x", w: 2, titre: "La carte de Nami", giver: "nami", rec: { xp: 320, z: 600 }, fin: "Nami dessine la carte du monde",
+        intro: [["nami", "Un coup de vent a emporté trois morceaux de ma carte marine ! Ils flottent près des îles."], ["nami", "Ramène-les-moi… et je ne te ferai pas payer d'intérêts. Peut-être."]],
+        e: [{ t: "trouver", a: ["i0", 0, 0], r: 180, ic: "parchemin", nom: "Morceau de carte 1/3", txt: "Trouve le 1er morceau de carte près de la 1re île" },
+            { t: "trouver", a: ["i1", 0, 0], r: 180, ic: "parchemin", nom: "Morceau de carte 2/3", txt: "Trouve le 2e morceau près de la 2e île" },
+            { t: "trouver", a: ["i2", 0, 0], r: 180, ic: "parchemin", nom: "Morceau de carte 3/3", txt: "Trouve le 3e morceau près de la 3e île" },
+            { t: "parler", p: "nami", txt: "Rapporte la carte à Nami", dit: [["nami", "Parfait ! Avec ça, je peux tracer la route jusqu'à la prochaine île."], ["moi", "Et ma récompense ?"], ["nami", "… Bon, d'accord. Mais c'est bien parce que tu m'as aidée !"]] }] },
+      { id: "w2y", w: 2, titre: "Le rêve de Coby", giver: "coby", rec: { xp: 340, z: 620 }, fin: "Coby rejoint la base de la Marine",
+        intro: [["coby", "Je veux rejoindre la Marine, mais ma barque est toute petite et les pirates rôdent…"], ["coby", "Tu peux m'escorter jusqu'à la deuxième île ? Il y a un poste de la Marine là-bas."]],
+        e: [{ t: "escorte", qui: { L: "coby", radeau: 1 }, nom: "Coby", de: ["dep", -220, -200], a: ["i1", 0, -160], txt: "Escorte la barque de Coby jusqu'à la 2e île",
+              dit: { go: "On y va ! Je rame de toutes mes forces !", att: "Attendez-moi ! Je rame aussi vite que je peux !", fin: "La base de la Marine ! On a réussi !" } },
+            { t: "couler", n: 1, txt: "Coule un navire pirate qui menace la base" },
+            { t: "parler", p: "coby", txt: "Retourne voir Coby", dit: [["coby", "Vous avez coulé ce navire pirate ! Je… je veux devenir aussi courageux que vous !"], ["coby", "Un jour, je serai Amiral. C'est promis !"]] }] },
+      // ===== Pokémon =====
+      { id: "w3x", w: 3, titre: "L'Évoli de Mia", giver: "mia", rec: { xp: 220, z: 700 }, fin: "Mia et Évoli sont réunis",
+        intro: [["mia", "Mon Évoli a eu peur d'un Roucool et il s'est sauvé sur la Route 1…"], ["mia", "Il ne connaît pas le chemin du retour. Tu veux bien le ramener au village ?"]],
+        e: [{ t: "escorte", qui: { pk: "evoli" }, nom: "Évoli", de: ["route1", 80, 40], a: ["azur", 40, -40], txt: "Retrouve Évoli sur la Route 1 et ramène-le à Mia",
+              dit: { go: "Évi ! Évi !", att: "Évi… ?", fin: "Évoooli !" } },
+            { t: "parler", p: "mia", txt: "Parle à Mia", dit: [["mia", "ÉVOLI ! Tu es revenu !"], ["evoli", "Évi ! Évi !"], ["mia", "Merci, dresseur ! Prends ça : c'est tout mon argent de poche !"]] }] },
+      { id: "w3y", w: 3, titre: "Les baies de Joëlle", giver: "joelle", rec: { xp: 240, z: 650 }, fin: "Le Centre Pokémon est réapprovisionné",
+        intro: [["joelle", "Oh là là… le Centre n'a plus de baies Oran pour soigner les Pokémon blessés !"], ["joelle", "Pourrais-tu en cueillir sur la Route 2, puis prouver qu'elles sont efficaces en combat ?"]],
+        e: [{ t: "ramasser", n: 5, a: ["route2", 0, 0], r: 220, ic: "baie", txt: "Cueille 5 baies Oran sur la Route 2" },
+            { t: "pkwin", n: 2, txt: "Gagne 2 combats contre des Pokémon sauvages" },
+            { t: "parler", p: "joelle", txt: "Rapporte les baies à l'Infirmière Joëlle", dit: [["joelle", "Merveilleux ! Tes Pokémon ont l'air en pleine forme."], ["joelle", "Le Centre Pokémon te remercie. Reviens quand tu veux !"]] }] },
+      // ===== Konoha =====
+      { id: "w4x", w: 4, titre: "La fougue de la jeunesse", giver: "lee", rec: { xp: 320, z: 500 }, fin: "Lee te reconnaît comme rival",
+        intro: [["lee", "Gai-sensei dit qu'un vrai ninja s'entraîne jusqu'à l'épuisement !"], ["lee", "Bats 6 ennemis, puis affronte-moi ! Si je perds, je fais 500 tours du village !"]],
+        e: [{ t: "vaincre", n: 6, txt: "Bats 6 ennemis autour du village" },
+            { t: "duel", p: "lee", lvl: 0.85, techs: [{ nom: "Lotus recto", mult: 1.6 }, { nom: "Tourbillon de la Feuille", mult: 1.2 }], txt: "Affronte Rock Lee en duel" },
+            { t: "parler", p: "lee", txt: "Parle à Rock Lee", dit: [["lee", "Incroyable… Ta fougue est encore plus brûlante que la mienne !"], ["lee", "500 tours du village ! C'est parti !! Merci, rival !"]] }] },
+      { id: "w4y", w: 4, titre: "Les herbes d'Hinata", giver: "hinata", rec: { xp: 300, z: 480 }, fin: "Hinata a pris confiance en elle",
+        intro: [["hinata", "Je… je voudrais préparer un baume pour l'équipe… avec des herbes de la forêt."], ["hinata", "Mais des bandits rôdent… Tu… tu veux bien m'accompagner ?"]],
+        e: [{ t: "ramasser", n: 4, a: ["foretD", 0, 0], r: 200, ic: "herbe", txt: "Cueille 4 herbes médicinales dans la forêt" },
+            { t: "escorte", qui: { L: "hinata" }, nom: "Hinata", de: ["foretD", 70, 30], a: ["place", -40, 140], amb: { type: "bandit", n: 2 }, txt: "Raccompagne Hinata jusqu'au village",
+              dit: { go: "M-merci… je reste derrière toi.", att: "Attends… s'il te plaît !", peur: "Des bandits ! Byakugan… non, je n'y arrive pas !", ouf: "Tu… tu les as battus…", fin: "On est rentrés… merci." } },
+            { t: "parler", p: "hinata", txt: "Parle à Hinata", dit: [["hinata", "Grâce à toi, j'ai réussi. Je… je ne reculerai plus."], ["hinata", "C'est ça, mon nindô à moi."]] }] },
+      // ===== Britannia =====
+      { id: "w5x", w: 5, titre: "Le bouclier de Griamore", giver: "griamore", rec: { xp: 340, z: 560 }, fin: "Veronica est rentrée à Liones",
+        intro: [["griamore", "Dame Veronica est partie seule à Vaizel. Je dois garder le château… et des brigands rôdent sur la route."], ["griamore", "Ramène-la à Liones. Si un seul cheveu lui manque…"]],
+        e: [{ t: "escorte", qui: { L: "veronica" }, nom: "Veronica", de: ["vaizel", 80, 80], a: ["liones", -60, 160], amb: { type: "brigand", n: 3 }, txt: "Trouve Veronica à Vaizel et escorte-la jusqu'à Liones",
+              dit: { go: "Griamore t'envoie ? Quel nigaud. Bon, allons-y.", att: "Je ne t'attendrai pas éternellement !", peur: "Des brigands ! Montre-moi ce que tu vaux !", ouf: "Pas mal… pour un roturier.", fin: "Liones. Enfin." } },
+            { t: "parler", p: "griamore", txt: "Retourne voir Griamore", dit: [["griamore", "Dame Veronica est saine et sauve ! Je te dois une dette de chevalier."], ["griamore", "Prends ceci. Et… merci."]] }] },
+      { id: "w5y", w: 5, titre: "La Fontaine de Jouvence", giver: "elaine", rec: { xp: 360, z: 600 }, fin: "La forêt des fées est apaisée",
+        intro: [["elaine", "Des créatures attirées par la Fontaine rôdent dans ma forêt…"], ["elaine", "Chasse-les, puis retrouve la Graine de l'Arbre sacré qu'elles ont emportée. Je lis dans ton cœur : tu en es capable."]],
+        e: [{ t: "vaincre", n: 4, txt: "Chasse 4 créatures près de la forêt des fées" },
+            { t: "trouver", a: ["fees", 0, 0], r: 240, ic: "herbe", nom: "Graine de l'Arbre sacré", txt: "Trouve la Graine de l'Arbre sacré (suis le chaud/froid)" },
+            { t: "parler", p: "elaine", txt: "Rapporte la graine à Elaine", dit: [["elaine", "La Graine… L'Arbre sacré va refleurir."], ["elaine", "Ton cœur est pur. Ban aurait aimé te rencontrer."]] }] }
+    ];
+    for (const Q of NQ) { if (Q49_BY[Q.id]) continue; Q49_Q.push(Q); Q49_BY[Q.id] = Q; }
+    /* ---- scènes de dialogue pour les sagas existantes (ordre et étapes inchangés) ---- */
+    const sc = (id, i, L) => { const Q = Q49_BY[id]; if (Q && Q.e[i] && Q.e[i].t === "parler") Q.e[i].dit = L; };
+    const intro = (id, L) => { const Q = Q49_BY[id]; if (Q && typeof Q.intro === "string") Q.intro = L; };
+    intro("w1m", [["sage", "Approche, jeune guerrier… Les sept étoiles brillent de plus en plus faiblement."], ["sage", "Une armée, le Ruban Noir, cherche les boules de cristal pour faire un vœu terrible."], ["moi", "Je ne les laisserai pas faire !"], ["sage", "Alors commence par retrouver les pièces du radar, près de la Tour de Karine."]]);
+    sc("w1m", 1, [["inv", "Super ! Ces pièces viennent bien de mon radar."], ["inv", "Je les remonte… Voilà ! Oh non… il y a des points rouges partout : des soldats du Ruban Noir !"], ["moi", "Je m'en occupe."]]);
+    sc("w1m", 4, [["sage", "Le Général Corbeau est tombé… Le Ruban Noir est vaincu !"], ["sage", "Les sept étoiles sont en sécurité grâce à toi. Tu as le cœur d'un vrai héros."]]);
+    intro("w2m", [["mira", "Matelot ! Regarde cette vieille carte : elle mène au trésor du Roi des Mers."], ["mira", "Elle est déchirée en morceaux… et Barbe-Grise la convoite. Il faut faire vite !"]]);
+    const w2 = Q49_BY.w2m; if (w2) { const i = w2.e.findIndex(E => E.t === "parler" && E.p === "perro"); if (i >= 0) sc("w2m", i, [["perro", "Croâ ! Croâ ! Montre-moi ce papier…"], ["perro", "Le repaire de Barbe-Grise ! Mais ses navires gardent la route, croâ !"]]); sc("w2m", w2.e.length - 1, [["mira", "Le trésor du Roi des Mers ! Je n'y croyais plus."], ["mira", "Tu es un vrai pirate, matelot. Ta part t'attend !"]]); }
+    intro("w3m", [["prof", "Bienvenue, jeune dresseur ! Ton aventure commence aujourd'hui."], ["prof", "Pour devenir un grand dresseur, il te faut le Badge Roche de Cité-Granit."], ["prof", "Mais d'abord, agrandis ton équipe !"]]);
+    const w3 = Q49_BY.w3m; if (w3) sc("w3m", w3.e.length - 1, [["prof", "Le Badge Roche ! Laisse-moi l'admirer…"], ["prof", "Je suis fier de toi. La Ligue Pokémon t'attend !"]]);
+    intro("w4m", [["iruko", "Catastrophe ! Les parchemins de l'examen ont été volés !"], ["iruko", "C'est Kaburo, un déserteur. Retrouve les parchemins et ramène-les à l'Académie."], ["moi", "Croix de ninja, je le ferai !"]]);
+    const w4 = Q49_BY.w4m; if (w4) sc("w4m", w4.e.length - 1, [["iruko", "Les parchemins ! Tous ! Tu as réussi !"], ["iruko", "Tu es digne du bandeau de Konoha. Viens, je t'offre un bol de ramen !"]]);
+    intro("w5m", [["elisa", "Capitaine… les Chevaliers sacrés ont pris le royaume."], ["elisa", "Retrouve les fragments de l'armure sacrée et arrête Hendor. Les Sept Péchés comptent sur toi !"]]);
+    const w5 = Q49_BY.w5m; if (w5) sc("w5m", w5.e.length - 1, [["elisa", "Liones est libre !"], ["elisa", "Les Sept Péchés capitaux peuvent rentrer à la taverne. Merci, Capitaine !"]]);
+    /* ---- récompenses rééquilibrées ---- */
+    try { MISSIONS.m8.z = 150; } catch (_) { }
+    try { PKQ.q5.rec = "accès au Lac Brumeux + 600 zénis + 3 Super Balls"; PKQ.q6.rec = "accès aux Ruines Anciennes + 1000 zénis + 2 Super Potions"; } catch (_) { }
+    const pf = pkFinirQuete;
+    pkFinirQuete = function (id) {
+      let av = false; try { av = !!(PK.q[id] && PK.q[id].st !== "fini"); } catch (_) { }
+      const r = pf.apply(this, arguments);
+      try { if (av && PK.q[id].st === "fini") { if (id === "q5") { prog.argent += 600; PK.sac.super = (PK.sac.super | 0) + 3; } if (id === "q6") { prog.argent += 1000; PK.sac.superpotion = (PK.sac.superpotion | 0) + 2; } } } catch (e) { q66Err("pkrec", e); }
+      return r;
+    };
+  } catch (e) { q66Err("contenu", e); }
+})();
 
 </script>
 </body>

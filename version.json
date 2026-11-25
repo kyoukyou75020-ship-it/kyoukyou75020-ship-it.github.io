@@ -1,1 +1,7 @@
-{"v": "65.0", "date": "2026-11-25 19:28", "test": true, "publie": true, "notes": "Version de test 65.0 publiée (testée dans Node uniquement : non validée visuellement, ni navigateur, ni téléphone ; FPS non garantis) : arène de combat — on ne sort plus du ring au premier coup (jauge de recul en %, zone de tension et rebord où l'on se rattrape, IA sans projections en rafale ; sortie = défaite gardée) ; un thème tiré au hasard à chaque combat : Tenkaichi Budokai, Cell Game, pont du Vogue Merry, festival de Vaizel, arène Pokémon, examen Chûnin, en 3D et en 2D. Contient la 64.0 (héros plus détaillés). Sauvegardes compatibles."}
+{
+ "v": "66.0",
+ "date": "2026-11-25 21:48",
+ "test": true,
+ "publie": true,
+ "notes": "Version de test 66.0 publiée (testée dans Node uniquement : non validée visuellement, ni navigateur, ni téléphone ; FPS non garantis) : quêtes améliorées (11 nouvelles quêtes, escortes, objets cachés chaud/froid, coupe de bois, scènes de dialogue avec portraits, récompenses selon le niveau + objet d'équipement, écran de récompense pour toutes les quêtes, boussole + distance + flèche vers l'objectif, journal « En cours » qui regroupe toutes les quêtes) ; météo aléatoire qui change petit à petit : soleil, nuages, pluie, brouillard, orage léger, en 3D et en 2D. Contient la 65.0. Sauvegardes compatibles."
+}
