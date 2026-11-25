@@ -33445,7 +33445,7 @@ try { const l7 = l77Tick; l77Tick = function () { const r = l7.apply(this, argum
 const V41 = { ol: true, cache: new Map(), st: { id: null, at: null, t0: -9, step: 0, last: -9, pause: 0, hs: 0, kn: -9, br: -9 }, seen: new WeakSet(), err: 0 };
 const VS41 = G3_VS_MESH.replace("uniform float uE;", "uniform float uE; uniform float uOut; uniform float uOutZ; uniform float uToon;")
   .replace("gl_Position = uVP*w; vec3 n = normalize(mat3(uM)*aN);", "vec3 n = normalize(mat3(uM)*aN); if (uOut > 0.0) { w.xyz += n*uOut; w.xyz += normalize(w.xyz - uCam)*uOutZ; } gl_Position = uVP*w;")
-  .replace("float d = max(dot(n, uL), 0.0);", "float d = max(dot(n, uL), 0.0); if (uToon > 0.5) { float rim = 1.0 - abs(dot(n, normalize(uCam - w.xyz))); d = smoothstep(0.12, 0.34, d)*0.78 + 0.16 + rim*rim*rim*0.32; }");
+  .replace("float d = max(dot(n, uL), 0.0);", "float d = max(dot(n, uL), 0.0); if (uToon > 1.5) { float rim = 1.0 - abs(dot(n, normalize(uCam - w.xyz))); d = smoothstep(-0.08, 0.7, d)*0.72 + 0.22 + rim*rim*rim*0.22; } else if (uToon > 0.5) { float rim = 1.0 - abs(dot(n, normalize(uCam - w.xyz))); d = smoothstep(0.12, 0.34, d)*0.78 + 0.16 + rim*rim*rim*0.32; }");
 function v41Prog() {
   const P = G3.P && G3.P.m; if (!P) return null; if (P.__41) return P; if (V41.err > 2) return null;
   try { const N = g3Prog(VS41, G3_FS_MESH); N.__41 = 1; N.base = P; G3.P.m = N; return N; } catch (e) { V41.err++; console.warn("v41 shader", e && e.message); return null; }
@@ -33473,7 +33473,7 @@ function v41Lot(fn) {
   if (!Q.length) return r;
   const P = v41Prog(), gl = G3.gl;
   if (!P) { for (let i = 0; i < Q.length; i += 3) g3Mesh(Q[i], Q[i + 1], Q[i + 2]); return r; }
-  gl.useProgram(P.p); gl.uniform1f(P.u.uToon, 1);
+  gl.useProgram(P.p); gl.uniform1f(P.u.uToon, V41.tk || 1);
   g3Mesh(Q[0], Q[1], Q[2]); gl.useProgram(P.p);   // fixe tous les uniformes communs
   for (let i = 3; i < Q.length; i += 3) v41Fast(gl, P, Q[i], Q[i + 1], Q[i + 2]);
   gl.uniform1f(P.u.uToon, 0);
@@ -33645,6 +33645,7 @@ function v41Tete(g, S, lite) {
 }
 /* ---------- corps, membres, armes ---------- */
 function v41Corps(S, lite) {
+  if (S && S.p640 && typeof P640 !== "undefined" && P640.on && typeof p640Corps === "function") return p640Corps(S, lite);
   const H = v41H, n = lite ? 10 : 12, m = lite ? 6 : 8, sk = S.skin, M = {}, E = (f) => { const g = new G3Geo(); f(g); return g.build(); };
   M.head = E(g => v41Tete(g, S, lite));
   M.torso = E(g => {
@@ -33709,6 +33710,7 @@ function v41Cles(base, K, u) {
   return v41Lerp(A, B, e);
 }
 function v41Rig(body, J, S) {
+  if (S && S.p640 && typeof P640 !== "undefined" && P640.on && typeof p640Rig === "function") return p640Rig(body, J, S);
   const T = M4.mul(body, M4.trs(0, 10.3 + J.by + J.lift, J.bz, J.ty + J.yaw, J.tp, J.tr)), R = { T };
   R.head = M4.mul(T, M4.trs(0, 10.1, 0.15, J.hy, J.hp, 0, S.hs, S.hs, S.hs));
   R.ua = []; R.fa = []; R.hand = []; R.th = []; R.sh = []; R.foot = [];
@@ -38211,6 +38213,8 @@ function p99GeoTh(th) {
     for (let i = 0; i < 10; i++) g.sph(-240 + i * 52 + H(i, 40) * 20, 0, 140 + H(i, 41) * 6, 6 + H(i, 42) * 6, 4, 6 + H(i, 43) * 5, 6, [0.5, 0.48, 0.44]);
     torches(coins.map(([x, z]) => [x * 1.08, z * 1.12]), [0.5, 0.34, 0.18]);
     gradins([0.62, 0.48, 0.3], 150); ciel = [[0.84, 0.94, 1], [0.26, 0.6, 0.95]]; gr = null;
+  } else if (typeof P650T !== "undefined" && P650T[th] && P650T[th].base) {
+    ciel = p650Base(th, g, { RX, RZ, H, arbre, sapin, herbe, rebord, gradins, torches, coins, R }) || ciel; gr = null;
   } else if (th === "britannia") {
     herbe([0.3, 0.56, 0.24], [0.35, 0.62, 0.28]);
     for (let i = 0; i < 24; i++) { const x = (H(i, 61) - 0.5) * 420, z = 120 + H(i, 62) * 25; g.sph(x, 0, (H(i, 63) < 0.5 ? -1 : 1) * z * 0.9, 2, 1.4, 2, 5, [0.95, 0.85, 0.3]); }
@@ -38246,6 +38250,7 @@ function p99GeoTh(th) {
     torches(coins.map(([x, z]) => [x * 1.1, z * 1.15]));
     gradins([0.62, 0.6, 0.58]);
   }
+  try { if (typeof p650Deco === "function") ciel = p650Deco(th, g, { RX, RZ, H, arbre, sapin, R }) || ciel; } catch (e) { try { p650Err("deco:" + th, e); } catch (_) { } }
   R.ciel = ciel; R.sol = g.build();
   // public : 4 groupes qui bougent à des rythmes différents
   const peau = [[1, 0.82, 0.66], [0.86, 0.64, 0.46], [0.6, 0.42, 0.3], [0.98, 0.76, 0.6]], cheveux = [[0.1, 0.08, 0.06], [0.5, 0.3, 0.12], [0.9, 0.78, 0.3], [0.2, 0.2, 0.25], [0.8, 0.35, 0.1]];
@@ -38298,7 +38303,7 @@ function p99Action(F, a) {
     F.garde = false; F.combo = F.comboT > 0 ? F.combo % 3 + 1 : 1; F.comboT = 0.6; F.st = "att"; F.t = 0; F.hit = 0;
     p99Face(F, O); const d = Math.hypot(O.x - F.x, O.z - F.z);
     if (F.combo === 1) F.coup = "jab"; else if (F.combo === 2) F.coup = "direct";
-    else { F.k3 = (F.k3 || 0) + 1; F.coup = d < 30 && (O.st === "hurt" || O.stun > 0) && !O.vol && O.y < 2 && Math.random() < 0.45 ? "proj" : (F.k3 & 1) ? "pied" : "upper"; }
+    else { F.k3 = (F.k3 || 0) + 1; F.coup = d < 30 && (O.st === "hurt" || O.stun > 0) && !O.vol && O.y < 2 && Math.random() < 0.45 && (typeof p650Proj !== "function" || p650Proj(F)) ? "proj" : (F.k3 & 1) ? "pied" : "upper"; }
     F.dur = P99_COUPS[F.coup].dur; if (F.coup === "pied" && F.y < 1) F.vy = 55;
     if (d > 22 && d < 80) { const T = 0.1, s = (d - 17) / T; F.vx = Math.sin(F.yaw) * s; F.vz = Math.cos(F.yaw) * s; F.lunge = T; p99Fx("trait", { x: F.x, z: F.z, x1: F.x + Math.sin(F.yaw) * (d - 17), z1: F.z + Math.cos(F.yaw) * (d - 17), vie: 0.25, col: g3Col(F.col) }); }
     p99Son("baton"); return;
@@ -38332,7 +38337,7 @@ function p99Coup(F, O, mult, kb, pop, x, z) {
   const C = AV.cine; let dmg = F.atk * mult * (0.9 + Math.random() * 0.2), gard = O.garde && O.y < 1 && O.stun <= 0;
   if (gard) { dmg *= 0.2; kb *= 0.3; pop = 0; }
   O.pv = Math.max(0, O.pv - dmg); const dx = O.x - (x != null ? x : F.x), dz = O.z - (z != null ? z : F.z), l = Math.hypot(dx, dz) || 1;
-  O.vx = dx / l * kb; O.vz = dz / l * kb; if (pop) O.vy = Math.max(O.vy, pop);
+  { const kq = typeof p650Kb === "function" ? p650Kb(F, O, kb, dmg, gard) : kb; O.vx = dx / l * kq; O.vz = dz / l * kq; } if (pop) O.vy = Math.max(O.vy, pop);
   if (!gard) { O.st = "hurt"; O.t = 0; O.stun = kb > 150 ? 0.5 : 0.24; O.hurt = 0.22; O.combo = 0; O.buf = 0; O.yaw = Math.atan2(-dx, -dz); }
   F.ki = Math.min(100, F.ki + 7); O.ki = Math.min(100, O.ki + 4);
   const mx = (O.x + F.x) / 2, mz = (O.z + F.z) / 2, my = Math.max(O.y, F.y) + 14;
@@ -38564,7 +38569,7 @@ function p99Maj(C, dt) {
       const CP = P99_COUPS[F.coup] || P99_COUPS.direct;
       if (!F.hit && F.t >= F.dur * CP.hit) { F.hit = 1; const d = Math.hypot(O.x - F.x, O.z - F.z); if (d < (F.coup === "pied" ? 31 : 27) && Math.abs(O.y - F.y) < 18) { p99Face(F, O); const c3 = F.combo === 3;
           if (F.coup !== "proj" && !C.clash && (C.clashCd || 0) <= 0 && !O.ko && O.y < 2 && F.y < 2 && !F.out && !O.out && (O.st === "att" || (c3 && Math.random() < 0.3))) { p99ClashDebut(C, F, O); continue; }
-          if (F.coup === "proj" && !O.ko && O.inv <= 0) { const ux = (O.x - F.x) / (d || 1), uz = (O.z - F.z) / (d || 1); O.vol = { t: 0, dur: 0.42, x0: O.x, z0: O.z, x1: F.x - ux * 30, z1: F.z - uz * 30, by: F }; O.st = "hurt"; O.stun = 1; O.vx = O.vz = O.vy = 0; O.combo = 0; O.buf = 0; P99.hs = Math.max(P99.hs, 0.05); p99Son("bond"); F.txt = { s: "PROJECTION !", t: 0 }; }
+          if (F.coup === "proj" && !O.ko && O.inv <= 0) { const ux = (O.x - F.x) / (d || 1), uz = (O.z - F.z) / (d || 1); O.vol = { t: 0, dur: 0.42, x0: O.x, z0: O.z, x1: typeof p650In === "function" ? p650In(F.x - ux * 30, P99A.RX) : F.x - ux * 30, z1: typeof p650In === "function" ? p650In(F.z - uz * 30, P99A.RZ) : F.z - uz * 30, by: F }; O.st = "hurt"; O.stun = 1; O.vx = O.vz = O.vy = 0; O.combo = 0; O.buf = 0; P99.hs = Math.max(P99.hs, 0.05); p99Son("bond"); F.txt = { s: "PROJECTION !", t: 0 }; }
           else if (F.coup !== "proj") p99Coup(F, O, CP.m, CP.kb, CP.pop); F.vx *= 0.2; F.vz *= 0.2; } }
       if (F.t >= F.dur) { F.st = "idle"; if (F.buf) { F.buf = 0; p99Action(F, "frap"); } }
     } else if (F.st === "dash") { F.t += dt; if (F.t >= F.dur) { F.st = "idle"; F.vx *= 0.25; F.vz *= 0.25; } }
@@ -38584,6 +38589,7 @@ function p99Maj(C, dt) {
     if (F.y > 0 || F.vy > 0) { F.vy -= (F.st === "dive" ? 900 : 720) * dt; F.y += F.vy * dt; if (F.y <= 0) { F.y = 0; F.vy = 0; p99Atterrit(C, F, O); } }
     const fr = F.st === "dash" || F.lunge > 0 || F.st === "dive" ? 0 : (F.y > 0 ? 120 : (F.ko ? 260 : 520)), v = Math.hypot(F.vx, F.vz);
     if (v > 0) { const nv = Math.max(0, v - fr * dt); F.vx *= nv / v; F.vz *= nv / v; if (v > 120 && F.y < 1 && Math.random() < 0.6) p99Fx("poussiere", { x: F.x + (Math.random() - 0.5) * 6, z: F.z + (Math.random() - 0.5) * 6, vie: 0.5, r: 3 + Math.random() * 3 }); }
+    if (typeof p650Bord === "function") p650Bord(C, F, O, dt, go);
     // sortie de ring : 3 secondes dehors = perdu
     F.out = Math.abs(F.x) > P99A.RX + 7 || Math.abs(F.z) > P99A.RZ + 7 ? 1 : 0;   // v53.1 : tout le corps hors du ring
     if (F.out && go && !F.ko && F.y < 1) { F.outT = 3; if (F.hum || O.hum) try { vibrer(F.hum ? [60, 40, 120] : [30, 20, 30]); } catch (_) { } if (F.outT >= 3) { F.ko = 1; F.st = "ko"; F.vy = 90; C.res = { t: 0, G: O, P: F, ring: true }; P99.hs = 0.15; P99.shake = 0.8; p99Son(O.hum ? "fanfare" : "vaincu"); } }
@@ -38715,6 +38721,7 @@ function p99D2(C, W, H, dpr, now) {
   ctx.fillStyle = T[3]; ctx.fillRect(X(-240 * P99S), Y(-182 * P99S), (240 - 26) * P99S * sc, 14 * P99S * sc); ctx.fillRect(X(26 * P99S), Y(-182 * P99S), (240 - 26) * P99S * sc, 14 * P99S * sc);
   ctx.fillStyle = "#e0d8c8"; ctx.fillRect(X(-20 * P99S), Y(-170 * P99S), 40 * P99S * sc, 54 * P99S * sc * 0.82);
   for (let k = 0; k < 4; k++) for (let i = 0; i < 46; i++) { const r = p99H(i, k + 40); if (r < 0.08) continue; const b = Math.max(0, Math.sin(now * (7 + ((i * 7 + k * 3) & 3) * 1.3))) * 2 * sc; ctx.fillStyle = ["#e04040", "#3a6ae0", "#f0c030", "#40b050", "#f08030", "#a050d0", "#f0f0f0"][(i * 5 + k * 11) % 7]; ctx.beginPath(); ctx.arc(X((-230 + i * 10) * P99S), Y((158 + k * 14) * P99S) - b, 3.4 * P99S * sc, 0, 6.29); ctx.fill(); }
+  try { if (typeof p650D2 === "function") p650D2(C, th, X, Y, sc, W, H, dpr, now); } catch (e) { try { p650Err("d2", e); } catch (_) { } }
   for (const F of [C.A, C.B]) {
     ctx.globalAlpha = 0.35; ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(X(F.x), Y(F.z), 8 * scF, 4 * scF, 0, 0, 6.29); ctx.fill(); ctx.globalAlpha = 1;
     let im = null; try { im = F.sprite(F.st === "att" || F.st === "dive" ? 1 : (Math.floor(F.ph / 1.6) & 1) * 2 * F.mv); } catch (_) { }
@@ -39042,7 +39049,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "63.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "65.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -53193,6 +53200,970 @@ body.p630cine #passerCine{border-color:#ffd870!important;box-shadow:0 0 12px rgb
   }, 1000); }
 }
 try { ACC_NOUVEAU.unshift("🎬 Nouvelle cinématique d'ouverture « Mondes Ouverts » : revois-la dans 🎬 Cinématiques"); } catch (_) { }
+
+
+/* ===== v64.0 partie A — héros jouables : modèles 3D plus réalistes et plus beaux =====
+   Sangoku, Naruto, Luffy, Meliodas, Théo (+ héros jouables de Britannia et personnages incarnables) :
+   proportions plus élancées (tête un peu plus petite, jambes plus longues, même taille totale pour tous),
+   visage refait (yeux à iris dégradé, deux reflets, paupières, sourcils, nez, bouche, oreilles),
+   coiffures signatures plus volumineuses, vêtements détaillés (plis, ceintures, logos, bandeau),
+   mains et chaussures modelées, ombrage plus doux, respiration / regard / balancement, cheveux et tissus qui bougent.
+   Autres personnages (PNJ, méchants, animaux) : inchangés. */
+const P640 = { err: [], on: true, st: { mod: 0, sec: 0, rig: 0 }, studio: 0 };
+function p640Err(k, e) { try { if (P640.err.length < 20) P640.err.push(k + ": " + (e && e.message || e)); } catch (_) { } }
+const P640_MAIN = { sangoku: 1, naruto: 1, luffy: 1, meliodas: 1, theo: 1 };
+const P640_JOUABLES = Object.assign({ diane: 1, ban: 1, king: 1, gowther: 1, merlin: 1, escanor: 1, tortue: 1, tao: 1, nami: 1, baggy: 1, ondine: 1, jessie: 1, kakashi: 1, zabuza: 1 }, P640_MAIN);
+/* gabarit : hanche, épaules, membres (unités du modèle v41) */
+const P640_G = { hip: 11.2, cou: 10.4, epX: 4.45, epY: 8.2, bras: 5.0, avb: 4.3, main: 4.45, cuX: 1.95, cuisse: 5.6, hs: 0.9 };
+
+/* ---------- outils géométriques ---------- */
+const p640Mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const p640K = (c, k) => [Math.min(1, c[0] * k), Math.min(1, c[1] * k), Math.min(1, c[2] * k)];
+const p640N = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const p640Add = (a, d, k) => [a[0] + d[0] * k, a[1] + d[1] * k, a[2] + d[2] * k];
+/* polyligne lisse à rayon dégressif (cils, sourcils, plis, coutures) */
+function p640Ligne(g, P, r0, r1, col, n = 4, col2) {
+  const N = P.length - 1;
+  for (let i = 0; i < N; i++) { const a = r0 + (r1 - r0) * i / N, b = r0 + (r1 - r0) * (i + 1) / N, ca = col2 ? p640Mix(col, col2, i / N) : col, cb = col2 ? p640Mix(col, col2, (i + 1) / N) : col;
+    g.tube(P[i], P[i + 1], a, b, ca, n, i < N - 1 && b > 0.14 ? 2 : false, cb); }
+}
+/* mèche courbe en 3 segments (racine → pointe), pointe plus claire (reflet) */
+function p640Pic(g, base, d1, d2, L, r, col, tip, n = 6) {
+  const a = p640N(d1), b = p640N(d2), m = p640N(p640Mix(a, b, 0.5));
+  const p1 = p640Add(base, a, L * 0.38), p2 = p640Add(p1, m, L * 0.34), p3 = p640Add(p2, b, L * 0.28);
+  const c1 = col, c2 = p640Mix(col, tip, 0.35), c3 = p640Mix(col, tip, 0.8);
+  g.tube(base, p1, r, r * 0.7, c1, n, false, c1); g.tube(p1, p2, r * 0.7, r * 0.38, c1, n, false, c2); g.tube(p2, p3, r * 0.38, 0, c2, n, false, c3);
+}
+/* surfaces de la tête (crâne, mâchoire, menton) → profondeur z de la peau en (x, y) */
+const P640_CR = [0, 4.95, 0.2, 4.45, 4.7, 4.3], P640_JW = [0, 2.85, 1.15, 3.3, 2.55, 3.05], P640_CH = [0, 1.2, 2.4, 1.4, 1.0, 1.3];
+function p640Zs(E, x, y) { const dx = (x - E[0]) / E[3], dy = (y - E[1]) / E[4], q = 1 - dx * dx - dy * dy; return q > 0 ? E[2] + E[5] * Math.sqrt(q) : -99; }
+function p640Sf(x, y, k = 0) { return Math.max(p640Zs(P640_CR, x, y), p640Zs(P640_JW, x, y), p640Zs(P640_CH, x, y), 0) + k; }
+/* surface du torse */
+const P640_TA = [0, 5.0, 0, 3.3, 3.8, 2.45], P640_TC = [0, 7.3, 0.05, 4.1, 2.5, 2.7], P640_TP = [0, 0.9, 0, 3.45, 2.2, 2.5];
+function p640Tz(x, y, k = 0) { return Math.max(p640Zs(P640_TA, x, y), p640Zs(P640_TC, x, y), p640Zs(P640_TP, x, y), 0.5) + k; }
+function p640Tzb(x, y, k = 0) { return -(Math.max(p640Zs([0, 5.0, 0, 3.3, 3.8, 2.45], x, y), p640Zs([0, 7.3, -0.05, 4.1, 2.5, 2.7], x, y), p640Zs(P640_TP, x, y), 0.5) + k); }
+
+/* ---------- style : couleurs et signes distinctifs de chaque héros ---------- */
+function p640Look(S) {
+  const H = v41H, id = S.id;
+  S.expr = "sourire"; S.brow = [0.1, 0.6, 0.26, 0.12]; S.oeil = 1; S.lash = [0.06, 0.05, 0.07];
+  switch (id) {
+    case "sangoku": S.expr = "fier"; S.brow = [0.32, 0.35, 0.32, 0.14]; S.hair = H("#0d0b14"); S.hairL = H("#3a4670"); S.joues = 0.25; break;
+    case "naruto": S.expr = "grin"; S.brow = [0.22, 0.45, 0.24, 0.12]; S.hair = H("#f6c21e"); S.hairL = H("#fff2a0"); S.browC = H("#b8861a"); S.eye = H("#2a7ae8"); break;
+    case "luffy": S.expr = "grin"; S.brow = [0.02, 0.9, 0.24, 0.12]; S.hair = H("#121018"); S.hairL = H("#3a3a58"); S.joues = 0.15; break;
+    case "meliodas": S.expr = "malin"; S.brow = [-0.06, 0.55, 0.2, 0.1]; S.hair = H("#f2cf5a"); S.hairL = H("#fff4b8"); S.browC = H("#b08a2a"); S.eye = H("#2f9a4a"); break;
+    case "theo": S.expr = "sourire"; S.brow = [0.18, 0.5, 0.27, 0.14]; S.hair = H("#3a2414"); S.hairL = H("#7a5030"); S.eye = H("#4a2a14"); S.joues = 0.3; S.gant = H("#2a9a4a"); break;
+  }
+  if (!S.hairL) S.hairL = p640K(S.hair, 1.35);
+  if (!S.browC) S.browC = Math.max(S.hair[0], S.hair[1], S.hair[2]) > 0.5 ? p640K(S.hair, 0.62) : [0.09, 0.07, 0.09];
+}
+{ const s0 = v41Style; v41Style = function (id, P) {
+  const S = s0.apply(this, arguments);
+  try { if (P640.on && S && P640_JOUABLES[id]) {
+    S.p640 = 1; S.hs = P640_G.hs;
+    let e = 1; try { if (typeof P610 !== "undefined" && P610.h3 === id && P610.h3e > 1) e = P610.h3e; } catch (_) { }
+    S.sc = e; p640Look(S); P640.st.mod++;
+  } } catch (e) { p640Err("style", e); }
+  return S; }; }
+/* Britannia : le héros joué (King, Diane, Ban…) utilise son vrai modèle (avant : modèle de PNJ générique) */
+{ const id0 = v41Id; v41Id = function () { const r = id0.apply(this, arguments);
+  try { if (r === "pnj" && P640.on && typeof P610 !== "undefined" && P610.h3 && P640_JOUABLES[P610.h3]) return P610.h3; } catch (_) { }
+  return r; }; }
+/* les détails v55.3 des 5 héros principaux sont refaits ici (sinon ils se superposeraient) */
+{ const x0 = p553Extras; p553Extras = function (S) { if (S && S.p640 && P640_MAIN[S.id] && P640.on) return {}; return x0.apply(this, arguments); }; }
+
+/* ---------- visage ---------- */
+function p640Oeil(g, S, s, lite) {
+  const x = s * 1.6, y = 4.15, z0 = p640Sf(x, y, -0.27), ey = 1.2, eye = S.eye, lash = S.lash, n = lite ? 7 : 10, m = lite ? 4 : 6;
+  g.ell(x, y, z0, 1.0, ey, 0.5, [0.97, 0.96, 0.95], n, m, { rot: [0, 0, s * -0.06] });
+  const bas = p640K(eye, 1.35), haut = p640K(eye, 0.42);
+  g.ell(x - s * 0.04, y - 0.12, z0 + 0.3, 0.7, 0.9, 0.29, eye, n, m, { cf: t => p640Mix(bas, haut, Math.min(1, t * 1.15)) });
+  g.ell(x - s * 0.04, y - 0.08, z0 + 0.5, 0.33, 0.44, 0.13, p640K(eye, 0.18), 6, 4);
+  g.ell(x + 0.26, y + 0.32, z0 + 0.63, 0.24, 0.28, 0.1, [1, 1, 1], 5, 3);
+  if (!lite) g.ell(x - 0.24, y - 0.42, z0 + 0.6, 0.11, 0.11, 0.06, [0.95, 0.97, 1], 4, 2);
+  // paupière supérieure + cils (épais vers l'extérieur, petite pointe)
+  const P = []; for (const u of [-1, -0.55, 0, 0.5, 0.9, 1.12]) { const uu = Math.min(1, Math.abs(u)), px = x + s * u * 1.04, py = u > 1 ? y + 0.42 : y + ey * Math.sqrt(Math.max(0, 1 - (uu * 0.94) ** 2)) - 0.02 - (u > 0 ? 0.05 * u : 0); P.push([px, py, p640Sf(px, py, 0.1)]); }
+  for (let i = 0; i < P.length - 1; i++) { const r0 = [0.09, 0.15, 0.2, 0.23, 0.2][i], r1 = [0.15, 0.2, 0.23, 0.2, 0.05][i]; g.tube(P[i], P[i + 1], r0, r1, lash, 4, i < P.length - 2 ? 2 : false); }
+  // cils inférieurs (côté extérieur) et pli de paupière
+  const B = []; for (const u of [0.25, 0.65, 0.98]) { const px = x + s * u * 1.0, py = y - ey * Math.sqrt(Math.max(0, 1 - (u * 0.94) ** 2)) + 0.06; B.push([px, py, p640Sf(px, py, 0.06)]); }
+  p640Ligne(g, B, 0.04, 0.08, p640Mix(lash, S.skin, 0.25), 3);
+  if (!lite) { const C = []; for (const u of [-0.6, 0, 0.6]) { const px = x + s * u * 0.95, py = y + ey + 0.32 - 0.12 * u * u; C.push([px, py, p640Sf(px, py, 0.03)]); } p640Ligne(g, C, 0.05, 0.03, p640K(S.skin, 0.8), 3); }
+}
+function p640Sourcil(g, S, s) {
+  const [tilt, arch, t0, t1] = S.brow, x = s * 1.6, y0 = 4.15 + 1.78, P = [];
+  for (const u of [-1, -0.4, 0.3, 1]) { const px = x + s * u * 1.15, py = y0 + arch * 0.32 * (1 - u * u) + tilt * u * 0.5; P.push([px, py, p640Sf(px, py, 0.1)]); }
+  p640Ligne(g, P, t0, t1, S.browC, 4);
+}
+function p640Bouche(g, S, lite) {
+  const H = v41H, lip = p640Mix(S.skin, [0.55, 0.16, 0.16], 0.75), dk = [0.3, 0.06, 0.07], y = 2.12, e = S.expr, z = (x, yy, k) => p640Sf(x, yy, k);
+  if (e === "grin") {   // grand sourire ouvert : intérieur, dents du haut, langue
+    const w = S.id === "luffy" ? 1.3 : 0.95;
+    g.ell(0, y - 0.05, z(0, y, -0.32), w, S.id === "luffy" ? 0.62 : 0.5, 0.35, dk, 12, 6, { b1: 0.25 });
+    g.ell(0, y + 0.07, z(0, y + 0.1, -0.28), w * 0.86, 0.2, 0.28, [0.98, 0.97, 0.94], 10, 3);
+    g.ell(0, y - 0.38, z(0, y - 0.4, -0.3), w * 0.5, 0.18, 0.22, [0.85, 0.36, 0.36], 8, 3);
+    const P = []; for (const u of [-1, -0.5, 0, 0.5, 1]) { const px = u * w, py = y + 0.15 - 0.62 * (1 - u * u) * 0.9 + (Math.abs(u) > 0.9 ? 0.12 : 0); P.push([px, py, z(px, py, 0.02)]); }
+    p640Ligne(g, P, 0.07, 0.07, lip, 4);
+    g.tube([-w * 1.02, y + 0.17, z(-w, y + 0.17, 0.02)], [w * 1.02, y + 0.17, z(w, y + 0.17, 0.02)], 0.06, 0.06, lip, 4, false);
+    for (const s of [-1, 1]) g.tube([s * w, y + 0.17, z(s * w, y + 0.17, 0.02)], [s * (w + 0.22), y + 0.36, z(s * (w + 0.2), y + 0.36, 0.02)], 0.07, 0.03, lip, 3, false);
+  } else {
+    const k = e === "malin" ? 1 : 0, f = e === "fier" ? 0.12 : 0.24, P = [];
+    for (const u of [-1, -0.5, 0, 0.5, 1]) { const px = u * 0.82, py = y - f * (1 - u * u) + (k ? 0.22 * Math.max(0, u) : 0) + (Math.abs(u) > 0.95 ? 0.05 : 0); P.push([px, py, z(px, py, 0.03)]); }
+    p640Ligne(g, P, 0.1, 0.1, lip, 4);
+    if (!lite) g.ell(0, y - 0.42, z(0, y - 0.42, -0.03), 0.42, 0.14, 0.12, p640Mix(S.skin, [0.9, 0.5, 0.48], 0.35), 6, 3);
+  }
+}
+function p640Visage(g, S, lite) {
+  const H = v41H, sk = S.skin, n = lite ? 10 : 14, m = lite ? 7 : 10, c = S.coif;
+  g.ell(P640_CR[0], P640_CR[1], P640_CR[2], P640_CR[3], P640_CR[4], P640_CR[5], sk, n, m);
+  g.ell(P640_JW[0], P640_JW[1], P640_JW[2], P640_JW[3], P640_JW[4], P640_JW[5], sk, n, m - 2);
+  g.ell(P640_CH[0], P640_CH[1], P640_CH[2], P640_CH[3], P640_CH[4], P640_CH[5], sk, 8, lite ? 4 : 5);
+  for (const s of [-1, 1]) { g.ell(s * 2.25, 2.95, 2.35, 1.45, 1.15, 1.35, sk, 7, 4);   // pommettes
+    g.ell(s * 4.32, 4.15, 0.15, 0.62, 1.12, 0.92, p640K(sk, 0.97), 7, 4); if (!lite) g.ell(s * 4.62, 4.15, 0.35, 0.28, 0.66, 0.42, p640K(sk, 0.8), 5, 3); }
+  if (c === "tortue") {   // lunettes noires + barbe blanche (Tortue Géniale)
+    for (const s of [-1, 1]) g.ell(s * 1.7, 4.3, p640Sf(s * 1.7, 4.3, 0.05), 1.45, 0.95, 0.45, H("#141414"), 10, 6);
+    g.tube([-0.45, 4.5, p640Sf(0, 4.5, 0.25)], [0.45, 4.5, p640Sf(0, 4.5, 0.25)], 0.16, 0.16, H("#141414"), 4, false);
+    g.ell(0, 1.4, 2.5, 2.5, 2.9, 1.9, [0.96, 0.96, 0.96], 10, 7); g.tube([-1.6, 2.75, 4.1], [0, 2.5, 4.35], 0.42, 0.28, [0.96, 0.96, 0.96], 6); g.tube([0, 2.5, 4.35], [1.6, 2.75, 4.1], 0.28, 0.42, [0.96, 0.96, 0.96], 6);
+  } else {
+    for (const s of [-1, 1]) { if (c === "kakashi" && s > 0) continue; p640Oeil(g, S, s, lite); }
+    if (c !== "kakashi" || true) for (const s of [-1, 1]) p640Sourcil(g, S, s);
+  }
+  if (c === "kakashi") { const P = [[1.1, 5.6], [1.6, 4.5], [1.9, 3.2]].map(([x, y]) => [x, y, p640Sf(x, y, 0.05)]); p640Ligne(g, P, 0.09, 0.07, H("#8a3a3a"), 3); g.tube([0.6, 4.2, p640Sf(0.6, 4.2, 0.06)], [2.6, 4.2, p640Sf(2.6, 4.2, 0.06)], 0.1, 0.1, [0.1, 0.08, 0.1], 4, false); }
+  // nez : arête, bout, ombre des narines
+  if (!S.masque && !S.bandages) {
+    g.ell(0, 3.55, p640Sf(0, 3.55, -0.1), 0.26, 0.6, 0.3, p640K(sk, 0.98), 6, 4);
+    g.ell(0, 3.1, p640Sf(0, 3.1, 0.06), 0.36, 0.3, 0.3, p640K(sk, 1.02), 7, 4);
+    g.ell(0, 2.86, p640Sf(0, 2.86, -0.02), 0.42, 0.11, 0.12, p640K(sk, 0.72), 6, 3);
+  }
+  if (S.nez) g.ell(0, 3.3, p640Sf(0, 3.3, 0.45), 1.0, 1.0, 0.95, H("#e02a2a"), 10, 7);
+  if (!S.masque && !S.bandages && c !== "tortue") p640Bouche(g, S, lite);
+  if (S.joues) for (const s of [-1, 1]) g.ell(s * 2.55, 3.05, p640Sf(s * 2.55, 3.05, -0.1), 0.75, 0.36, 0.2, p640Mix(sk, [1, 0.5, 0.52], S.joues + 0.15), 6, 3);
+  if (S.masque) g.ell(0, 2.75, 1.42, 3.62, 2.62, 3.22, H("#1a2440"), n, m - 3, { b1: 0.5 });
+  if (S.bandages) { g.ell(0, 2.75, 1.42, 3.62, 2.62, 3.22, H("#d8d8d0"), n, m - 3, { b1: 0.42 }); for (let k = 0; k < 3; k++) g.ell(0, 1.6 + k * 0.8, 1.42, 3.66, 0.22, 3.26, H("#a8a8a0"), n, 3); }
+  // signes distinctifs
+  const ln = (P, r, col) => p640Ligne(g, P.map(([x, y, k]) => [x, y, p640Sf(x, y, k || 0.05)]), r, r * 0.8, col, 3);
+  if (S.id === "luffy") { const sc = H("#9a3a2c"); ln([[0.95, 3.15], [1.7, 3.0], [2.45, 3.08]], 0.08, sc); for (const xx of [1.25, 1.7, 2.15]) ln([[xx, 3.32], [xx - 0.06, 2.78]], 0.055, sc); }
+  if (S.id === "naruto") for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const y = 2.55 + k * 0.42; ln([[s * 2.05, y], [s * 2.75, y + 0.06 * (k - 1)], [s * 3.4, y + 0.12 * (k - 1)]], 0.07, H("#6a4430")); }
+  if (S.id === "theo") for (const s of [-1, 1]) ln([[s * 1.95, 3.45], [s * 2.45, 3.25], [s * 2.05, 3.0], [s * 2.55, 2.8]], 0.06, H("#9a5a3a"));
+}
+/* ---------- cheveux (5 héros principaux) ---------- */
+function p640Cheveux(g, S, lite) {
+  const H = v41H, hair = S.hair, hL = S.hairL, hD = p640K(hair, 0.8), n = lite ? 10 : 14, m = lite ? 6 : 9, f = lite ? 4 : 5;
+  const cal = (o, col) => g.ell(0, 5.15, 0.0, 4.72, 4.98, 4.55, col || hair, n, m, Object.assign({ b0: -0.25, rot: [0, -0.45, 0] }, o || {}));
+  const C = [0, 5.3, -0.1], sp = (d, L, r, d2, col, tip) => { const u = p640N(d), b = [C[0] + u[0] * 3.75, C[1] + u[1] * 3.95, C[2] + u[2] * 3.6]; p640Pic(g, b, u, d2 || u, L + 0.9, r, col || hair, tip || hL, f); };
+  const bang = (x, y, d, d2, L, r, col) => p640Pic(g, [x, y, p640Sf(x, y, -0.55)], d, d2 || d, L, r, col || hair, hL, f);
+  switch (S.id) {
+    case "sangoku": {   // grands pics en éventail, 4 mèches qui retombent sur le front
+      cal();
+      for (const [d, L, r, d2] of [
+        [[-0.3, 1, 0.12], 6.0, 2.15, [-0.75, 0.75, 0.05]], [[0.36, 1, 0.0], 5.6, 2.05, [0.8, 0.65, -0.05]], [[0.02, 1, -0.5], 5.4, 2.05, [0.05, 0.65, -0.8]],
+        [[-1, 0.62, 0.1], 5.5, 1.95, [-1, 0.15, 0]], [[-1, 0.1, -0.15], 5.0, 1.85, [-0.85, -0.35, -0.2]], [[-0.85, -0.3, -0.45], 3.9, 1.6, [-0.55, -0.8, -0.25]],
+        [[1, 0.58, 0.1], 5.5, 1.95, [1, 0.12, 0]], [[1, 0.08, -0.15], 5.0, 1.85, [0.85, -0.38, -0.2]], [[0.85, -0.3, -0.45], 3.9, 1.6, [0.55, -0.8, -0.25]],
+        [[0, 0.5, -1], 5.2, 2.0, [0, 0.05, -1]], [[-0.55, 0.1, -1], 4.4, 1.8, [-0.45, -0.4, -0.85]], [[0.55, 0.1, -1], 4.4, 1.8, [0.45, -0.4, -0.85]], [[0, -0.4, -1], 3.6, 1.7, [0, -0.85, -0.55]],
+        [[-0.62, 0.85, -0.45], 4.6, 1.75, [-0.9, 0.4, -0.6]], [[0.62, 0.85, -0.45], 4.6, 1.75, [0.9, 0.4, -0.6]]]) sp(d, L, r, d2);
+      bang(-2.35, 7.7, [-0.25, -1, 0.42], [-0.45, -0.9, 0.2], 3.4, 1.15); bang(-0.8, 8.05, [-0.08, -1, 0.45], [-0.25, -1, 0.15], 3.6, 1.15);
+      bang(0.75, 8.05, [0.1, -1, 0.45], [0.3, -0.95, 0.15], 3.2, 1.1); bang(2.3, 7.7, [0.32, -1, 0.35], [0.5, -0.85, 0.15], 3.2, 1.15);
+      bang(-1.4, 8.4, [-0.2, 0.9, 0.6], [-0.5, 0.85, 0.1], 3.8, 1.45); bang(1.5, 8.45, [0.25, 0.9, 0.55], [0.55, 0.8, 0.1], 3.6, 1.45);
+      break; }
+    case "naruto": {   // pics blonds courts tout autour, mèches devant le bandeau
+      cal();
+      for (let k = 0; k < 15; k++) { const a = k / 15 * 6.2832 + 0.2, e = 0.25 + (k % 3) * 0.26, fr = Math.cos(a) > 0.6; if (fr && k % 2) continue;
+        const d = [Math.sin(a) * Math.cos(e), Math.sin(e) + 0.3, Math.cos(a) * Math.cos(e) - 0.15]; sp(d, 3.4 + (k % 2) * 1.0, 1.55, [d[0] * 1.3, d[1] * 0.6 + 0.25, d[2] * 1.3]); }
+      sp([0.05, 1, 0.15], 4.2, 1.75, [0.2, 0.9, -0.3]); sp([-0.35, 1, -0.2], 3.8, 1.6, [-0.6, 0.8, -0.3]);
+      for (const x of [-2.5, -1.25, 0.05, 1.3, 2.5]) bang(x, 8.75, [x * 0.1, -0.85, 0.55], [x * 0.18, -1, 0.3], 2.4, 0.95);
+      for (const s of [-1, 1]) bang(s * 3.6, 6.4, [s * 0.35, -1, 0.3], [s * 0.2, -1, 0.1], 2.6, 0.85);
+      // bandeau frontal : tissu bleu nuit + plaque d'acier gravée (feuille de Konoha)
+      const bl = H("#232c5c"), ac = H("#c4c9d2"), acD = H("#7a808c");
+      g.ell(0, 5.0, 0.2, 4.78, 5.04, 4.6, bl, n, 3, { b0: 0.3, b1: 0.58, rot: [0, -0.1, 0] });
+      g.ell(0, 5.0, 0.2, 4.9, 5.16, 4.72, ac, 12, 3, { b0: 0.33, b1: 0.55, a0: -0.11, a1: 0.11, rot: [0, -0.1, 0] });
+      const zc = (x, y) => { const dx = x / 4.9, dy = (y - 5.0) / 5.16; return 0.2 + 4.72 * Math.sqrt(Math.max(0.02, 1 - dx * dx - dy * dy)) + 0.08; };
+      const yc = 6.95, sw = []; for (let k = 0; k <= 7; k++) { const a = k / 7 * 4.4, r = 0.18 + k * 0.085; const px = Math.cos(a + 1.2) * r - 0.1, py = yc + Math.sin(a + 1.2) * r * 0.8; sw.push([px, py, zc(px, py)]); }
+      p640Ligne(g, sw, 0.09, 0.07, acD, 3); p640Ligne(g, [[0.5, yc - 0.4], [0.75, yc + 0.2], [0.3, yc + 0.7]].map(([x, y]) => [x, y, zc(x, y)]), 0.08, 0.06, acD, 3);
+      for (const s of [-1, 1]) for (const y of [6.55, 7.35]) g.ell(s * 1.7, y, zc(s * 1.7, y), 0.13, 0.13, 0.08, acD, 5, 3);
+      g.ell(0, 6.9, -4.45, 0.8, 0.65, 0.5, bl, 7, 4);   // nœud à l'arrière (les pans bougent : pièce secondaire)
+      break; }
+    case "luffy": {   // cheveux noirs en bataille sous le chapeau de paille
+      cal({ b0: -0.32 });
+      for (const x of [-2.6, -1.35, -0.1, 1.2, 2.5]) bang(x, 7.2, [x * 0.1, -1, 0.42], [x * 0.2, -1, 0.15], 2.5 + (Math.abs(x) < 1 ? 0.3 : 0), 1.05);
+      for (const s of [-1, 1]) { sp([s, -0.4, 0.05], 1.9, 1.25, [s * 0.7, -0.8, 0.0]); sp([s, -0.55, -0.35], 2.7, 1.4, [s * 0.7, -0.8, -0.3]); sp([s * 0.9, 0.05, -0.5], 2.4, 1.35, [s * 0.8, -0.5, -0.5]); }
+      sp([0, -0.45, -1], 2.6, 1.6, [0, -0.85, -0.6]); sp([-0.5, -0.25, -1], 2.4, 1.45, [-0.4, -0.8, -0.6]); sp([0.5, -0.25, -1], 2.4, 1.45, [0.4, -0.8, -0.6]);
+      // chapeau de paille : bord large (anneaux de paille), calotte, ruban rouge
+      const st = H("#ecc96a"), stD = H("#c9a24a"), stL = H("#f6dc8a"), rg = H("#c8282a"), rot = [0, -0.14, 0.03];
+      g.ell(0, 8.2, -0.1, 7.2, 0.36, 6.9, st, lite ? 16 : 22, lite ? 4 : 8, { rot, cf: t => (Math.floor(t * 8) & 1 ? stD : st) });
+      g.ell(0, 8.05, -0.1, 7.3, 0.18, 7.0, stD, lite ? 16 : 22, 2, { rot, b1: 0 });
+      g.ell(0, 9.25, -0.3, 4.65, 2.75, 4.45, st, n, m, { b0: -0.12, rot, cf: t => (Math.floor(t * 6) & 1 ? stL : st) });
+      g.ell(0, 9.0, -0.3, 4.8, 1.25, 4.6, rg, n, 4, { rot });
+      break; }
+    case "meliodas": {   // blond en désordre, mèches balayées sur le front, épi (l'épi bouge : pièce secondaire)
+      cal();
+      for (let k = 0; k < 13; k++) { const a = k / 13 * 6.2832 + 0.55, e = -0.15 + (k % 3) * 0.18; if (Math.cos(a) > 0.72) continue;
+        const d = [Math.sin(a), e + 0.1, Math.cos(a) - 0.1]; sp(d, 2.8 + (k % 2) * 0.9, 1.5, [Math.sin(a) * 0.9, -0.55, Math.cos(a) * 0.9 - 0.2]); }
+      sp([0, 1, -0.2], 3.0, 1.6, [0.1, 0.4, -1]); sp([-0.5, 0.9, 0.1], 2.8, 1.5, [-0.9, 0.2, 0.1]); sp([0.5, 0.9, 0.05], 2.8, 1.5, [0.9, 0.2, 0]);
+      for (const [x, L] of [[-2.7, 3.1], [-1.5, 3.4], [-0.3, 3.5], [0.9, 3.3], [2.1, 3.0], [3.1, 2.6]]) bang(x, 8.2, [0.25, -1, 0.42], [0.55, -0.85, 0.1], L, 1.05);
+      break; }
+    case "theo": {   // casquette rouge et blanche (logo vert), cheveux bruns en pics qui dépassent
+      cal({ b0: -0.32 });
+      for (const [d, L, r, d2] of [[[-1, -0.4, -0.2], 3.0, 1.45, [-0.8, -0.7, -0.4]], [[1, -0.4, -0.2], 3.0, 1.45, [0.8, -0.7, -0.4]], [[-0.6, -0.3, -1], 3.4, 1.55, [-0.5, -0.5, -1]], [[0.6, -0.3, -1], 3.4, 1.55, [0.5, -0.5, -1]], [[0, -0.2, -1], 3.8, 1.65, [0, -0.45, -1]], [[0, -0.6, -1], 3.0, 1.5, [0, -0.9, -0.6]], [[-1, -0.75, 0.25], 2.3, 1.15, [-0.7, -1, 0.2]], [[1, -0.75, 0.25], 2.3, 1.15, [0.7, -1, 0.2]], [[-0.85, 0.1, -0.8], 3.0, 1.4, [-0.7, 0.1, -1]], [[0.85, 0.1, -0.8], 3.0, 1.4, [0.7, 0.1, -1]]]) sp(d, L, r, d2);
+      for (const x of [-2.3, -0.9, 0.6, 2.0]) bang(x, 6.95, [x * 0.12, -1, 0.42], [x * 0.25, -1, 0.1], 1.9, 0.9);
+      const rouge = H("#d62a26"), rD = H("#a81e1c"), bl = H("#f4f4ef"), vert = H("#22a04a"), rot = [0, -0.18, 0];
+      g.ell(0, 6.3, -0.05, 5.15, 4.25, 4.95, rouge, n, m, { b0: -0.06, rot });
+      g.ell(0, 6.3, -0.05, 5.22, 4.32, 5.03, bl, 10, m, { b0: 0.04, a0: -0.13, a1: 0.13, rot });
+      for (const a of [0.2, 0.4, -0.2, -0.4]) { const P = []; for (const b of [0.05, 0.6, 1.2]) { const R = v41Rot(rot[0], rot[1], rot[2]), p = R([Math.sin(a * 3.14) * Math.cos(b) * 5.2, Math.sin(b) * 4.3, Math.cos(a * 3.14) * Math.cos(b) * 5.02]); P.push([p[0], p[1] + 6.3, p[2] - 0.05]); } p640Ligne(g, P, 0.07, 0.05, rD, 3); }
+      { const R = v41Rot(rot[0], rot[1], rot[2]), p = R([0, 4.3, 0]); g.ell(p[0], p[1] + 6.35, p[2] - 0.05, 0.55, 0.3, 0.55, rouge, 6, 3); }
+      // logo vert en forme d'arc (« L » arrondi) sur le panneau blanc
+      { const R = v41Rot(rot[0], rot[1], rot[2]), ons = (lx, ly) => { const dx = lx / 5.26, dy = ly / 4.36, z = 5.07 * Math.sqrt(Math.max(0.02, 1 - dx * dx - dy * dy)), p = R([lx, ly, z]); return [p[0], p[1] + 6.3, p[2] - 0.05]; };
+        const lp = []; for (let k = 0; k <= 6; k++) { const a = Math.PI * (0.1 + k / 6 * 1.0); lp.push(ons(Math.cos(a) * 0.8, 2.0 + Math.sin(a) * 0.62)); }
+        p640Ligne(g, lp, 0.2, 0.2, vert, 4); const q = ons(0.95, 1.55); g.ell(q[0], q[1], q[2], 0.3, 0.3, 0.14, vert, 6, 3); }
+      g.ell(0, 6.5, 4.55, 3.8, 0.36, 3.0, rouge, 14, 5, { b0: -0.6, rot: [0, 0.1, 0] }); g.ell(0, 6.36, 4.55, 3.84, 0.14, 3.04, rD, 14, 2, { rot: [0, 0.1, 0], b1: 0 });
+      break; }
+  }
+}
+/* coiffures d'origine (personnages incarnables) : copie du code v41, sur le nouveau visage */
+function p640CheveuxV41(g, S, lite) {
+  const H = v41H, n = lite ? 9 : 12, m = lite ? 6 : 8, hair = S.hair, hL = v41K(hair, 1.22), c = S.coif;
+  if (c === "krilin" || c === "tortue") return;
+  if (!(S.hat && (c === "luffy" || c === "theo" || c === "generique"))) g.ell(0, 5.15, 0.05, 4.98, 5.15, 4.78, hair, n, m, { b0: -0.22, rot: [0, -0.48, 0] });
+  else g.ell(0, 5.15, 0.05, 4.95, 5.0, 4.75, hair, n, m, { b0: -0.3, rot: [0, -0.3, 0] });
+  const HC2 = [0, 5.3, 0], sp = (d, L, r, col, bk = 0.78) => { const l = Math.hypot(...d), u = d.map(v => v / l), b = [HC2[0] + u[0] * 4.8 * bk, HC2[1] + u[1] * 5 * bk, HC2[2] + u[2] * 4.6 * bk]; g.meche(b, u, L + 4.8 * (1 - bk), r, col || hair, lite ? 5 : 6, hL); };
+  const bang = (x, y, d, L, r, col) => g.meche([x, y, v41Surf(x, y, -0.35)], d, L, r, col || hair, lite ? 5 : 6, hL);
+  switch (c) {
+    case "kakashi":
+      for (const [d, L, r] of [[[0.55, 1, -0.2], 7.5, 2.4], [[0.9, 0.8, -0.1], 6.5, 2.2], [[0.2, 1, -0.6], 6.5, 2.2], [[1, 0.4, -0.4], 5.5, 2], [[-0.3, 1, 0], 5.5, 2.1], [[-0.9, 0.3, -0.3], 3.6, 1.7], [[0, 0.2, -1], 4.2, 2]]) sp(d, L, r);
+      bang(-1.6, 7.8, [-0.2, -1, 0.4], 2.6, 1.1); bang(0.2, 8.0, [0.1, -1, 0.4], 2.4, 1.1);
+      g.ell(0, 5.0, 0.3, 4.8, 5.0, 4.6, H("#26306a"), n, 3, { b0: 0.05, b1: 0.42, rot: [0, -0.1, 0.32] });
+      g.box(1.3, 4.1, v41Surf(1.3, 5.2, -0.15), 2.8, 2.3, 0.6, H("#c8ccd4")); break;
+    case "zoro": for (let k = 0; k < 9; k++) { const a = k / 9 * 6.2832; sp([Math.sin(a) * 0.8, 1, Math.cos(a) * 0.8], 2.2, 1.6); } for (let k = 0; k < 3; k++) g.ell(4.6, 3.6 - k * 0.6, 0.6, 0.22, 0.32, 0.22, H("#f0c840"), 6, 4); break;
+    case "nami": case "baggy": case "jessie": case "sakura": case "ondine":
+      for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) bang(x, 7.9, [x * 0.12, -1, 0.42], 2.6, 1.05);
+      if (c === "jessie") { g.ell(0, 3.5, -2.8, 4.8, 6.8, 3.0, hair, n, m); g.tube([0, -2.5, -3.2], [1.5, -4.2, -2.2], 2.2, 1.0, hair, 8); }
+      else if (c === "ondine") { g.tube([3.4, 7.6, -2.0], [5.2, 3.6, -2.8], 1.4, 0.4, hair, 8); g.ell(3.3, 7.6, -1.9, 0.8, 0.8, 0.8, H("#e8e040"), 6, 4); }
+      else if (c === "sakura") { g.ell(0, 5.0, 0.3, 4.8, 5.0, 4.6, H("#d83a3a"), n, 2, { b0: 0.42, b1: 0.6, rot: [0, -0.3, 0] }); for (const s of [-1, 1]) g.ell(s * 3.8, 3.4, 0.6, 1.4, 3.0, 2.4, hair, 8, 6); }
+      else g.ell(0, 2.6, -2.4, 4.7, 5.3, 2.6, hair, n, m);
+      break;
+    case "tao": sp([0, 1, -0.3], 1.8, 2.2); g.tube([0, 4.0, -4.6], [0, -2, -5.4], 0.9, 0.6, hair, 6); for (const s of [-1, 1]) p640Ligne(g, [[s * 0.45, 2.62], [s * 1.3, 2.35], [s * 2.0, 1.6], [s * 2.3, 0.7]].map(([x, y]) => [x, y, p640Sf(x, y, 0.08)]), 0.17, 0.06, hair, 4); break;
+    case "zabuza": for (let k = 0; k < 8; k++) { const a = k / 8 * 6.2832; sp([Math.sin(a) * 0.7, 1, Math.cos(a) * 0.7 - 0.3], 2.4, 1.6); } g.ell(0, 5.0, 0.3, 4.8, 5.0, 4.6, H("#3a4a6a"), n, 3, { b0: 0.3, b1: 0.55, rot: [0.35, -0.12, 0.2] }); break;
+    default:
+      if (S.hat) { g.ell(0, 7.6, -0.1, 5.1, 3.4, 4.9, hair, n, m, { b0: -0.05 }); g.ell(0, 7.7, 2.6, 4.0, 0.4, 3.2, v41K(hair, 0.85), 12, 4); }
+      else if (S.spiky) for (let k = 0; k < 9; k++) { const a = k / 9 * 6.2832 + 0.3; sp([Math.sin(a) * 0.9, 0.7 + (k % 2) * 0.3, Math.cos(a) * 0.9 - 0.2], 3.4, 1.8); }
+      else for (const x of [-2.2, -0.8, 0.7, 2.1]) bang(x, 7.9, [x * 0.12, -1, 0.42], 2.3, 1.0);
+  }
+}
+{ const t0 = v41Tete; v41Tete = function (g, S, lite) {
+  if (!S || !S.p640 || !P640.on) return t0.apply(this, arguments);
+  try {
+    p640Visage(g, S, lite);
+    if (P640_MAIN[S.id]) p640Cheveux(g, S, lite);
+    else if (S.p537) { const chauve = typeof P537_CHAUVE !== "undefined" && P537_CHAUVE[S.id]; if (!chauve) p640CheveuxV41(g, Object.assign({}, S, { coif: "p537", spiky: false, hat: false }), lite); p537Tete(g, S, lite); }
+    else p640CheveuxV41(g, S, lite);
+  } catch (e) { p640Err("tete:" + S.id, e); }
+}; }
+
+/* ===== v64.0 partie B — corps, mains, chaussures, squelette, animation, pièces qui bougent ===== */
+function p640Plis(g, P, col, r) { p640Ligne(g, P, r || 0.09, (r || 0.09) * 0.6, col, 3); }
+function p640Torse(g, S, lite) {
+  const H = v41H, K = p640K, n = lite ? 10 : 13, m = lite ? 6 : 8, sk = S.skin, nu = !!S.gilet, top = nu ? sk : S.top, id = S.id;
+  const fz = (x, y, k) => p640Tz(x, y, k), bz = (x, y, k) => p640Tzb(x, y, k), dk = K(top, 0.8);
+  g.ell(P640_TP[0], P640_TP[1], P640_TP[2], P640_TP[3], P640_TP[4], P640_TP[5], S.pants, n, m);
+  g.ell(P640_TA[0], P640_TA[1], P640_TA[2], P640_TA[3], P640_TA[4], P640_TA[5], top, n, m);
+  g.ell(P640_TC[0], P640_TC[1], P640_TC[2], P640_TC[3], P640_TC[4], P640_TC[5], top, n, m);
+  g.ell(0, 8.55, -0.15, 3.3, 1.15, 2.15, top, n, 5);
+  for (const s of [-1, 1]) g.ell(s * 4.05, 8.15, 0, 1.62, 1.58, 1.62, nu ? sk : S.sleeve, lite ? 7 : 10, lite ? 5 : 7);
+  g.tube([0, 8.6, 0.05], [0, 10.75, 0.2], 1.08, 0.98, S.masque ? H("#1a2440") : sk, lite ? 7 : 10, false);
+  g.ell(0, 2.35, 0, 2.8, 0.62, 2.05, S.belt, n, 4);
+  if (!lite && !nu) { p640Plis(g, [[-2.1, 3.5], [-0.9, 3.15], [0.4, 3.3]].map(([x, y]) => [x, y, fz(x, y, 0.02)]), dk); p640Plis(g, [[0.6, 3.9], [1.6, 3.55], [2.3, 3.8]].map(([x, y]) => [x, y, fz(x, y, 0.02)]), dk);
+    for (const s of [-1, 1]) p640Plis(g, [[s * 2.9, 6.9], [s * 2.5, 5.6], [s * 2.6, 4.4]].map(([x, y]) => [x, y, fz(x, y, 0.02)]), dk, 0.08); }
+  if (nu) {   // torse nu sous gilet ouvert (Luffy) : pectoraux, abdos légers
+    for (const s of [-1, 1]) { g.ell(s * 1.45, 7.0, fz(s * 1.45, 7.0, -0.45), 1.6, 1.15, 0.6, K(sk, 1.0), 8, 5); p640Plis(g, [[s * 0.4, 6.3], [s * 1.4, 6.0], [s * 2.3, 6.35]].map(([x, y]) => [x, y, fz(x, y, 0.01)]), K(sk, 0.82), 0.07); }
+    p640Plis(g, [[0, 6.0], [0, 4.6], [0, 3.2]].map(([x, y]) => [x, y, fz(x, y, 0.01)]), K(sk, 0.85), 0.06);
+    const v = S.top; g.ell(0, 5.0, 0, 3.4, 3.9, 2.56, v, n, m, { a0: 0.1, a1: 0.9, b0: -0.75 }); g.ell(0, 7.3, 0.05, 4.2, 2.6, 2.8, v, n, m, { a0: 0.11, a1: 0.89 });
+    g.ell(0, 8.55, -0.15, 3.4, 1.25, 2.25, v, n, 5, { a0: 0.2, a1: 0.8 });
+  }
+  switch (id) {
+    case "sangoku": {   // gi croisé, maillot dessous, kanji, ceinture nouée
+      const ss = H("#141c48"), lap = K(S.top, 0.84);
+      g.ell(0, 8.15, fz(0, 8.15, -0.55), 1.55, 1.3, 0.6, ss, 9, 5);
+      p640Ligne(g, [[-1.6, 9.05], [-0.85, 7.4], [0.25, 5.2], [1.0, 2.9]].map(([x, y]) => [x, y, fz(x, y, 0.05)]), 0.28, 0.24, lap, 4);
+      p640Ligne(g, [[1.6, 9.05], [0.95, 7.6], [0.3, 6.1]].map(([x, y]) => [x, y, fz(x, y, 0.1)]), 0.28, 0.24, lap, 4);
+      p553Kanji(g, -1.85, 6.85, fz(-1.85, 6.85, 0.06), 0.85); p553Kanji(g, 0, 6.3, bz(0, 6.3, 0.06), 1.5, 1);
+      g.ell(1.2, 2.35, fz(1.2, 2.35, 0.3), 0.6, 0.5, 0.4, K(S.belt, 0.9), 7, 4);
+      for (const s of [0.6, 1.5]) p640Ligne(g, [[1.2, 2.2], [1.2 + s * 0.5, 0.8], [1.3 + s * 0.6, -0.6]].map(([x, y]) => [x, y, fz(x, y, 0.32)]), 0.34, 0.24, K(S.belt, 0.92), 4);
+      break; }
+    case "naruto": {   // haut bleu nuit, col blanc, fermeture éclair, tourbillon rouge au dos, sacoche
+      const nv = S.top2 || H("#202848"), ro = H("#d83020");
+      g.ell(0, 7.3, 0.05, 4.18, 2.6, 2.8, nv, n, 6, { b0: 0.2 }); g.ell(0, 8.55, -0.15, 3.38, 1.22, 2.22, nv, n, 4, { b0: -0.1 });
+      g.tube([0, 8.75, 0.05], [0, 9.55, 0.1], 1.75, 1.55, H("#f2f2ec"), lite ? 8 : 12, false); g.ell(0, 9.55, 0.1, 1.55, 0.3, 1.5, H("#e2e2dc"), 10, 3);
+      p640Ligne(g, [[0, 8.7], [0, 6.5], [0, 4.4], [0, 2.9]].map(([x, y]) => [x, y, fz(x, y, 0.04)]), 0.1, 0.1, H("#2a2a2e"), 4);
+      g.ell(0, 8.2, fz(0, 8.2, 0.12), 0.22, 0.42, 0.12, H("#c8ccd4"), 5, 3);
+      for (const s of [-1, 1]) p640Ligne(g, [[s * 3.95, 7.5], [s * 3.2, 7.0], [s * 1.7, 6.75]].map(([x, y]) => [x, y, fz(x, y, 0.03)]), 0.08, 0.08, K(S.top, 0.75), 3);
+      g.ell(0, 6.3, bz(0, 6.3, 0.02), 1.6, 1.6, 0.25, ro, 12, 4); const sw = []; for (let k = 0; k <= 9; k++) { const a = k / 9 * 5.5, r = 0.2 + k * 0.12; sw.push([Math.cos(a) * r, 6.3 + Math.sin(a) * r, bz(Math.cos(a) * r, 6.3 + Math.sin(a) * r, 0.16)]); } p640Ligne(g, sw, 0.12, 0.12, S.top, 3);
+      g.ell(0, 1.5, bz(0, 1.5, 0.55), 1.5, 0.95, 0.8, H("#b89a6a"), 8, 4);
+      break; }
+    case "luffy": {   // écharpe jaune nouée, boutons du gilet
+      const ja = H("#f0c838");
+      g.ell(2.3, 2.15, fz(2.3, 2.15, 0.25), 0.9, 0.7, 0.6, ja, 8, 5);
+      p640Ligne(g, [[2.5, 1.8], [2.9, 0.6], [3.2, -0.8]].map(([x, y]) => [x, y, fz(x, y, 0.3)]), 0.42, 0.24, ja, 5); p640Ligne(g, [[2.1, 1.8], [2.2, 0.5], [2.05, -0.5]].map(([x, y]) => [x, y, fz(x, y, 0.32)]), 0.38, 0.22, K(ja, 0.92), 5);
+      for (let k = 0; k < 3; k++) { const y = 4.5 + k * 1.35, x = -1.5 - k * 0.05; g.ell(x, y, fz(x, y, 0.16), 0.3, 0.3, 0.16, ja, 6, 3); }
+      break; }
+    case "meliodas": {   // gilet noir ouvert, chemise blanche, col, cravate verte, baudrier de l'épée
+      const v = S.top2 || H("#1a1a22"), br = H("#4a2e1a"), or = H("#d8b040");
+      g.ell(0, 5.0, 0, 3.4, 3.9, 2.56, v, n, m, { a0: 0.1, a1: 0.9, b0: -0.6 }); g.ell(0, 7.3, 0.05, 4.2, 2.6, 2.8, v, n, m, { a0: 0.12, a1: 0.88 });
+      g.ell(0, 8.55, -0.15, 3.4, 1.25, 2.25, v, n, 5, { a0: 0.18, a1: 0.82 });
+      for (const s of [-1, 1]) { p640Ligne(g, [[s * 1.05, 8.9], [s * 1.0, 6.6], [s * 1.15, 4.0], [s * 1.3, 2.6]].map(([x, y]) => [x, y, fz(x, y, 0.05)]), 0.12, 0.12, K(v, 1.6), 4);
+        p640Ligne(g, [[s * 0.35, 9.1], [s * 0.95, 8.8], [s * 1.25, 8.45]].map(([x, y]) => [x, y, fz(x, y, 0.06)]), 0.22, 0.08, S.top, 4); }
+      g.ell(0, 8.45, fz(0, 8.45, 0.1), 0.38, 0.32, 0.22, H("#2a8a3a"), 6, 4); p640Ligne(g, [[0, 8.3], [0.05, 7.4], [-0.05, 6.4]].map(([x, y]) => [x, y, fz(x, y, 0.08)]), 0.3, 0.42, H("#2a8a3a"), 4);
+      for (let k = 0; k < 3; k++) { const y = 3.6 + k * 1.2; for (const s of [-1, 1]) g.ell(s * 1.55, y, fz(s * 1.55, y, 0.08), 0.16, 0.16, 0.1, or, 5, 3); }
+      p640Ligne(g, [[-2.8, 1.6], [-0.2, 5.6], [2.4, 9.4]].map(([x, y]) => [x, y, bz(x, y, 0.15)]), 0.5, 0.45, br, 5);
+      break; }
+    case "theo": {   // veste ouverte sur t-shirt noir, col blanc, sac à dos vert et bretelles
+      const nr = H("#1e1e24"), bl = H("#f4f4f0"), sac = H("#2e8a4a"), sD = H("#1e5a30");
+      g.ell(0, 5.0, 0, 3.36, 3.86, 2.5, nr, n, m, { a0: -0.075, a1: 0.075 }); g.ell(0, 7.3, 0.05, 4.16, 2.56, 2.76, nr, n, m, { a0: -0.08, a1: 0.08, b1: 0.7 });
+      g.tube([0, 8.7, 0.05], [0, 9.35, 0.1], 1.55, 1.42, bl, lite ? 8 : 12, false);
+      for (const s of [-1, 1]) { p640Ligne(g, [[s * 0.95, 8.9], [s * 1.0, 6.5], [s * 1.0, 4.0], [s * 1.1, 2.7]].map(([x, y]) => [x, y, fz(x, y, 0.07)]), 0.16, 0.14, K(S.top, 0.7), 4);
+        g.tube([s * 2.0, 9.0, 0.5], [s * 2.0, 5.0, fz(s * 2, 5, 0.14)], 0.36, 0.36, sD, 5, false); g.tube([s * 2.0, 9.0, 0.5], [s * 2.2, 8.6, -2.6], 0.36, 0.36, sD, 5, false); }
+      g.ell(0, 5.8, -3.5, 2.95, 3.35, 1.6, sac, 10, 6); g.ell(0, 7.6, -3.8, 2.85, 1.2, 1.5, sD, 9, 4); g.ell(0, 4.4, -4.8, 1.6, 1.0, 0.5, sD, 8, 3);
+      break; }
+  }
+  if (id !== "sangoku" && id !== "luffy" && S.id !== "meliodas" && S.id !== "theo" && S.id !== "naruto") {   // incarnables : détails d'origine v41
+    if (S.id === "kakashi") { g.ell(0, 5.6, 0.05, 3.85, 3.9, 2.85, S.top, n, m, { b0: -0.9 }); for (const s of [-1, 1]) g.box(s * 1.6, 5.4, 2.6, 1.6, 1.6, 0.6, v41K(S.top, 0.85)); }
+    if (S.carapace) { g.ell(0, 5.6, -2.7, 4.3, 4.9, 2.2, H("#3a8a3a"), n, m); g.ell(0, 5.6, -2.5, 4.6, 5.2, 1.6, H("#e8d8a0"), n, 4, { a0: 0.3, a1: 0.7 }); }
+  }
+}
+function p640Manche(S) { return S.id === "sangoku" || S.id === "krilin" || S.id === "theo" || S.id === "zoro" || S.id === "nami"; }
+function p640Bras(g, S, s, lite) {
+  const H = v41H, K = p640K, sk = S.skin, tn = lite ? 7 : 10, sl = S.gilet ? sk : S.sleeve, G = P640_G;
+  g.ell(0, -0.35, 0, 1.45, 1.5, 1.45, sl, tn, 6);
+  if (p640Manche(S)) { g.tube([0, 0, 0], [0, -2.6, 0], 1.56, 1.48, sl, tn, false); g.tube([0, -2.35, 0], [0, -2.8, 0], 1.6, 1.58, K(sl, 0.82), tn, false);
+    g.tube([0, -2.5, 0], [0, -G.bras, 0], 1.16, 0.98, sk, tn, false); g.ell(0, -3.1, 0.18, 1.12, 1.25, 1.16, sk, 8, 5);
+    if (S.id === "theo") g.tube([0, -2.35, 0], [0, -2.8, 0], 1.63, 1.6, H("#f4f4f0"), tn, false); }
+  else { g.tube([0, 0, 0], [0, -G.bras, 0], 1.38, 1.05, sl, tn, false); g.ell(0, -2.0, 0.22, 1.26, 1.75, 1.3, sl, 8, 5);
+    if (!lite && !S.gilet) p640Plis(g, [[-0.9, -4.0, 0.75], [0, -4.35, 1.0], [0.9, -4.0, 0.75]], K(sl, 0.78), 0.08); }
+  if (S.id === "meliodas" && s > 0) { const ro = H("#c02020"); g.ell(1.32, -1.5, 0.2, 0.22, 0.75, 0.55, ro, 6, 4); g.ell(1.36, -2.15, 0.1, 0.2, 0.38, 0.38, ro, 5, 3); p640Ligne(g, [[1.3, -0.9, 0.5], [1.38, -1.5, 0.75], [1.32, -2.2, 0.55]], 0.08, 0.06, K(ro, 0.7), 3); }
+  if (S.id === "naruto") g.tube([0, -0.05, 0], [0, -1.4, 0], 1.47, 1.42, S.top2 || H("#202848"), tn, false);
+}
+function p640AvBras(g, S, s, lite) {
+  const H = v41H, K = p640K, sk = S.skin, tn = lite ? 7 : 10, G = P640_G, fc = p640Manche(S) || S.gilet ? sk : S.fore;
+  g.ell(0, 0, -0.05, 1.06, 1.0, 1.06, fc, 8, 5);
+  g.tube([0, 0, 0], [0, -G.avb, 0], 1.08, 0.8, fc, tn, false); g.ell(0, -1.25, 0.08, 1.12, 1.6, 1.08, fc, 8, 5);
+  if (fc !== sk) g.tube([0, -G.avb + 0.75, 0], [0, -G.avb + 0.05, 0], 0.98, 0.92, K(fc, 0.86), tn, false);
+  if (S.wrist) { g.tube([0, -2.95, 0], [0, -G.avb + 0.05, 0], 1.04, 0.96, S.wrist, tn, false); g.tube([0, -2.95, 0], [0, -3.2, 0], 1.08, 1.07, K(S.wrist, 0.8), tn, false); }
+  if (S.gant) g.tube([0, -G.avb + 0.5, 0], [0, -G.avb + 0.05, 0], 0.93, 0.9, S.gant, tn, false);
+  if (S.id === "naruto") g.tube([0, -G.avb + 0.85, 0], [0, -G.avb + 0.2, 0], 1.02, 0.96, K(S.top, 0.85), tn, false);
+}
+function p640Main(g, S, lite) {
+  const sk = S.skin, pa = S.gant || sk, f = lite ? 5 : 7;
+  g.tube([0, 0.35, 0], [0, -0.3, 0], 0.8, 0.82, pa, f, false);
+  g.ell(0, -0.62, 0.05, 0.98, 1.02, 0.8, pa, lite ? 7 : 8, 5);
+  g.ell(0, -1.2, 0.4, 0.94, 0.5, 0.62, sk, lite ? 6 : 8, 4);
+  if (!lite) for (const x of [-0.45, 0.45]) g.ell(x, -1.36, 0.66, 0.36, 0.26, 0.24, p640K(sk, 1.03), 5, 2);
+  g.tube([0, -0.25, 0.62], [0, -0.85, 1.0], 0.34, 0.27, sk, 5, 2);
+}
+function p640Cuisse(g, S, s, lite) {
+  const H = v41H, K = p640K, tn = lite ? 7 : 10, G = P640_G, ba = S.id === "sangoku" || S.id === "krilin", r = ba ? 2.1 : 1.9, pc = S.pants;
+  g.ell(0, -0.4, 0.05, r + 0.05, 1.9, r + 0.1, pc, tn, 6);
+  g.tube([0, 0.4, 0], [0, -G.cuisse, 0], r, ba ? 1.62 : 1.4, pc, tn, false);
+  if (!lite) p640Plis(g, [[-1.0, -3.4, r * 0.8], [0.1, -3.9, r * 0.82], [1.0, -3.5, r * 0.78]], K(pc, 0.8), 0.08);
+  switch (S.id) {
+    case "luffy": g.tube([0, -4.3, 0], [0, -G.cuisse - 0.2, 0], 1.62, 1.58, K(pc, 1.25), tn, false); g.tube([0, -G.cuisse - 0.05, 0], [0, -G.cuisse - 0.3, 0], 1.6, 1.58, K(pc, 0.9), tn, false); break;
+    case "naruto": if (s < 0) { const bd = H("#f0f0ea"), dk = H("#1e2230"); g.tube([0, -1.4, 0], [0, -2.4, 0], 1.84, 1.8, bd, tn, false); g.box(-1.75, -3.0, 0.25, 0.7, 1.7, 1.5, dk); g.box(-2.0, -3.0, 0.25, 0.2, 1.3, 1.1, H("#3a3e4a")); } break;
+    case "sangoku": g.ell(0, -G.cuisse + 0.4, 0, 1.75, 1.0, 1.75, pc, tn, 5); break;
+  }
+}
+function p640Jambe(g, S, s, lite) {
+  const H = v41H, K = p640K, sk = S.skin, tn = lite ? 7 : 10, sh = S.shin || S.pants, id = S.id, bo = S.boots;
+  g.ell(0, 0, 0.1, 1.42, 1.32, 1.48, sh, 8, 5);
+  g.tube([0, 0, 0], [0, -4.7, 0], 1.36, 0.92, sh, tn, false); g.ell(0, -1.5, -0.3, 1.32, 1.9, 1.36, sh, 8, 5);
+  const sole = (col) => g.ell(0, -5.58, 0.62, 1.26, 0.22, 2.22, col, 10, 3);
+  const pied = (col) => { g.ell(0, -5.0, 0.7, 1.15, 0.72, 2.05, col, 10, 5); g.ell(0, -5.12, 2.05, 0.98, 0.55, 0.85, col, 8, 4); };
+  if (id === "luffy" || id === "naruto") {   // sandales : pied nu, orteils, sangles
+    pied(sk); for (const x of [-0.6, -0.2, 0.2, 0.55]) if (!lite) g.ell(x, -5.28, 2.75, 0.24, 0.22, 0.26, p640K(sk, 1.02), 5, 3);
+    const sc = id === "luffy" ? H("#7a4a20") : H("#2a3a8a"); sole(id === "luffy" ? H("#b07a40") : H("#2a3a8a"));
+    g.tube([-1.15, -4.95, 1.45], [1.15, -4.95, 1.45], 0.2, 0.2, sc, 4, false); g.tube([0, -4.92, 1.45], [0, -5.0, -0.55], 0.18, 0.18, sc, 4, false);
+    if (id === "naruto") { g.ell(0, -4.75, -0.6, 1.12, 0.9, 0.9, sc, 8, 4); g.tube([0, -1.2, 0], [0, -2.1, 0], 1.32, 1.24, H("#f0f0ea"), tn, false); g.tube([0, -4.35, 0], [0, -4.85, 0], 1.0, 1.02, sc, tn, false); }
+  } else {
+    g.tube([0, -4.3, 0], [0, -5.0, 0], 1.0, 1.0, bo, tn, false); pied(bo);
+    if (id === "meliodas") { g.tube([0, -2.5, 0], [0, -4.45, 0], 1.42, 1.08, bo, tn, false); g.tube([0, -2.45, 0], [0, -2.8, 0], 1.47, 1.45, K(bo, 1.25), tn, false); sole(H("#1e1410")); }
+    else if (id === "theo") { sole(H("#f4f4f0")); g.ell(0, -4.95, 1.7, 0.75, 0.3, 0.8, H("#f4f4f0"), 7, 3); p640Ligne(g, [[-0.5, -4.55, 1.4], [0, -4.5, 1.55], [0.5, -4.55, 1.4]], 0.08, 0.08, H("#f4f4f0"), 3); g.tube([0, -4.2, 0], [0, -4.6, 0], 1.02, 1.0, H("#f4f4f0"), tn, false); }
+    else if (id === "sangoku" || id === "krilin") { sole(H("#1a1622")); g.tube([-1.15, -4.55, 0.95], [1.15, -4.65, 0.95], 0.2, 0.2, H("#d8302a"), 4, false); g.tube([0, -4.3, 0], [0, -4.75, 0], 1.08, 1.06, H("#f2f0ea"), tn, false); }
+    else sole(K(bo, 0.6));
+  }
+}
+function p640Corps(S, lite) {
+  const H = v41H, M = {}, E = f => { const g = new G3Geo(); f(g); return g.build(); };
+  M.head = E(g => v41Tete(g, S, lite));
+  M.torso = E(g => p640Torse(g, S, lite));
+  M.ua = [-1, 1].map(s => E(g => p640Bras(g, S, s, lite)));
+  M.fa = [-1, 1].map(s => E(g => p640AvBras(g, S, s, lite)));
+  M.fist = E(g => p640Main(g, S, lite));
+  M.th = [-1, 1].map(s => E(g => p640Cuisse(g, S, s, lite)));
+  M.sh = [-1, 1].map(s => E(g => p640Jambe(g, S, s, lite)));
+  if (S.queue) M.queue = E(g => { const c = H("#7a4a22"), cL = H("#9a6a3a"), P = [[0, 1.4, -2.2], [0.6, 0.2, -4.0], [1.8, 0.8, -5.8], [2.2, 2.8, -6.6], [1.6, 4.4, -6.2], [0.9, 5.2, -5.4]]; for (let i = 0; i < P.length - 1; i++) g.tube(P[i], P[i + 1], 0.85 - i * 0.1, 0.75 - i * 0.1, i > 2 ? cL : c, lite ? 5 : 7, i ? 2 : true); });
+  M.arme = v41Arme(S.arme);
+  try { M.p640s = p640Second(S, lite); } catch (e) { p640Err("second", e); }
+  M.p640 = 1; return M;
+}
+/* pièces secondaires (bougent avec le mouvement) : pans du bandeau de Naruto, épi de Meliodas */
+function p640Second(S, lite) {
+  const L = [], H = v41H;
+  if (S.id === "naruto") { const g = new G3Geo(), bl = H("#232c5c"); for (const s of [-1, 1]) { g.ell(s * 0.55, 4.7, -4.75, 0.45, 2.3, 0.16, bl, lite ? 6 : 8, 5, { rot: [0, 0.1, s * 0.16] }); g.ell(s * 0.85, 2.55, -4.95, 0.42, 0.5, 0.15, p640K(bl, 0.8), 6, 3); } L.push({ me: g.build(), par: "head", piv: [0, 6.9, -4.5], k: "nb" }); }
+  if (S.id === "meliodas") { const g = new G3Geo(); p640Pic(g, [0.25, 9.3, 0.7], [0.05, 1, 0.25], [0.45, 0.15, 1], 4.6, 0.72, S.hair, S.hairL, lite ? 5 : 6); L.push({ me: g.build(), par: "head", piv: [0.25, 9.6, 0.7], k: "ah" }); }
+  return L.length ? L : null;
+}
+function p640SecAng(k, J) {
+  const p = (J && J.p64) || { mv: 0, run: 0, ph: 0, now: performance.now() / 1000, br: 0 }, t = p.now, mv = p.mv, run = p.run;
+  if (k === "nb") return [0, 0.12 + 0.75 * mv * (0.35 + 0.65 * run) + Math.sin(t * 11 + p.ph) * 0.13 * (0.25 + mv) + Math.sin(t * 1.7) * 0.05 + (J.lift > 1 ? 0.4 : 0), Math.sin(t * 6.3) * 0.09 * (0.2 + mv)];
+  if (k === "ah") return [0, -0.3 * run * mv + Math.sin(p.ph * 2) * 0.16 * mv + Math.sin(t * 2.3) * 0.07, Math.sin(t * 1.6) * 0.06];
+  return [0, 0, 0];
+}
+/* squelette v64 (proportions plus élancées) — appelé depuis v41Rig pour les héros p640 */
+function p640Rig(body, J, S) {
+  const G = P640_G, kb = J.by < -5 ? -(G.hip - 10.3) : 0, br = (J.p64 && J.p64.br) || 0, hy = G.hip + J.by + kb + (J.lift || 0);
+  const T = M4.mul(body, M4.trs(0, hy, J.bz || 0, (J.ty || 0) + (J.yaw || 0), J.tp || 0, J.tr || 0)), R = { T };
+  R.head = M4.mul(T, M4.trs(0, G.cou + br * 0.06, 0.15, J.hy || 0, J.hp || 0, 0, S.hs, S.hs, S.hs));
+  R.ua = []; R.fa = []; R.hand = []; R.th = []; R.sh = []; R.foot = [];
+  for (const s of [-1, 1]) {
+    const a = s < 0 ? J.aR : J.aL, l = s < 0 ? J.lR : J.lL, st = (s < 0 ? J.sR : J.sL) || 1;
+    const U = M4.mul(T, M4.trs(s * G.epX, G.epY + br * 0.1, 0, a[2] * (s < 0 ? 1 : -1), a[0], s * a[1])), F0 = M4.mul(U, M4.trs(0, -G.bras, 0, 0, a[3], 0)), F = st !== 1 ? M4.mul(F0, M4.trs(0, 0, 0, 0, 0, 0, 1, st, 1)) : F0;
+    R.ua.push(U); R.fa.push(F); R.hand.push(M4.mul(F0, M4.trs(0, -G.main - G.avb * (st - 1), 0.1)));
+    const B = J.yaw ? M4.mul(body, M4.trs(0, 0, J.bz || 0, J.yaw)) : J.bz ? M4.mul(body, M4.trs(0, 0, J.bz)) : body;
+    const ls = (s < 0 ? J.lsR : J.lsL) || 1, Th = M4.mul(B, M4.trs(s * G.cuX, hy, 0, 0, l[0], s * l[1], 1, ls, 1)), Sh = M4.mul(Th, M4.trs(0, -G.cuisse, 0, 0, l[2], 0));
+    R.th.push(Th); R.sh.push(Sh); R.foot.push(M4.mul(Sh, M4.trs(0, -5.0, 1.4)));
+  }
+  if (br) R.T = M4.mul(T, M4.trs(0, 0, 0, 0, 0, 0, 1 + br * 0.012, 1 + br * 0.01, 1 + br * 0.03));
+  R.p640 = 1; P640.st.rig++;
+  return R;
+}
+/* locomotion : respiration, regard qui se promène, transfert de poids, coudes souples */
+{ const l0 = v41Loco; v41Loco = function (J, H, now, jump, S) {
+  const r = l0.apply(this, arguments) || J;
+  try { if (S && S.p640 && P640.on && H) {
+    const mv = H.mv || 0, run = Math.min(1, Math.max(0, (H.sp || 0) - 70) / 60), ph = H.ph || 0, id = 1 - mv, br = Math.sin(now * 2.1);
+    r.p64 = { br: jump ? 0 : br * id, mv, run, ph, now };
+    if (!jump) {
+      r.hy = (r.hy || 0) + (Math.sin(now * 0.43) * 0.13 + Math.sin(now * 1.27 + 1) * 0.035) * id;
+      r.hp = (r.hp || 0) + Math.cos(ph * 2) * 0.035 * mv + Math.sin(now * 2.1 + 0.6) * 0.016 * id;
+      r.tr = (r.tr || 0) + Math.sin(now * 0.9) * 0.028 * id + Math.sin(ph) * 0.03 * mv;
+      if (r.aR && r.aL) { r.aR = r.aR.slice(); r.aL = r.aL.slice();
+        r.aR[3] += -0.16 * Math.max(0, Math.sin(ph + 0.9)) * mv - 0.05 * id; r.aL[3] += -0.16 * Math.max(0, -Math.sin(ph + 0.9)) * mv - 0.05 * id;
+        r.aR[1] += 0.03 * br * id; r.aL[1] += 0.03 * br * id; }
+    }
+  } } catch (e) { p640Err("loco", e); }
+  return r; }; }
+/* dessin : ombrage doux, contour plus fin, pièces secondaires */
+{ const d0 = v41Dessin0; v41Dessin0 = function (M, R, J, S, o) {
+  const r = d0.apply(this, arguments);
+  try { if (M && M.p640s && S && S.p640) for (const q of M.p640s) {
+    const par = q.par === "head" ? R.head : R.T; if (!par) continue; const a = p640SecAng(q.k, J), pv = q.piv;
+    v41Draw(q.me, M4.mul(par, M4.mul(M4.trs(pv[0], pv[1], pv[2], a[0], a[1], a[2]), M4.trs(-pv[0], -pv[1], -pv[2]))), { tint: o && o.tint, ol: o && o.ol }); P640.st.sec++;
+  } } catch (e) { p640Err("second dessin", e); }
+  return r; }; }
+{ const vd = v41Dessin; v41Dessin = function (M, R, J, S, o) {
+  if (!S || !S.p640 || !P640.on || !M || !M.p640) return vd.apply(this, arguments);
+  const tk = V41.tk; V41.tk = 2; const o2 = o && o.ol ? Object.assign({}, o, { ol: Math.min(o.ol, 0.3) }) : o;
+  try { return vd.call(this, M, R, J, S, o2); } finally { V41.tk = tk; } }; }
+/* clignement des yeux : paupières à la forme des nouveaux yeux */
+try { if (typeof v571Paupiere === "function") { const pp = v571Paupiere; v571Paupiere = function (S) {
+  if (!S || !S.p640 || !P640.on) return pp.apply(this, arguments);
+  const k = "p640|" + S.id + "|" + S.skin.map(v => Math.round(v * 20)).join(","); let me = V571.pau.get(k); if (me && me.b) return me;
+  const g = new G3Geo(), c = p640K(S.skin, 0.94);
+  for (const s of [-1, 1]) { if (S.coif === "kakashi" && s > 0) continue; const x = s * 1.6, y = 4.15, z0 = p640Sf(x, y, -0.27); g.ell(x, y + 0.05, z0 + 0.2, 1.12, 1.32, 0.5, c, 9, 6); p640Ligne(g, [[x - s * 1.05, y - 0.1, z0 + 0.72], [x, y - 0.32, z0 + 0.74], [x + s * 1.12, y - 0.05, z0 + 0.66]], 0.12, 0.14, S.lash || [0.08, 0.06, 0.08], 4); }
+  me = g.build(); V571.pau.set(k, me); return me; }; } } catch (e) { p640Err("paupiere", e); }
+
+/* ===== v64.0 partie C — sprites 2D des héros : contours colorés, lumière de bord, reflets =====
+   Même taille de sprite (le jeu dessine à img.width × échelle) : seuls les pixels sont retouchés, une fois, à la création.
+   Contour sombre uniforme → contour teinté de la couleur voisine (plus doux), plus sombre au sol ; lumière de bord en haut à gauche ;
+   petit reflet dans les yeux de face. La palette 3D est toujours lue sur l'image d'origine (copie gardée). */
+const P640S = { n: 0, err: 0, on: true };
+function p640Sprite(c, opt) {
+  if (!c || c.__p64 || !P640S.on || !c.getContext || !(c.width > 4) || !(c.height > 4)) return c;
+  try {
+    const W = c.width, H = c.height, x = c.getContext("2d"), im = x.getImageData(0, 0, W, H), d = im.data, N = W * H;
+    const o = document.createElement("canvas"); o.width = W; o.height = H; o.getContext("2d").putImageData(im, 0, 0);
+    const A = new Uint8Array(N), Lu = new Float32Array(N);
+    for (let i = 0; i < N; i++) { A[i] = d[i * 4 + 3] > 90 ? 1 : 0; Lu[i] = d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11; }
+    const a = (X, Y) => X >= 0 && Y >= 0 && X < W && Y < H && A[Y * W + X] === 1;
+    const O = new Uint8Array(N);
+    for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) { const i = Y * W + X; if (!A[i] || Lu[i] > 62) continue; if (!a(X, Y - 1) || !a(X, Y + 1) || !a(X - 1, Y) || !a(X + 1, Y)) O[i] = 1; }
+    const R = new Uint8ClampedArray(d);
+    for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) { const i = Y * W + X; if (!A[i]) continue;
+      if (O[i]) {   // contour teinté
+        let r = 0, g = 0, b = 0, k = 0; for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const X2 = X + dx, Y2 = Y + dy; if (!a(X2, Y2)) continue; const j = Y2 * W + X2; if (O[j]) continue; r += d[j * 4]; g += d[j * 4 + 1]; b += d[j * 4 + 2]; k++; }
+        if (!k) continue; r /= k; g /= k; b /= k;
+        const bas = !a(X, Y + 1) && a(X, Y - 1), f = bas ? 0.3 : 0.44;
+        R[i * 4] = Math.min(255, r * f + 10); R[i * 4 + 1] = Math.min(255, g * f + 6); R[i * 4 + 2] = Math.min(255, b * f + 16);
+      } else {      // lumière de bord (haut / gauche)
+        const up = (Y > 0 && O[(Y - 1) * W + X]) || !a(X, Y - 1), lf = (X > 0 && O[Y * W + X - 1]) || !a(X - 1, Y);
+        if (up || lf) { const k = up && lf ? 0.22 : 0.15; for (let q = 0; q < 3; q++) R[i * 4 + q] = d[i * 4 + q] + (255 - d[i * 4 + q]) * k; }
+        else { const dn = (Y + 1 < H && O[(Y + 1) * W + X]) || !a(X, Y + 1), rt = (X + 1 < W && O[Y * W + X + 1]) || !a(X + 1, Y); if (dn || rt) for (let q = 0; q < 3; q++) R[i * 4 + q] = d[i * 4 + q] * 0.88; }
+      }
+    }
+    // reflet dans les yeux (vue de face) : pixel sombre isolé entouré de peau, dans le tiers haut → petit point clair au-dessus
+    if (opt && opt.yeux) {
+      const peau = j => { const r = d[j * 4], g = d[j * 4 + 1], b = d[j * 4 + 2]; return r > 170 && r > g + 15 && g > b && b > 80; };
+      for (let Y = 2; Y < Math.floor(H * 0.5); Y++) for (let X = 1; X < W - 1; X++) { const i = Y * W + X; if (!A[i] || O[i] || Lu[i] > 90) continue;
+        if (peau(i - 1) && peau(i + 1) && Y + 1 < H && (Lu[i + W] < 90 || peau(i + W)) && !(Lu[i - W] < 90)) {
+          // pupille : on garde le pixel, on éclaircit d'un cran le pixel du dessous s'il est sombre aussi (iris)
+          if (Lu[i + W] < 90 && !O[i + W]) { for (let q = 0; q < 3; q++) R[(i + W) * 4 + q] = Math.min(255, d[(i + W) * 4 + q] * 1.5 + 30); R[i * 4] = Math.min(255, d[i * 4] * 0.6); R[i * 4 + 1] = Math.min(255, d[i * 4 + 1] * 0.6); R[i * 4 + 2] = Math.min(255, d[i * 4 + 2] * 0.7 + 10); }
+        } }
+    }
+    im.data.set(R); x.putImageData(im, 0, 0);
+    c.__p64 = 1; c.__p64o = o; P640S.n++;
+  } catch (e) { P640S.err++; p640Err("sprite", e); }
+  return c;
+}
+/* palette 3D et volumes : toujours sur l'image d'origine */
+{ const pa = e3Palette; e3Palette = function (im) { return pa.call(this, im && im.__p64o ? im.__p64o : im); }; }
+try { if (typeof e3Vox === "function") { const vx = e3Vox; e3Vox = function (im) { if (im && im.__p64o) { const a = Array.from(arguments); a[0] = im.__p64o; for (const k of ["e3id", "e3L", "e3h", "e3c", "e3E", "e3fl", "e3big", "e3a", "e3pk"]) if (im[k] !== undefined && a[0][k] === undefined) a[0][k] = im[k]; return vx.apply(this, a); } return vx.apply(this, arguments); }; } } catch (e) { p640Err("vox", e); }
+/* héros : Sangoku (marche, attaque, Kaméhaméha), Luffy, Théo, Naruto, Meliodas, Pikachu */
+for (const [nom, face] of [["framePerso", (a) => a[0] === "bas"], ["frameAttaque", () => false], ["frameKame", () => false], ["imageLuffy", (a) => a[0] === "bas"], ["imageDresseur", (a) => a[0] === "bas"], ["imageNaruto", (a) => a[1] === "bas"], ["imageMeliodas", (a) => a[1] === "bas"]]) {
+  try { const f0 = eval(nom); if (typeof f0 !== "function") continue;
+    const w = function () { const r = f0.apply(this, arguments); try { if (r && r.getContext && !r.__p64) p640Sprite(r, { yeux: face(arguments) }); else if (r && r.img && r.img.getContext && !r.img.__p64) p640Sprite(r.img, {}); } catch (_) { } return r; };
+    eval(nom + " = w");
+  } catch (e) { p640Err("2d " + nom, e); }
+}
+try { const ip = imagePk; imagePk = function (id) { const r = ip.apply(this, arguments); try { if ((id === "pikachu" || id === 25) && r && r.getContext && !r.__p64) p640Sprite(r, {}); } catch (_) { } return r; }; } catch (e) { p640Err("2d pk", e); }
+/* héros jouables de Britannia et personnages incarnables (mêmes sprites que leurs PNJ) */
+try { const ik = imageKPNJ; imageKPNJ = function (L) { const r = ik.apply(this, arguments);
+  try { if (r && r.getContext && !r.__p64 && L) { if (L.__p64h === undefined) { let h = false; try { for (const k in BR_HEROS) if (k !== "meliodas" && brLooks(k) === L) h = true; for (const P of P2) if (TB_LOOKS[P.id] === L) h = true; } catch (_) { } L.__p64h = h; } if (L.__p64h) p640Sprite(r, { yeux: arguments[2] === 0 }); } } catch (_) { }
+  return r; }; } catch (e) { p640Err("2d kpnj", e); }
+
+
+/* ===== v65.0 — ARÈNE DUEL : sortie de ring difficile (recul progressif, zone de tension, rebord), IA sans projections en rafale =====
+   Règle inchangée : un combattant entièrement hors du ring a perdu tout de suite.
+   1) Recul progressif (façon pourcentage) : chaque combattant a une jauge « % » = dégâts reçus pendant le combat, en % de sa vie max.
+      Le recul d'un coup est multiplié par 0,40 à 0 % … 1,0 vers 57 % … 1,55 au maximum (≈ 110 %). Les mêmes règles pour les deux.
+   2) Zone de tension (le dernier ~ 1/5 du ring, bande colorée au sol) : la glissade vers l'extérieur y freine beaucoup plus,
+      et encore plus si on tient le joystick vers le centre (on « se retient »). L'IA fait pareil (elle revient vers le centre).
+   3) Rebord : on ne passe la ligne que si l'on vient d'être frappé ET que l'on glisse encore vite (seuil 150, beaucoup plus haut
+      tant que la jauge est sous 60 %). Sinon on reste agrippé au bord
+      (« AU BORD ! ») : marcher, courir, dasher ou un petit coup ne font jamais sortir.
+   4) Projections : 4 s minimum entre deux projections (saisie) pour chacun, la saisie retombe toujours DANS le ring.
+      L'IA attend 1,6 à 2,2 s après un coup puissant réussi avant d'en tenter un autre (plus de rafale de finisseurs ni de spécial). */
+const P650 = { on: true, err: [], ZONE: 50, SEUIL: 150, K0: 0.40, KP: 0.0105, KMAX: 1.55, st: { bord: 0, ejecte: 0, kb: 0, projRefus: 0, fortRefus: 0 } };
+function p650Err(w, e) { if (P650.err.length < 10) P650.err.push(w + ": " + (e && e.message || e)); }
+function p650Km(O) { return Math.min(P650.KMAX, P650.K0 + (O.pc650 || 0) * P650.KP); }
+/* vitesse minimale pour passer le rebord : très haute tant que la jauge est basse (pas de sortie en début de combat) */
+function p650Seuil(F) { return P650.SEUIL + Math.max(0, 60 - (F.pc650 || 0)) * 6; }
+function p650In(v, R) { const m = R - 14; return Math.max(-m, Math.min(m, v)); }
+/* appelé par p99Coup juste avant d'appliquer la vitesse de recul (dmg = dégâts réels, après la garde) */
+function p650Kb(F, O, kb, dmg, gard) {
+  if (!P650.on || !O) return kb;
+  try {
+    const C = AV.cine; if (!C || C.type !== "p99duel") return kb;
+    O.pc650 = Math.min(160, (O.pc650 || 0) + Math.max(0, dmg) / Math.max(1, O.pvMax) * 100 * (gard ? 0.4 : 1));
+    if (kb > 0 && !gard) O.ejT650 = 0.8;
+    P650.st.kb++; return kb * p650Km(O) * (kb >= 400 ? 0.8 : 1);   // le clash (500) reste le plus fort, sans tout décider
+  } catch (e) { p650Err("kb", e); return kb; }
+}
+/* saisie / projection : 4 s entre deux pour chacun */
+function p650Proj(F) { try { const t = p99Now(); if (F.proj650 && t - F.proj650 < 4) { P650.st.projRefus++; return false; } F.proj650 = t; return true; } catch (_) { return true; } }
+/* zone de tension + rebord (appelé pour chaque combattant, juste avant le test de sortie de ring) */
+function p650Bord(C, F, O, dt, go) {
+  if (!P650.on || !F || F.ko || F.vol) return;
+  try {
+    F.ejT650 = Math.max(0, (F.ejT650 || 0) - dt); F.bordT650 = Math.max(0, (F.bordT650 || 0) - dt); F.cdFort650 = Math.max(0, (F.cdFort650 || 0) - dt);
+    const Z = P650.ZONE; F.zone650 = 0;
+    for (const [c, vk, mk, R] of [["x", "vx", "mx", P99A.RX], ["z", "vz", "mz", P99A.RZ]]) {
+      const L = R + 6, s = F[c] < 0 ? -1 : 1, d = L - Math.abs(F[c]); let vout = F[vk] * s;
+      if (d < Z) {
+        F.zone650 = Math.max(F.zone650, 1 - Math.max(0, d) / Z);
+        if (vout > 0) {
+          const dedans = -(F[mk] || 0) * s;                  // > 0 : joystick (ou IA) vers le centre = on se retient
+          let br = 640 * (1 - Math.max(0, d) / Z * 0.6) + (dedans > 0.25 ? 760 * Math.min(1, dedans) : 0);
+          if (F.y > 1) br *= 0.5;
+          vout = Math.max(0, vout - br * dt); F[vk] = vout * s;
+        }
+      }
+      if (d < 0) {
+        if (F.ej650) continue;
+        if (F.ejT650 > 0 && vout > p650Seuil(F)) { F.ej650 = 1; P650.st.ejecte++; p99Fx("txt", { x: F.x, z: F.z, y: F.y + 44, s: "ÉJECTÉ !", col: "#ff8a5a", vie: 0.8 }); continue; }
+        F[c] = s * L; if (vout > 0) F[vk] = -vout * 0.12;
+        if (F.bordT650 <= 0) { P650.st.bord++; p99Fx("txt", { x: F.x, z: F.z, y: F.y + 40, s: F.hum ? "AU BORD ! RETIENS-TOI" : "AU BORD !", col: "#ffe08a", vie: 0.8 }); for (let i = 0; i < 4; i++) p99Fx("poussiere", { x: F.x + (Math.random() - 0.5) * 10, z: F.z + (Math.random() - 0.5) * 10, vie: 0.5, r: 3 + Math.random() * 3 }); try { if (F.hum) vibrer([18, 30, 18]); } catch (_) { } }
+        F.bordT650 = 0.6;
+      } else if (d > 4) F.ej650 = 0;
+    }
+  } catch (e) { p650Err("bord", e); }
+}
+/* nouveau combat : jauges à 0 % */
+{ const l0 = p99Lancer; p99Lancer = function (opt) { const r = l0.apply(this, arguments); try { const C = AV.cine; if (r && C && C.type === "p99duel") for (const F of [C.A, C.B]) { F.pc650 = 0; F.ejT650 = 0; F.ej650 = 0; F.cdFort650 = 0; } } catch (e) { p650Err("lancer", e); } return r; }; }
+{ const s0 = p99Suivant; p99Suivant = function (C) { const r = s0.apply(this, arguments); try { if (C && C.B) { C.B.pc650 = 0; C.A.pc650 = Math.max(0, (C.A.pc650 || 0) * 0.6); C.A.ej650 = 0; } } catch (e) { p650Err("suiv", e); } return r; }; }
+/* IA : après un coup puissant réussi, pas d'autre finisseur ni de spécial pendant 1,6 à 2,2 s */
+{ const c0 = p99Coup; p99Coup = function (F, O, mult, kb, pop, x, z) {
+  const r = c0.apply(this, arguments);
+  try { if (r && F && !F.hum && O && O !== F && ((kb || 0) >= 150 || (mult || 0) >= 1.5)) F.cdFort650 = 2.2 - 0.6 * Math.min(1, Math.max(0, F.lvl == null ? 0.5 : F.lvl)); } catch (e) { p650Err("coup", e); }
+  return r; }; }
+{ const a0 = p99Action; p99Action = function (F, a) {
+  try {
+    if (P650.on && F && !F.hum && F.cdFort650 > 0) {
+      if (a === "spe") { P650.st.fortRefus++; return; }
+      if (a === "frap" && F.comboT > 0 && F.combo === 2 && F.st !== "att") { F.buf = 0; F.bufT = 0; P650.st.fortRefus++; return; }
+    }
+  } catch (e) { p650Err("action", e); }
+  return a0.apply(this, arguments); }; }
+/* HUD : jauge % sous chaque barre de vie (blanc -> jaune -> rouge) + alerte du bord adaptée */
+{ const o0 = p99Overlay; p99Overlay = function (C, W, H, dpr, VP, now) {
+  const r = o0.apply(this, arguments);
+  try { if (P650.on && C && C.dec <= 0.3 && !(C.res && C.res.t > 0.5)) p650Hud(C, W, H, dpr, now); } catch (e) { p650Err("hud", e); }
+  return r; }; }
+function p650Hud(C, W, H, dpr, now) {
+  const port = W < H, top = (port ? 16 : 8) * dpr, bw = Math.min(W * 0.4, 300 * dpr), bh = 13 * dpr, gap = 10 * dpr, ky = top + bh + 4 * dpr;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const [F, g] of [[C.A, true], [C.B, false]]) {
+    const pc = Math.round(F.pc650 || 0), u = Math.min(1, pc / 110), x0 = g ? gap : W - gap - bw, fs = Math.round((13 + u * 4) * dpr);
+    const col = `rgb(255,${Math.round(250 - 170 * u)},${Math.round(235 - 205 * u)})`, pul = F.ejT650 > 0.5 ? 1 + 0.12 * Math.sin(now * 40) : 1;
+    ctx.font = `900 ${Math.round(fs * pul)}px system-ui,sans-serif`; ctx.textAlign = g ? "right" : "left"; ctx.textBaseline = "top"; ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "#000c";
+    const s = pc + " %", xx = g ? x0 + bw - 2 * dpr : x0 + 2 * dpr; ctx.strokeText(s, xx, ky + 6 * dpr); ctx.fillStyle = col; ctx.fillText(s, xx, ky + 6 * dpr);
+    if (F.zone650 > 0.05 && !F.ko) { const f2 = Math.round(9 * dpr); ctx.font = `800 ${f2}px system-ui,sans-serif`; const t = F.bordT650 > 0 ? "AU BORD" : "ZONE DE TENSION", xx2 = g ? xx - ctx.measureText(s).width - 8 * dpr : xx + ctx.measureText(s).width + 8 * dpr;
+      ctx.font = `800 ${f2}px system-ui,sans-serif`; ctx.strokeText(t, xx2, ky + 9 * dpr); ctx.fillStyle = F.bordT650 > 0 ? "#ff7a5a" : "#ffd27a"; ctx.fillText(t, xx2, ky + 9 * dpr); }
+  }
+  // aide au joueur agrippé au bord
+  if (!C.res && C.dec <= 0) for (const F of [C.A, C.B]) { if (!F.hum || F.ko || !(F.bordT650 > 0)) continue;
+    const f1 = Math.round(Math.min(W, H) * 0.038), yy = H * (F === C.A ? 0.27 : 0.33); ctx.font = `900 ${f1}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = f1 * 0.18;
+    const t = (C.pvp ? (F === C.A ? "J1 : " : "J2 : ") : "") + "↩ Reviens vers le centre !"; ctx.strokeText(t, W / 2, yy); ctx.fillStyle = "#fff2b0"; ctx.fillText(t, W / 2, yy); }
+  ctx.restore();
+}
+
+/* ===== v65.0 — ARÈNE DUEL : un thème tiré au hasard à chaque combat (mêmes dimensions de jeu pour tous) =====
+   Tenkaichi Budokai et Cell Game (Dragon Ball Z), pont du Vogue Merry (One Piece), festival de combat de Vaizel (Seven Deadly Sins),
+   arène de champion Pokémon, examen Chûnin de Konoha (Naruto). Chaque thème : sol, bords, décor de fond, public / éléments animés,
+   couleurs et lumière, en 3D (un seul maillage statique construit une fois par thème + quelques petits éléments animés) et en 2D.
+   Le ring (RX/RZ), les bords physiques et la règle de sortie sont strictement identiques d'un thème à l'autre. */
+const P650T = {
+  budokai: { nom: "TENKAICHI BUDOKAI", sous: "Dragon Ball Z · île Papaya", c: "#ffb040", lux: { amb: [0.62, 0.62, 0.64], sun: [0.66, 0.6, 0.5] }, zl: [0.98, 0.82, 0.22] },
+  cell: { nom: "LE CELL GAME", sous: "Dragon Ball Z · le ring de Cell", c: "#9adf6a", base: 1, lux: { amb: [0.6, 0.57, 0.52], sun: [0.78, 0.64, 0.46], L: [0.55, 0.72, 0.3] }, zl: [0.85, 0.22, 0.18] },
+  pont: { nom: "PONT DU VOGUE MERRY", sous: "One Piece · Grand Line", c: "#ffd24a", lux: { amb: [0.64, 0.66, 0.7], sun: [0.66, 0.62, 0.54] }, zl: [0.98, 0.92, 0.7] },
+  vaizel: { nom: "FESTIVAL DE COMBAT DE VAIZEL", sous: "Seven Deadly Sins · Britannia", c: "#ff8a5a", base: 1, lux: { amb: [0.6, 0.56, 0.54], sun: [0.8, 0.62, 0.42], L: [-0.4, 0.62, 0.45] }, zl: [0.92, 0.3, 0.2] },
+  pokemon: { nom: "ARÈNE DE CHAMPION POKÉMON", sous: "Pokémon · Ligue Indigo", c: "#ff5a5a", base: 1, lux: { amb: [0.5, 0.52, 0.62], sun: [0.78, 0.78, 0.82], L: [0.1, 0.95, 0.25] }, zl: [1, 0.86, 0.2] },
+  konoha: { nom: "EXAMEN CHÛNIN", sous: "Naruto · Konoha", c: "#ff9a3a", lux: { amb: [0.6, 0.62, 0.6], sun: [0.68, 0.6, 0.48] }, zl: [0.96, 0.92, 0.84] }
+};
+const P650_POOL = ["budokai", "cell", "pont", "vaizel", "pokemon", "konoha"];
+P650.dernTh = null; P650.st.themes = {}; P650.hk = null; P650.m = null;
+function p650Tirer() {
+  let L = P650_POOL.filter(t => t !== P650.dernTh); if (!L.length) L = P650_POOL;
+  const t = L[Math.floor(Math.random() * L.length)]; P650.dernTh = t; P650.st.themes[t] = (P650.st.themes[t] || 0) + 1; return t;
+}
+/* tirage au lancement (y compris revanche et tournoi) ; opt.theme650 force un thème (tests, captures) */
+{ const l0 = p99Lancer; p99Lancer = function (opt) {
+  const r = l0.apply(this, arguments);
+  try { const C = AV.cine; if (r && C && C.type === "p99duel" && P650.on) { const t = opt && P650T[opt.theme650] ? opt.theme650 : p650Tirer(); P99.th = t; C.th650 = t; C.ban650 = 0; } } catch (e) { p650Err("tirage", e); }
+  return r; }; }
+
+/* ---------- géométrie (unités du décor d'origine, agrandies par P99S au dessin) ---------- */
+function p650Disque(g, cx, y, cz, r, n, colA, colB, vertical) {
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n * 6.2832, a1 = (i + 1) / n * 6.2832, am = (a0 + a1) / 2, c = Math.sin(am) < 0 ? colA : colB;
+    if (vertical) g.t([cx, y, cz], [cx + Math.cos(a0) * r, y - Math.sin(a0) * r, cz], [cx + Math.cos(a1) * r, y - Math.sin(a1) * r, cz], [0, 0, 1], c);
+    else g.t([cx, y, cz], [cx + Math.cos(a0) * r, y, cz + Math.sin(a0) * r], [cx + Math.cos(a1) * r, y, cz + Math.sin(a1) * r], [0, 1, 0], c);
+  }
+}
+function p650Pokeball(g, cx, y, cz, r, vertical) {
+  const k = vertical ? 0.4 : 0.03;
+  p650Disque(g, cx, y, cz, r * 1.08, 28, [0.08, 0.08, 0.1], [0.08, 0.08, 0.1], vertical);
+  if (vertical) { p650Disque(g, cx, y, cz + k, r, 28, [0.86, 0.12, 0.12], [0.96, 0.96, 0.94], true); g.box(cx, y - r * 0.07, cz + k * 1.6, r * 2, r * 0.14, 0.3, [0.08, 0.08, 0.1]); p650Disque(g, cx, y, cz + k * 2.4, r * 0.36, 18, [0.08, 0.08, 0.1], [0.08, 0.08, 0.1], true); p650Disque(g, cx, y, cz + k * 3.2, r * 0.24, 18, [0.98, 0.98, 0.96], [0.98, 0.98, 0.96], true); }
+  else { p650Disque(g, cx, y + k, cz, r, 28, [0.86, 0.12, 0.12], [0.96, 0.96, 0.94]); g.box(cx, y + k * 1.5, cz, r * 2, 0.04, r * 0.14, [0.08, 0.08, 0.1]); p650Disque(g, cx, y + k * 2.2, cz, r * 0.36, 18, [0.08, 0.08, 0.1], [0.08, 0.08, 0.1]); p650Disque(g, cx, y + k * 3, cz, r * 0.24, 18, [0.98, 0.98, 0.96], [0.98, 0.98, 0.96]); }
+}
+/* ligne de la zone de tension (pointillés) + liseré du bord, au ras du sol du ring */
+function p650Zone(g, th, y) {
+  const c = (P650T[th] && P650T[th].zl) || [0.95, 0.85, 0.3], ax = (P99A.RX + 6 - P650.ZONE) / P99S, az = (P99A.RZ + 6 - P650.ZONE) / P99S, w = 1.3;
+  for (let x = -ax; x < ax - 2; x += 9) { const l = Math.min(5.5, ax - x); for (const s of [-1, 1]) g.box(x + l / 2, y, s * az, l, 0.12, w, c); }
+  for (let z = -az; z < az - 2; z += 9) { const l = Math.min(5.5, az - z); for (const s of [-1, 1]) g.box(s * ax, y, z + l / 2, w, 0.12, l, c); }
+  const RX = P99A.RX0, RZ = P99A.RZ0, k = c.map(v => v * 0.75);
+  for (const s of [-1, 1]) { g.box(0, y, s * (RZ - 1.2), 2 * RX, 0.12, 2.4, k); g.box(s * (RX - 1.2), y, 0, 2.4, 0.12, 2 * RZ, k); }
+}
+function p650Montagnes(g, n, z0, col, h0, seed) {
+  const H = p99H; for (let i = 0; i < n; i++) { const x = -700 + i * (1400 / (n - 1)) + (H(i, seed) - 0.5) * 80, z = z0 - H(i, seed + 1) * 140, r = 70 + H(i, seed + 2) * 70, h = h0 * (0.6 + H(i, seed + 3) * 0.7), k = 0.88 + H(i, seed + 4) * 0.2;
+    const hh = h * 0.78, c = col.map(v => v * k); g.cyl(x, -2, z, r * 1.25, r * 0.55, hh * 0.45, 9, c.map(v => v * 0.92)); g.cyl(x, hh * 0.45 - 2, z, r * 0.55, r * 0.1, hh * 0.55, 9, c);
+    g.cyl(x + r * 0.7, -2, z + 20, r * 0.7, r * 0.08, hh * 0.6, 8, c.map(v => v * 0.85)); if (h > h0 * 0.95) g.cyl(x, hh * 0.8 - 2, z, r * 0.18, r * 0.08, hh * 0.2, 9, [0.96, 0.97, 1]); }
+}
+/* nouveaux thèmes : sol, ring, bords et décor complets */
+function p650Base(th, g, K) {
+  const { RX, RZ, H, arbre, sapin, herbe, rebord, gradins, torches, coins, R } = K;
+  if (th === "cell") {
+    // plaine rocheuse, mesas, ring de dalles blanches et ses quatre piliers
+    for (let i = -8; i < 8; i++) g.q([i * 110, 0, 900], [i * 110 + 110, 0, 900], [i * 110 + 110, 0, -900], [i * 110, 0, -900], [0, 1, 0], i & 1 ? [0.72, 0.6, 0.44] : [0.69, 0.57, 0.42]);
+    for (let i = 0; i < 70; i++) { const x = (H(i, 21) - 0.5) * 900, z = (H(i, 22) - 0.5) * 760; if (Math.abs(x) < RX + 22 && Math.abs(z) < RZ + 22) continue; const s = 2 + H(i, 23) * 7; g.sph(x, 0, z, s * 1.3, s * 0.8, s, 5, [0.6 + H(i, 24) * 0.1, 0.5, 0.38], 0.3); }
+    for (let i = 0; i < 9; i++) { const x = -560 + i * 140 + (H(i, 31) - 0.5) * 60, z = -330 - H(i, 32) * 220, w = 80 + H(i, 33) * 90, h = 50 + H(i, 34) * 90, c = [0.66 + H(i, 35) * 0.08, 0.46, 0.32];
+      g.box(x, 0, z, w, h, w * 0.7, c); g.box(x, h, z, w * 0.86, 6, w * 0.6, c.map(v => v * 1.08)); g.box(x, 0, z, w * 1.15, h * 0.25, w * 0.85, c.map(v => v * 0.9)); }
+    p650Montagnes(g, 8, -720, [0.6, 0.54, 0.5], 190, 41);
+    g.box(0, 0, 0, 2 * RX + 12, 1, 2 * RZ + 12, [0.6, 0.6, 0.58]);
+    const nx = 12, nz = 9, tw = 2 * RX / nx, td = 2 * RZ / nz;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const r = H(i + 50, j + 50), k = 0.9 + r * 0.1, cr = (i * 7 + j * 3) % 11 === 0; g.box(-RX + (i + 0.5) * tw, 1, -RZ + (j + 0.5) * td, tw - 1, 0.6, td - 1, cr ? [0.78, 0.77, 0.74] : [0.93 * k, 0.93 * k, 0.9 * k]); }
+    rebord([0.96, 0.96, 0.93], 2.4, 5);
+    for (const [x, z] of coins) { g.box(x * 0.95, 0, z * 0.93, 10, 36, 10, [0.95, 0.95, 0.92]); g.box(x * 0.95, 36, z * 0.93, 13, 3, 13, [0.86, 0.86, 0.82]); g.box(x * 0.95, 0, z * 0.93, 13, 3, 13, [0.86, 0.86, 0.82]); }
+    // blocs de dalles arrachées et cratères autour du ring
+    for (let i = 0; i < 14; i++) { const a = H(i, 61) * 6.283, d = 175 + H(i, 62) * 120, x = Math.cos(a) * d * 1.3, z = Math.sin(a) * d; if (z > 120) continue; g.box(x, 0, z, 8 + H(i, 63) * 8, 2 + H(i, 64) * 4, 6 + H(i, 65) * 8, [0.88, 0.88, 0.85], H(i, 66) * 3); }
+    for (let i = 0; i < 5; i++) { const x = (H(i, 71) - 0.5) * 520, z = -160 - H(i, 72) * 120; g.cyl(x, 0.05, z, 26, 18, 0.4, 10, [0.52, 0.42, 0.32]); }
+    p650Zone(g, th, 1.66); return [[0.9, 0.86, 0.72], [0.42, 0.58, 0.86]];
+  }
+  if (th === "vaizel") {
+    herbe([0.36, 0.58, 0.26], [0.4, 0.62, 0.3]);
+    // grande enceinte de pierre en ellipse (ouverte vers la caméra), arcades, créneaux
+    const ex = 238, ez = 196;
+    for (let i = 0; i < 46; i++) { const a = Math.PI + (i + 0.5) / 46 * Math.PI * 1.32 - Math.PI * 0.16, x = Math.cos(a) * ex, z = Math.sin(a) * ez; if (z > 60) continue;
+      const r = H(i, 81), c = [0.74 + r * 0.06, 0.64 + r * 0.05, 0.52 + r * 0.04], yaw = -a + Math.PI / 2;
+      g.box(x, 0, z, 34, 46, 12, c, yaw); g.box(x, 46, z, 34, 3, 14, c.map(v => v * 1.08), yaw); if (i & 1) g.box(x, 49, z, 14, 6, 12, c, yaw);
+      g.box(x + Math.cos(a) * -6.2, 6, z + Math.sin(a) * -6.2, 12, 20, 0.6, [0.22, 0.16, 0.12], yaw); }
+    // gradins en pente entre le ring et l'enceinte
+    for (let k = 0; k < 4; k++) for (let i = 0; i < 40; i++) { const a = Math.PI + (i + 0.5) / 40 * Math.PI * 1.32 - Math.PI * 0.16, rr = 0.8 + k * 0.045, x = Math.cos(a) * ex * rr, z = Math.sin(a) * ez * rr; if (z > 40) continue; g.box(x, 0, z, 30, 6 + k * 7, 9, [0.66 - k * 0.03, 0.56 - k * 0.03, 0.44 - k * 0.02], -a + Math.PI / 2); }
+    // tribune royale au fond : dais rouge, colonnes, bannières de Liones
+    g.box(0, 0, -200, 90, 34, 26, [0.78, 0.7, 0.58]); g.box(0, 34, -196, 96, 4, 30, [0.62, 0.12, 0.12]); g.box(0, 38, -196, 70, 10, 24, [0.7, 0.14, 0.14]); g.cyl(0, 48, -196, 10, 0.5, 12, 8, [0.95, 0.78, 0.25]);
+    for (const s of [-1, 1]) { for (let k = 0; k < 3; k++) g.cyl(s * (14 + k * 14), 14, -184, 2.2, 2.2, 20, 6, [0.92, 0.88, 0.8]); g.box(s * 56, 18, -186, 16, 30, 1, s < 0 ? [0.16, 0.3, 0.72] : [0.75, 0.14, 0.14]); g.box(s * 56, 28, -185.4, 6, 6, 0.5, [0.95, 0.85, 0.3]); }
+    // sol du ring : terre battue claire + grandes dalles au bord
+    g.box(0, 0, 0, 2 * RX + 8, 1, 2 * RZ + 8, [0.52, 0.46, 0.38]);
+    g.box(0, 1, 0, 2 * RX - 18, 0.6, 2 * RZ - 18, [0.82, 0.7, 0.5]);
+    for (let i = 0; i < 40; i++) { const x = (H(i, 91) - 0.5) * (2 * RX - 30), z = (H(i, 92) - 0.5) * (2 * RZ - 30); g.box(x, 1.6, z, 3 + H(i, 93) * 6, 0.04, 2 + H(i, 94) * 4, [0.74, 0.62, 0.44]); }
+    for (let i = 0; i < 26; i++) for (const s of [-1, 1]) { const r = H(i, s + 95), c = [0.66 + r * 0.1, 0.62 + r * 0.08, 0.56 + r * 0.06]; g.box(-RX + (i + 0.5) * (2 * RX / 26), 1, s * (RZ - 4.5), 2 * RX / 26 - 0.8, 0.6, 8.4, c); }
+    for (let j = 0; j < 19; j++) for (const s of [-1, 1]) { const r = H(j, s + 97), c = [0.66 + r * 0.1, 0.62 + r * 0.08, 0.56 + r * 0.06]; g.box(s * (RX - 4.5), 1, -RZ + 9 + (j + 0.5) * ((2 * RZ - 18) / 19), 8.4, 0.6, (2 * RZ - 18) / 19 - 0.8, c); }
+    rebord([0.58, 0.54, 0.5], 3.4, 7);
+    // mâts et guirlandes de fanions au-dessus des tribunes
+    const mats = [[-200, -60], [-150, -150], [-60, -186], [60, -186], [150, -150], [200, -60]], cf = [[0.85, 0.15, 0.12], [0.95, 0.78, 0.15], [0.16, 0.34, 0.78], [0.2, 0.62, 0.3], [0.95, 0.95, 0.92]];
+    for (const [x, z] of mats) { g.cyl(x, 0, z, 1.6, 1.2, 74, 6, [0.45, 0.32, 0.2]); g.box(x + 7, 62, z, 14, 9, 0.5, cf[(x + z) & 3 ? 0 : 2]); }
+    for (let m = 0; m < mats.length - 1; m++) { const [x0, z0] = mats[m], [x1, z1] = mats[m + 1]; for (let k = 1; k < 12; k++) { const u = k / 12, x = x0 + (x1 - x0) * u, z = z0 + (z1 - z0) * u, y = 70 - Math.sin(u * Math.PI) * 12; g.box(x, y - 5, z, 4, 5, 0.4, cf[(k + m) % 5], Math.atan2(z1 - z0, x1 - x0) * -1); } }
+    // tentes du festival à l'extérieur
+    for (let i = 0; i < 8; i++) { const s = i & 1 ? 1 : -1, x = s * (270 + H(i, 99) * 60), z = -40 - i * 30; g.cyl(x, 0, z, 18, 17, 16, 8, cf[i % 5].map(v => v * 0.9 + 0.08)); g.cyl(x, 16, z, 20, 0.5, 18, 8, cf[(i + 2) % 5]); }
+    for (let i = 0; i < 7; i++) sapin(-300 + i * 100 + H(i, 3) * 30, -300 - H(i, 5) * 60, 1.4 + H(i, 7) * 0.5);
+    p650Montagnes(g, 9, -640, [0.42, 0.5, 0.62], 160, 51);
+    torches(coins.map(([x, z]) => [x * 1.06, z * 1.1]), [0.58, 0.56, 0.52]);
+    gradins([0.62, 0.54, 0.44], 150); p650Zone(g, th, 1.68); return [[0.99, 0.86, 0.66], [0.42, 0.56, 0.86]];
+  }
+  if (th === "pokemon") {
+    // salle couverte : sol sombre, murs bleu nuit, terrain de combat avec lignes blanches et grand symbole Poké Ball
+    g.q([-900, 0, 900], [900, 0, 900], [900, 0, -900], [-900, 0, -900], [0, 1, 0], [0.2, 0.22, 0.28]);
+    for (let i = -6; i <= 6; i++) g.box(i * 60, 0.05, -10, 1.2, 0.05, 420, [0.26, 0.28, 0.34]);
+    g.box(0, 0, -212, 640, 150, 10, [0.24, 0.28, 0.42]); for (const s of [-1, 1]) g.box(s * 300, 0, -40, 10, 150, 350, [0.22, 0.26, 0.4]);
+    for (let i = -5; i <= 5; i++) { g.box(i * 56, 0, -206, 6, 150, 4, [0.3, 0.34, 0.5]); g.box(i * 56, 118, -205, 40, 6, 2, [0.95, 0.95, 0.85]); }
+    g.box(0, 96, -206, 640, 4, 4, [0.85, 0.7, 0.2]); g.box(0, 26, -206, 640, 3, 4, [0.85, 0.7, 0.2]);
+    p650Pokeball(g, 0, 62, -205, 30, true);
+    const types = [[0.95, 0.45, 0.15], [0.25, 0.55, 0.95], [0.35, 0.75, 0.3], [0.98, 0.85, 0.2], [0.7, 0.4, 0.85], [0.6, 0.45, 0.3]];
+    for (let i = 0; i < 6; i++) { const x = -250 + i * 100 + (i > 2 ? 0 : 0); if (Math.abs(x) < 60) continue; g.box(x, 50, -205.5, 26, 40, 1, types[i]); g.box(x, 88, -205.5, 30, 3, 1.4, [0.9, 0.9, 0.9]); }
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) g.box(s * 294, 60, -170 + i * 70, 1, 40, 22, types[(i + (s > 0 ? 3 : 0)) % 6]);
+    // projecteurs sur les murs
+    for (let i = -4; i <= 4; i++) { g.box(i * 70, 132, -204, 14, 8, 6, [0.4, 0.42, 0.48]); g.box(i * 70, 132, -200.8, 10, 5, 0.4, [1, 0.98, 0.86]); }
+    // terrain
+    g.box(0, 0, 0, 2 * RX + 14, 1, 2 * RZ + 14, [0.9, 0.9, 0.88]);
+    const nb = 12; for (let i = 0; i < nb; i++) g.box(-RX + (i + 0.5) * (2 * RX / nb), 1, 0, 2 * RX / nb, 0.6, 2 * RZ, i & 1 ? [0.4, 0.66, 0.36] : [0.44, 0.72, 0.4]);
+    const lw = 1.6, Wc = [0.97, 0.97, 0.95];
+    for (const s of [-1, 1]) { g.box(0, 1.62, s * (RZ - 6), 2 * RX - 12, 0.08, lw, Wc); g.box(s * (RX - 6), 1.62, 0, lw, 0.08, 2 * RZ - 12, Wc); }
+    g.box(0, 1.62, 0, lw, 0.08, 2 * RZ - 12, Wc);
+    for (let k = 0; k < 40; k++) { const a = k / 40 * 6.283; g.box(Math.cos(a) * 44, 1.62, Math.sin(a) * 44, 7.4, 0.08, lw, Wc, -a - Math.PI / 2); }
+    for (const s of [-1, 1]) { const x = s * (RX - 28); g.box(x, 1.62, -26, 30, 0.08, lw, Wc); g.box(x, 1.62, 26, 30, 0.08, lw, Wc); g.box(s * (RX - 13), 1.62, 0, lw, 0.08, 52, Wc); g.box(s * (RX - 43), 1.62, 0, lw, 0.08, 52, Wc); }
+    p650Pokeball(g, 0, 1.64, 0, 26, false);
+    rebord([0.86, 0.14, 0.14], 2.6, 6); rebord([0.97, 0.97, 0.95], 3, 1.4);
+    // gradins rouges et blancs devant la caméra
+    gradins([0.72, 0.2, 0.2], 150);
+    p650Zone(g, th, 1.7); return [[0.17, 0.19, 0.3], [0.06, 0.07, 0.13]];
+  }
+  return null;
+}
+/* embellissements des thèmes existants (ajoutés à leur maillage) */
+function p650Deco(th, g, K) {
+  if (!P650.on) return null; const { RX, RZ, H, arbre } = K;
+  if (th === "budokai") {
+    p650Montagnes(g, 11, -520, [0.36, 0.52, 0.5], 170, 11);
+    for (let i = 0; i < 7; i++) g.sph(-520 + i * 170, 0, -360 - H(i, 13) * 40, 70, 34 + H(i, 14) * 20, 40, 8, [0.3, 0.56, 0.28]);
+    // temple du tournoi derrière le mur : salle, colonnes rouges, toits orange à deux niveaux
+    const zt = -232; g.box(0, 0, zt, 150, 38, 44, [0.94, 0.9, 0.8]); for (let i = -3; i <= 3; i++) g.cyl(i * 22, 0, zt + 23, 2.6, 2.6, 38, 8, [0.78, 0.16, 0.12]);
+    const toit = (y, w, d, n) => { for (let k = 0; k < n; k++) g.box(0, y + k * 3.2, zt, w - k * (w * 0.16), 3.2, d - k * (d * 0.14), [0.95 - k * 0.03, 0.5 - k * 0.04, 0.12]); };
+    toit(38, 176, 62, 4); g.box(0, 51, zt, 80, 18, 28, [0.94, 0.9, 0.8]); toit(69, 104, 40, 4); g.cyl(0, 82, zt, 3, 0.5, 14, 8, [0.95, 0.8, 0.25]);
+    g.box(0, 60, zt + 14.4, 30, 8, 0.6, [0.12, 0.12, 0.14]); for (const s of [-1, 1]) { g.cyl(s * 100, 0, zt + 6, 12, 10, 46, 8, [0.94, 0.9, 0.8]); g.cyl(s * 100, 46, zt + 6, 16, 0.5, 18, 8, [0.95, 0.5, 0.12]); }
+    // mâts à drapeaux le long du mur
+    for (let i = 0; i < 8; i++) { const x = -196 + i * 56; if (Math.abs(x) < 40) continue; g.cyl(x, 0, -168, 1.2, 1, 52, 5, [0.85, 0.85, 0.82]); g.box(x + 6, 42, -168, 12, 8, 0.5, [[0.9, 0.2, 0.2], [0.98, 0.8, 0.2], [0.2, 0.45, 0.9], [0.25, 0.7, 0.35]][i & 3]); }
+    for (let i = 0; i < 6; i++) { const s = i & 1 ? 1 : -1; const x = s * (240 + H(i, 17) * 40), z = -60 + (i >> 1) * 70; for (let k = 0; k < 6; k++) g.cyl(x + s * k * 1.4, k * 8, z, 2.4 - k * 0.15, 2.2 - k * 0.15, 8.4, 6, [0.55, 0.42, 0.26]); for (let a = 0; a < 6; a++) { const an = a / 6 * 6.283; g.box(x + s * 8 + Math.cos(an) * 9, 46 - (a & 1) * 2, z + Math.sin(an) * 9, 18, 1.2, 5, [0.22, 0.58, 0.24], -an); } }
+    p650Zone(g, th, 1.66); return [[0.8, 0.9, 0.98], [0.28, 0.54, 0.92]];
+  }
+  if (th === "pont") {
+    // navires de la Marine au loin, îlots, nuages bas
+    const navire = (x, z, s) => { g.box(x, -2, z, 90 * s, 14 * s, 24 * s, [0.3, 0.22, 0.16]); g.box(x, 12 * s - 2, z, 94 * s, 3 * s, 26 * s, [0.9, 0.9, 0.88]); for (let k = -1; k <= 1; k++) { g.cyl(x + k * 28 * s, 12 * s, z, 1.6 * s, 1.2 * s, 70 * s, 5, [0.4, 0.28, 0.18]); g.box(x + k * 28 * s, 36 * s, z, 24 * s, 30 * s, 1 * s, [0.96, 0.96, 0.94]); g.box(x + k * 28 * s, 44 * s, z + 0.7 * s, 10 * s, 4 * s, 0.4 * s, [0.2, 0.36, 0.75]); } };
+    navire(-380, -560, 1.4); navire(420, -620, 1.2); navire(60, -760, 1);
+    for (let i = 0; i < 5; i++) { const x = -600 + i * 300 + H(i, 3) * 80, z = -700 - H(i, 4) * 100; g.sph(x, -4, z, 80, 30, 50, 8, [0.42, 0.62, 0.32]); g.sph(x, 20, z, 30, 26, 24, 7, [0.36, 0.56, 0.3]); }
+    p650Zone(g, th, 1.72); return [[0.82, 0.92, 1], [0.24, 0.56, 0.94]];
+  }
+  if (th === "konoha") {
+    // falaise des Hokage et toits du village derrière la palissade
+    g.box(0, 0, -420, 760, 130, 70, [0.56, 0.48, 0.4]); g.box(0, 130, -430, 680, 30, 50, [0.6, 0.52, 0.44]);
+    for (let i = 0; i < 12; i++) g.sph(-340 + i * 62, 160, -432, 34, 14, 26, 6, [0.24, 0.48, 0.2]);
+    for (let i = 0; i < 4; i++) { const x = -150 + i * 100; g.sph(x, 92, -382, 26, 30, 14, 8, [0.64, 0.56, 0.48]); g.box(x, 116, -384, 48, 12, 16, [0.58, 0.5, 0.42]); g.box(x - 9, 98, -369, 7, 3, 1, [0.3, 0.26, 0.22]); g.box(x + 9, 98, -369, 7, 3, 1, [0.3, 0.26, 0.22]); g.box(x, 80, -369, 14, 2, 1, [0.36, 0.3, 0.26]); }
+    for (let i = 0; i < 16; i++) { const x = -330 + i * 44 + H(i, 21) * 10, z = -300 - H(i, 22) * 50, h = 24 + H(i, 23) * 30; g.box(x, 0, z, 34, h, 30, [0.9, 0.84, 0.72]); g.box(x, h, z, 38, 5, 34, [[0.78, 0.3, 0.2], [0.85, 0.5, 0.2], [0.3, 0.5, 0.6]][i % 3]); }
+    g.cyl(150, 0, -300, 30, 30, 70, 12, [0.85, 0.3, 0.2]); g.box(150, 46, -269, 18, 18, 1, [0.95, 0.92, 0.85]);
+    p650Zone(g, th, 1.7); return [[0.86, 0.92, 0.94], [0.36, 0.6, 0.9]];
+  }
+  if (P650T[th] && P650T[th].base) return null;
+  return null;
+}
+/* ---------- petits éléments animés en 3D (dessinés juste après le sol de l'arène) ---------- */
+function p650Mesh() {
+  if (P650.m && P650.m.gl === G3.gl) return P650.m;
+  const M = { gl: G3.gl };
+  const oiseau = (up, c, cw) => { const g = new G3Geo(); g.sph(0, 0, 0, 1.6, 1.3, 3.6, 6, c); g.sph(0, 0.6, 3, 1.1, 1.1, 1.3, 5, c); g.box(0, 0.4, 4.6, 0.5, 0.4, 1.2, [0.95, 0.7, 0.2]);
+    for (const s of [-1, 1]) { const y = up ? 2.4 : -1.2; g.t([s * 1.2, 0.2, -1.2], [s * 9, y, -0.4], [s * 1.2, 0.2, 1.4], [0, 1, 0], cw); g.t([s * 9, y, -0.4], [s * 12, y * 1.25, -1.6], [s * 6, y * 0.8, 0.6], [0, 1, 0], cw.map(v => v * 0.6)); } return g.build(); };
+  M.mA = oiseau(true, [0.96, 0.96, 0.95], [0.92, 0.92, 0.9]); M.mB = oiseau(false, [0.96, 0.96, 0.95], [0.92, 0.92, 0.9]);
+  M.oA = oiseau(true, [0.2, 0.18, 0.16], [0.26, 0.22, 0.2]); M.oB = oiseau(false, [0.2, 0.18, 0.16], [0.26, 0.22, 0.2]);
+  { const g = new G3Geo(); for (let k = 0; k < 5; k++) g.sph((k - 2) * 14, (k & 1) * 6, (k % 3) * 5, 18, 10, 12, 7, [1, 1, 1]); M.nuage = g.build(); }
+  { const g = new G3Geo(); g.box(0, 0, 0, 1, 1, 0.12, [1, 1, 1]); M.fanion = g.build(); }
+  { const g = new G3Geo(); g.cyl(0, 0, 0, 1, 0.05, 1, 12, [1, 1, 1]); M.cone = g.build(); }
+  return P650.m = M;
+}
+function p650Anim3(C, now) {
+  const th = P99.th, S = P99S, M = p650Mesh(), U = g3Unit(), tier = E3.tier == null ? 1 : E3.tier;
+  const vole = (n, cx, cz, r, y, sp, A, B, sc) => { for (let i = 0; i < n; i++) { const a = now * sp * (i & 1 ? 1 : -1) * (0.8 + i * 0.07) + i * 2.1, x = cx + Math.cos(a) * r * (1 + (i % 3) * 0.18), z = cz + Math.sin(a) * r * 0.6, yy = y + Math.sin(now * 1.3 + i) * 10, yaw = a + (i & 1 ? Math.PI : 0);
+    g3Mesh(Math.sin(now * 9 + i * 1.7) > 0 ? A : B, M4.trs(x * S, yy * S, z * S, yaw, 0, Math.sin(now * 2 + i) * 0.25, sc * S, sc * S, sc * S)); } };
+  if (th === "pont") { vole(tier >= 1 ? 7 : 4, 0, -150, 190, 120, 0.35, M.mA, M.mB, 1);
+    for (let i = 0; i < 10; i++) { const u = (now * 0.04 + i * 0.1) % 1, x = (p99H(i, 5) - 0.5) * 1000, z = -260 - u * 500; g3Mesh(U.cube, M4.trs(x * S, -0.5 * S, z * S, 0, 0, 0, (20 + i * 3) * S, 0.3 * S, 1.6 * S), { tint: [0.92, 0.97, 1, 1], a: Math.sin(u * Math.PI) * 0.8 }); } }
+  else if (th === "budokai" || th === "konoha") { vole(4, 0, -260, 260, 150, 0.22, M.oA, M.oB, 0.8);
+    for (let i = 0; i < 3; i++) { const x = ((now * 6 + i * 420) % 1400) - 700; g3Mesh(M.nuage, M4.trs(x * S, (230 + i * 30) * S, (-560 - i * 80) * S, 0, 0, 0, S * 1.6, S * 1.2, S * 1.4), { tint: [1, 1, 1, 0.6], a: 0.85 }); } }
+  else if (th === "cell") { vole(3, 0, -300, 300, 170, 0.18, M.oA, M.oB, 0.9);
+    if (Math.random() < 0.35) g3Part((Math.random() - 0.5) * 700 * S, 2 * S, (-100 - Math.random() * 250) * S, 30 + Math.random() * 30, 6, 0, 2.4, 6 + Math.random() * 6, [0.78, 0.66, 0.5], { add: false }); }
+  if (th === "budokai" || th === "vaizel") {   // fanions qui flottent
+    const pts = th === "vaizel" ? [[-200, -60], [-150, -150], [-60, -186], [60, -186], [150, -150], [200, -60]] : [[-196, -168], [-140, -168], [-84, -168], [84, -168], [140, -168], [196, -168]], cols = [[0.85, 0.15, 0.12, 1], [0.95, 0.78, 0.15, 1], [0.16, 0.34, 0.78, 1], [0.2, 0.62, 0.3, 1]], yf = th === "vaizel" ? 66 : 47;
+    pts.forEach(([x, z], i) => { const w = Math.sin(now * 4 + i) * 0.35; g3Mesh(M.fanion, M4.trs((x + 7) * S, yf * S, z * S, w, 0, 0, 14 * S, 8 * S, S), { tint: cols[i & 3] }); }); }
+  if (th === "vaizel" && tier >= 1 && (C.res || P99.hype > 1.1) && Math.random() < 0.2) { const x = (Math.random() - 0.5) * 360 * S, z = (-140 - Math.random() * 60) * S; g3Burst(x, (150 + Math.random() * 60) * S, z, 16, ["#ff6060", "#ffe060", "#60a0ff", "#a0ff80"][Math.floor(Math.random() * 4)], 90, 0.9, 3.4); }
+  if (th === "vaizel" && Math.random() < 0.3) g3Part((Math.random() - 0.5) * 300 * S, 70 * S, (-100 - Math.random() * 80) * S, (Math.random() - 0.5) * 20, -18, 10, 3, 2.4, ["#ff6060", "#ffe060", "#60a0ff", "#ffffff"][Math.floor(Math.random() * 4)], { add: false });
+  if (th === "konoha" && Math.random() < 0.4) g3Part((Math.random() - 0.5) * 520 * S, (90 + Math.random() * 40) * S, (-200 + Math.random() * 300) * S, 22 + Math.random() * 14, -26, 6, 4.5, 3, Math.random() < 0.5 ? [0.32, 0.6, 0.22] : [0.85, 0.6, 0.2], { add: false });
+  if (th === "pokemon") {   // faisceaux de projecteurs qui balaient le terrain + halo du symbole
+    for (let i = 0; i < 4; i++) { const a = now * 0.5 + i * 1.57, tx = Math.cos(a) * 90 * S, tz = Math.sin(a * 1.3) * 60 * S, sx = (i - 1.5) * 150 * S, sy = 132 * S, sz = -200 * S;
+      const dx = sx - tx, dy = sy, dz = sz - tz, L = Math.hypot(dx, dy, dz);
+      g3Mesh(M.cone, M4.trs(tx, 0.4 * S, tz, Math.atan2(dx, dz), Math.acos(dy / L), 0, 30 * S, L, 30 * S), { tint: [1, 0.97, 0.85, 1], a: 0.09, add: true, e: 1 });
+      g3Mesh(U.disque, M4.trs(tx, 1.75 * S, tz, 0, 0, 0, 30 * S, 0.1, 30 * S), { tint: [1, 0.97, 0.85, 1], a: 0.14, add: true, e: 1 });
+      if (tier >= 1) e3Lueur(sx, sy, sz + 6 * S, 9 * S, [1, 0.95, 0.8], 0.7); }
+    e3Lueur(0, 2 * S, 0, (30 + 4 * Math.sin(now * 3)) * S, [1, 0.4, 0.35], 0.12);
+  }
+  // bord : la bande de la zone de tension s'allume sous le combattant qui y est
+  for (const F of [C.A, C.B]) if (F.zone650 > 0.05 && !F.ko) { const c = (P650T[th] && P650T[th].zl) || [1, 0.8, 0.3]; e3Lueur(F.x, P99A.FY + 0.5, F.z, (10 + 14 * F.zone650) * S * 0.6, F.bordT650 > 0 ? [1, 0.35, 0.2] : c, 0.25 + 0.35 * F.zone650); }
+}
+/* lumière propre au thème + branchement des éléments animés après le sol */
+{ const d3 = p99D3, gd = g3Debut, gm = g3Mesh;
+  p99D3 = function (C, W, H, dpr, now) {
+    if (!P650.on) return d3.apply(this, arguments);
+    try { const G = p99Geo(); P650.hk = G && G.sol; P650.C = C; P650.now = now; P650.lux = P650T[P99.th] && P650T[P99.th].lux; } catch (e) { p650Err("d3", e); P650.hk = null; }
+    try { return d3.apply(this, arguments); } finally { P650.hk = null; P650.lux = null; } };
+  g3Debut = function (RW, RH, env) {
+    try { const X = P650.lux; if (X && env && AV.cine && AV.cine.type === "p99duel") { if (X.amb) env.amb = X.amb; if (X.sun) env.sun = X.sun; if (X.L) { const l = Math.hypot(...X.L); env.L = X.L.map(v => v / l); } } } catch (e) { p650Err("lux", e); }
+    return gd.apply(this, arguments); };
+  g3Mesh = function (me) {
+    gm.apply(this, arguments);
+    if (me && me === P650.hk) { P650.hk = null; const t0 = performance.now(); try { p650Anim3(P650.C, P650.now); } catch (e) { p650Err("anim3", e); } P650.st.ms3 = (P650.st.ms3 || 0) + performance.now() - t0; P650.st.img3 = (P650.st.img3 || 0) + 1; }
+  };
+}
+/* caméra : pendant le décompte, plan d'ouverture bas qui balaie le décor du thème (gradins, fond, ciel), puis retour à la vue de jeu
+   (identique à la 64) une seconde avant le « GO » ; pendant le combat la vue est légèrement moins plongeante en paysage pour voir le fond. */
+{ const c0 = p99Cam; p99Cam = function (C, asp) {
+  const r = c0.apply(this, arguments);
+  try {
+    if (!P650.on || !C || !C.th650) return r;
+    const port = asp < 1, t = r.tgt, e = r.eye;
+    if (!port && !C.res) { const dx = e[0] - t[0], dy = e[1] - t[1], dz = e[2] - t[2], d = Math.hypot(dx, dy, dz), p0 = Math.asin(dy / d), p1 = p0 - 0.09; r.eye = [e[0], t[1] + Math.sin(p1) * d, t[2] + Math.cos(p1) * d * Math.sign(dz || 1)]; }
+    if (C.dec > 1.0 && !C.res) {
+      const u0 = Math.min(1, (C.dec - 1.0) / 2.0), u = u0 * u0 * (3 - 2 * u0), k = 3.4 - C.dec, S = P99S;
+      const ce = [(-150 + k * 95) * S, (port ? 130 : 95) * S, (port ? 430 : 360) * S], ct = [(-30 + k * 20) * S, 30 * S, -140 * S];
+      r.eye = r.eye.map((v, i) => v + (ce[i] - v) * u); r.tgt = r.tgt.map((v, i) => v + (ct[i] - v) * u);
+    }
+  } catch (e) { p650Err("cam", e); }
+  return r; }; }
+
+/* ===== v65.0 — ARÈNE DUEL en 2D (sans WebGL) : décor complet de chaque thème + nom du thème au début du combat ===== */
+function p650D2(C, th, X, Y, sc, W, H, dpr, now) {
+  if (!P650.on || !P650T[th]) return;
+  const t0 = performance.now(), S = P99S, RX = P99A.RX, RZ = P99A.RZ, H2 = p99H, k = 0.82;
+  const rect = (x0, z0, x1, z1, c) => { ctx.fillStyle = c; ctx.fillRect(X(x0), Y(z0), (x1 - x0) * sc, (z1 - z0) * sc * k); };
+  const ell = (x, z, rx, rz, c, st, lw) => { ctx.beginPath(); ctx.ellipse(X(x), Y(z), Math.max(0.5, rx * sc), Math.max(0.5, rz * sc * k), 0, 0, 6.2832); if (st) { ctx.strokeStyle = c; ctx.lineWidth = lw * sc; ctx.stroke(); } else { ctx.fillStyle = c; ctx.fill(); } };
+  const rgb = (c, m = 1) => `rgb(${Math.round(Math.min(255, c[0] * 255 * m))},${Math.round(Math.min(255, c[1] * 255 * m))},${Math.round(Math.min(255, c[2] * 255 * m))})`;
+  const tuiles = (nx, nz, c, gap, v) => { const tw = 2 * RX / nx, td = 2 * RZ / nz; for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const r = H2(i + 3, j + 7), m = 1 - v / 2 + r * v; ctx.fillStyle = rgb(c, m); ctx.fillRect(X(-RX + i * tw + gap), Y(-RZ + j * td + gap), (tw - 2 * gap) * sc, (td - 2 * gap) * sc * k); } };
+  const foule = (cols, rangs, z0) => { for (let r = 0; r < rangs; r++) for (let i = 0; i < 46; i++) { const h = H2(i, r + 40); if (h < 0.08) continue; const b = Math.max(0, Math.sin(now * (7 + ((i * 7 + r * 3) & 3) * 1.3) + i)) * (2 + P99.hype * 3) * sc;
+    ctx.fillStyle = cols[(i * 5 + r * 11) % cols.length]; const x = X((-230 + i * 10) * S), y = Y((z0 + r * 14) * S) - b; ctx.fillRect(x - 3 * S * sc, y - 2 * S * sc, 6 * S * sc, 7 * S * sc); ctx.fillStyle = "#f2c8a0"; ctx.beginPath(); ctx.arc(x, y - 4.5 * S * sc, 2.6 * S * sc, 0, 6.2832); ctx.fill(); } };
+  const zone = () => { const c = rgb(P650T[th].zl || [1, 0.85, 0.3]), ax = RX + 6 - P650.ZONE, az = RZ + 6 - P650.ZONE; ctx.save(); ctx.strokeStyle = c; ctx.lineWidth = Math.max(1, 2.4 * sc); ctx.setLineDash([10 * sc, 8 * sc]); ctx.strokeRect(X(-ax), Y(-az), 2 * ax * sc, 2 * az * sc * k); ctx.restore();
+    for (const F of [C.A, C.B]) if (F.zone650 > 0.05 && !F.ko) { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(X(F.x), Y(F.z), 0, X(F.x), Y(F.z), 40 * sc); g.addColorStop(0, F.bordT650 > 0 ? "rgba(255,90,50,.55)" : "rgba(255,220,120,.4)"); g.addColorStop(1, "rgba(255,200,80,0)"); ctx.fillStyle = g; ctx.fillRect(X(F.x) - 40 * sc, Y(F.z) - 40 * sc, 80 * sc, 80 * sc); ctx.restore(); } };
+  const bord = (c, w) => rect(-RX - w, -RZ - w, RX + w, RZ + w, c);
+  const arbre = (x, z, r, c) => { ell(x, z + r * 0.3, r, r * 0.6, "rgba(0,0,0,.25)"); ell(x, z, r, r, c); ell(x - r * 0.3, z - r * 0.35, r * 0.55, r * 0.5, "rgba(255,255,255,.12)"); };
+  ctx.save();
+  if (th === "budokai") {
+    ctx.fillStyle = "#58a03e"; ctx.fillRect(0, 0, W, H);
+    for (let i = -8; i < 8; i++) if (i & 1) rect(i * 60 * S, -340 * S, (i * 60 + 60) * S, 380 * S, "#62aa46");
+    rect(-200 * S, -300 * S, 200 * S, -236 * S, "#f0e8d6"); rect(-218 * S, -310 * S, 218 * S, -290 * S, "#e8781e"); rect(-150 * S, -272 * S, 150 * S, -252 * S, "#f08a2a");
+    for (let i = -3; i <= 3; i++) rect((i * 22 - 2.6) * S, -224 * S, (i * 22 + 2.6) * S, -210 * S, "#c02818");
+    rect(-240 * S, -188 * S, -26 * S, -170 * S, "#b8483a"); rect(26 * S, -188 * S, 240 * S, -170 * S, "#b8483a"); rect(-34 * S, -192 * S, -24 * S, -166 * S, "#d8ccbc"); rect(24 * S, -192 * S, 34 * S, -166 * S, "#d8ccbc");
+    for (let i = 0; i < 8; i++) { const x = (-196 + i * 56) * S; if (Math.abs(x) < 40 * S) continue; rect(x, -172 * S, x + 2 * S, -150 * S, "#ddd"); ctx.fillStyle = ["#e03030", "#f0c030", "#3070e0", "#40b050"][i & 3]; const w = Math.sin(now * 4 + i) * 3 * S; ctx.fillRect(X(x + 2 * S), Y(-172 * S), (12 * S + w) * sc, 8 * S * sc * k); }
+    for (let i = 0; i < 9; i++) arbre((-220 + i * 55 + H2(i, 3) * 20) * S, (-215 - H2(i, 5) * 30) * S, 13 * S, "#2e7a2c");
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) arbre(s * (205 + H2(i, s + 3) * 30) * S, (-120 + i * 80) * S, 12 * S, "#38862e");
+    bord("#c0281e", 11 * S); bord("#f2ece2", 1.6 * S); rect(-RX, -RZ, RX, RZ, "#5c5c5a"); tuiles(10, 7, [0.75, 0.75, 0.73], 1.8, 0.12);
+    for (let j = 0; j < 4; j++) rect(-20 * S, (-RZ / S - 12 - j * 12) * S, 20 * S, (-RZ / S - 2 - j * 12) * S, "#e2ddd0");
+    foule(["#e04040", "#3a6ae0", "#f0c030", "#40b050", "#f08030", "#a050d0", "#f0f0f0"], 4, 158);
+  } else if (th === "cell") {
+    ctx.fillStyle = "#b59c76"; ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 70; i++) { const x = (H2(i, 21) - 0.5) * 900 * S, z = (H2(i, 22) - 0.5) * 760 * S; if (Math.abs(x) < RX + 40 && Math.abs(z) < RZ + 40) continue; const r = (2 + H2(i, 23) * 7) * S; ell(x, z, r * 1.3, r, "#9a8262"); ell(x - r * 0.3, z - r * 0.3, r * 0.6, r * 0.5, "#c4ad88"); }
+    for (let i = 0; i < 9; i++) { const x = (-560 + i * 140 + (H2(i, 31) - 0.5) * 60) * S, z = (-330 - H2(i, 32) * 220) * S, w = (80 + H2(i, 33) * 90) * S; rect(x - w / 2, z - w * 0.35, x + w / 2, z + w * 0.35, "#a06c48"); rect(x - w * 0.43, z - w * 0.3, x + w * 0.43, z + w * 0.25, "#b88060"); }
+    for (let i = 0; i < 5; i++) ell((H2(i, 71) - 0.5) * 520 * S, (-160 - H2(i, 72) * 120) * S, 26 * S, 18 * S, "#8a7458");
+    for (let i = 0; i < 14; i++) { const a = H2(i, 61) * 6.283, d = 175 + H2(i, 62) * 120, x = Math.cos(a) * d * 1.3 * S, z = Math.sin(a) * d * S; if (z > 120 * S) continue; rect(x - 6 * S, z - 4 * S, x + 6 * S, z + 4 * S, "#e2e2dc"); }
+    bord("#d6d6d0", 6 * S); rect(-RX, -RZ, RX, RZ, "#a8a8a2"); tuiles(12, 9, [0.93, 0.93, 0.9], 1, 0.1);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const x = sx * (RX + 20 * S) * 0.95, z = sz * (RZ + 20 * S) * 0.93; rect(x - 6.5 * S, z - 6.5 * S - 8 * S, x + 6.5 * S, z + 6.5 * S - 8 * S, "#f4f4f0"); rect(x - 5 * S, z - 5 * S, x + 5 * S, z + 5 * S, "#c8c8c2"); }
+    for (let i = 0; i < 6; i++) { const u = (now * 0.05 + i / 6) % 1; ell((-700 + u * 1400) * S, (-160 - i * 30) * S, 30 * S, 8 * S, "rgba(210,190,150,.35)"); }
+  } else if (th === "pont") {
+    ctx.fillStyle = "#1e6ab8"; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "rgba(220,240,255,.55)"; ctx.lineWidth = Math.max(1, 2 * sc); for (let i = 0; i < 26; i++) { const x = (H2(i, 1) - 0.5) * 1100 * S + Math.sin(now * 0.8 + i) * 10 * S, z = (H2(i, 2) - 0.5) * 1100 * S; if (Math.abs(x) < 200 * S && Math.abs(z) < 190 * S) continue; ctx.beginPath(); ctx.moveTo(X(x), Y(z)); ctx.lineTo(X(x + 18 * S), Y(z)); ctx.stroke(); }
+    rect(-196 * S, -176 * S, 196 * S, 166 * S, "#4a2a12"); rect(-190 * S, -170 * S, 190 * S, 160 * S, "#6a4020");
+    ctx.strokeStyle = "#4e2e14"; ctx.lineWidth = Math.max(1, sc); for (let j = 0; j < 24; j++) { const z = (-170 + j * 14) * S; ctx.beginPath(); ctx.moveTo(X(-190 * S), Y(z)); ctx.lineTo(X(190 * S), Y(z)); ctx.stroke(); }
+    bord("#e6d090", 3 * S); rect(-RX, -RZ, RX, RZ, "#b8884e"); { const n = 15; for (let j = 0; j < n; j++) { const r = H2(j, 77); rect(-RX + 1, -RZ + j * (2 * RZ / n) + 0.8, RX - 1, -RZ + (j + 1) * (2 * RZ / n) - 0.8, `rgb(${Math.round(214 + r * 20)},${Math.round(170 + r * 16)},${Math.round(112 + r * 12)})`); } }
+    ell(0, -150 * S, 7 * S, 7 * S, "#5a3416"); rect(-90 * S, -152 * S, 90 * S, -148 * S, "#4a2a12");
+    for (const [x, z] of [[-170, -140], [-158, -146], [170, -138], [172, 70], [-172, 40], [-168, 58]]) { ell(x * S, z * S, 7 * S, 7 * S, "#8a5626"); ell(x * S, z * S, 4.5 * S, 4.5 * S, "#a06a32"); }
+    for (let i = 0; i < 7; i++) { const a = now * 0.35 * (i & 1 ? 1 : -1) + i * 2.1, x = Math.cos(a) * 190 * (1 + (i % 3) * 0.18) * S, z = (-150 + Math.sin(a) * 114) * S, f = Math.sin(now * 9 + i * 1.7) * 4 * S; ctx.strokeStyle = "#fafafa"; ctx.lineWidth = Math.max(1, 2 * sc); ctx.beginPath(); ctx.moveTo(X(x - 9 * S), Y(z) - f * sc); ctx.lineTo(X(x), Y(z) + 2 * sc); ctx.lineTo(X(x + 9 * S), Y(z) - f * sc); ctx.stroke(); }
+    foule(["#f0f0f2", "#3050a0", "#d03030", "#505058", "#3080d0"], 2, 158);
+  } else if (th === "vaizel") {
+    ctx.fillStyle = "#5a9a3a"; ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 8; i++) { const s = i & 1 ? 1 : -1; ell(s * (270 + H2(i, 99) * 60) * S, (-40 - i * 30) * S, 20 * S, 20 * S, ["#d83a30", "#f0c030", "#3060c8", "#3aa050", "#f0f0ea"][i % 5]); ell(s * (270 + H2(i, 99) * 60) * S, (-40 - i * 30) * S, 6 * S, 6 * S, "#fff6"); }
+    ell(0, -20 * S, 248 * S, 206 * S, "#b8a688"); ell(0, -20 * S, 230 * S, 188 * S, "#a8946e"); ell(0, -20 * S, 214 * S, 172 * S, "#c8b48a"); ell(0, -20 * S, 236 * S, 194 * S, "#8a7a60", true, 3 * S);
+    rect(-45 * S, -213 * S, 45 * S, -187 * S, "#c8b494"); rect(-48 * S, -211 * S, 48 * S, -200 * S, "#a01c1c"); rect(-62 * S, -196 * S, -50 * S, -176 * S, "#2a4ab8"); rect(50 * S, -196 * S, 62 * S, -176 * S, "#c02424");
+    const mats = [[-200, -60], [-150, -150], [-60, -186], [60, -186], [150, -150], [200, -60]], cf = ["#d83a30", "#f0c030", "#3060c8", "#3aa050", "#f4f4ee"];
+    for (let m = 0; m < mats.length - 1; m++) { const [x0, z0] = mats[m], [x1, z1] = mats[m + 1]; for (let q = 1; q < 12; q++) { const u = q / 12, x = (x0 + (x1 - x0) * u) * S, z = (z0 + (z1 - z0) * u) * S, sw = Math.sin(now * 3 + q + m) * 1.5 * S; ctx.fillStyle = cf[(q + m) % 5]; ctx.beginPath(); ctx.moveTo(X(x - 3 * S), Y(z)); ctx.lineTo(X(x + 3 * S), Y(z)); ctx.lineTo(X(x + sw), Y(z + 8 * S)); ctx.closePath(); ctx.fill(); } }
+    for (const [x, z] of mats) ell(x * S, z * S, 2.4 * S, 2.4 * S, "#5a4028");
+    bord("#8a847a", 7 * S); rect(-RX, -RZ, RX, RZ, "#a49c90"); rect(-RX + 9 * S, -RZ + 9 * S, RX - 9 * S, RZ - 9 * S, "#d2b47e");
+    for (let i = 0; i < 40; i++) ell((H2(i, 91) - 0.5) * (2 * RX - 60), (H2(i, 92) - 0.5) * (2 * RZ - 60), (2 + H2(i, 93) * 4) * S, (1.5 + H2(i, 94) * 2) * S, "#c4a46e");
+    foule(["#c83030", "#3050b0", "#8a7048", "#dcd0a8", "#4a8040", "#9a9aa4"], 4, 158);
+    if (Math.random() < 0.5) { P650.cf2 = P650.cf2 || []; P650.cf2.push({ x: (Math.random() - 0.5) * 500 * S, z: (-200 + Math.random() * 120) * S, t: now, c: cf[Math.floor(Math.random() * 5)] }); if (P650.cf2.length > 40) P650.cf2.shift(); }
+    for (const p of (P650.cf2 || [])) { const u = now - p.t; if (u > 3) continue; ctx.fillStyle = p.c; ctx.fillRect(X(p.x + Math.sin(u * 3 + p.x) * 8 * S), Y(p.z + u * 40 * S), 2.5 * S * sc, 2.5 * S * sc); }
+  } else if (th === "pokemon") {
+    ctx.fillStyle = "#22252e"; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "#2c303b"; ctx.lineWidth = Math.max(1, sc); for (let i = -6; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(X(i * 60 * S), Y(-220 * S)); ctx.lineTo(X(i * 60 * S), Y(220 * S)); ctx.stroke(); }
+    rect(-320 * S, -222 * S, 320 * S, -204 * S, "#3a4466"); rect(-320 * S, -208 * S, 320 * S, -205 * S, "#d8b030");
+    { const x = X(0), y = Y(-213 * S), r = 9 * S * sc; ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(x, y, r * 1.1, 0, 6.2832); ctx.fill(); ctx.fillStyle = "#d82020"; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.fill(); ctx.fillStyle = "#f4f4f0"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI); ctx.fill(); }
+    bord("#c81c1c", 6 * S); bord("#f4f4f0", 1.4 * S);
+    for (let i = 0; i < 12; i++) rect(-RX + i * (2 * RX / 12), -RZ, -RX + (i + 1) * (2 * RX / 12), RZ, i & 1 ? "#68a85c" : "#70b464");
+    ctx.strokeStyle = "#f4f4f0"; ctx.lineWidth = Math.max(1, 1.6 * S * sc); ctx.strokeRect(X(-RX + 6 * S), Y(-RZ + 6 * S), (2 * RX - 12 * S) * sc, (2 * RZ - 12 * S) * sc * k);
+    ctx.beginPath(); ctx.moveTo(X(0), Y(-RZ + 6 * S)); ctx.lineTo(X(0), Y(RZ - 6 * S)); ctx.stroke(); ell(0, 0, 44 * S, 44 * S, "#f4f4f0", true, 1.6 * S);
+    for (const s of [-1, 1]) ctx.strokeRect(X(s > 0 ? RX - 43 * S : -RX + 13 * S), Y(-26 * S), 30 * S * sc, 52 * S * sc * k);
+    { const x = X(0), y = Y(0), rx = 26 * S * sc, ry = rx * k; ctx.fillStyle = "#141414"; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.08, ry * 1.08, 0, 0, 6.2832); ctx.fill(); ctx.fillStyle = "#d82020"; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, Math.PI, 0); ctx.fill(); ctx.fillStyle = "#f4f4f0"; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = "#141414"; ctx.fillRect(x - rx, y - ry * 0.07, 2 * rx, ry * 0.14); ctx.beginPath(); ctx.ellipse(x, y, rx * 0.36, ry * 0.36, 0, 0, 6.2832); ctx.fill(); ctx.fillStyle = "#fafafa"; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.24, ry * 0.24, 0, 0, 6.2832); ctx.fill(); }
+    ctx.globalCompositeOperation = "lighter"; for (let i = 0; i < 4; i++) { const a = now * 0.5 + i * 1.57, tx = X(Math.cos(a) * 90 * S), tz = Y(Math.sin(a * 1.3) * 60 * S), r = 34 * S * sc, g = ctx.createRadialGradient(tx, tz, 0, tx, tz, r); g.addColorStop(0, "rgba(255,248,215,.22)"); g.addColorStop(1, "rgba(255,248,215,0)"); ctx.fillStyle = g; ctx.fillRect(tx - r, tz - r, 2 * r, 2 * r); } ctx.globalCompositeOperation = "source-over";
+    foule(["#d83030", "#f4f4f0", "#3a6ae0", "#f0c030", "#40b050"], 4, 158);
+  } else if (th === "konoha") {
+    ctx.fillStyle = "#5c9c3c"; ctx.fillRect(0, 0, W, H);
+    rect(-200 * S, -170 * S, 200 * S, 150 * S, "#b89a6a");
+    for (let i = 0; i < 60; i++) ell((H2(i, 11) - 0.5) * 380 * S, (H2(i, 12) - 0.5) * 300 * S, (3 + H2(i, 13) * 7) * S, (2 + H2(i, 14) * 4) * S, "#a8885c");
+    rect(-210 * S, -182 * S, -30 * S, -170 * S, "#7a5232"); rect(30 * S, -182 * S, 210 * S, -170 * S, "#7a5232"); rect(-37 * S, -186 * S, -29 * S, -166 * S, "#9c3822"); rect(29 * S, -186 * S, 37 * S, -166 * S, "#9c3822"); rect(-29 * S, -178 * S, 29 * S, -174 * S, "#387a52");
+    for (let i = 0; i < 10; i++) arbre((-240 + i * 52 + H2(i, 3) * 20) * S, (-215 - H2(i, 5) * 40) * S, 15 * S, "#2a6a24");
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) arbre(s * (205 + H2(i, s + 3) * 30) * S, (-120 + i * 80) * S, 13 * S, "#327a2a");
+    bord("#6a4426", 3 * S); rect(-RX, -RZ, RX, RZ, "#c4a476"); tuiles(9, 7, [0.86, 0.74, 0.54], 1.2, 0.08); ell(0, 0, 34 * S, 34 * S, "#ece6d6", true, 2 * S);
+    P650.lf2 = P650.lf2 || []; if (Math.random() < 0.4) { P650.lf2.push({ x: (Math.random() - 0.5) * 520 * S, z: (-200 + Math.random() * 300) * S, t: now, c: Math.random() < 0.5 ? "#4a8a2a" : "#d89a30" }); if (P650.lf2.length > 40) P650.lf2.shift(); }
+    for (const p of P650.lf2) { const u = now - p.t; if (u > 4) continue; ctx.fillStyle = p.c; ctx.save(); ctx.translate(X(p.x + u * 24 * S), Y(p.z + u * 14 * S)); ctx.rotate(u * 3); ctx.fillRect(-2.4 * S * sc, -1.2 * S * sc, 4.8 * S * sc, 2.4 * S * sc); ctx.restore(); }
+    foule(["#3a6a3a", "#e07a20", "#3050a0", "#8a8070", "#c83a3a", "#f0a0b0"], 4, 158);
+  }
+  zone();
+  ctx.restore();
+  P650.st.ms2 = (P650.st.ms2 || 0) + performance.now() - t0; P650.st.img2 = (P650.st.img2 || 0) + 1;
+}
+/* nom du thème au début du combat (3D et 2D) */
+{ const o0 = p99Overlay; p99Overlay = function (C, W, H, dpr, VP, now) {
+  const r = o0.apply(this, arguments);
+  try { if (P650.on && C && C.th650 && P650T[C.th650] && C.dec > -0.6 && !C.res) p650Banniere(C, W, H, dpr); } catch (e) { p650Err("ban", e); }
+  return r; }; }
+function p650Banniere(C, W, H, dpr) {
+  const T = P650T[C.th650], u = C.dec > 3 ? Math.min(1, (3.4 - C.dec) / 0.4) : C.dec < 0 ? Math.max(0, 1 + C.dec / 0.6) : 1; if (u <= 0) return;
+  const port = W < H, y = H * (port ? 0.7 : 0.74), f1 = Math.round(Math.min(W * (port ? 0.062 : 0.045), H * 0.07)), f2 = Math.round(f1 * 0.48), bw = Math.min(W * 0.94, f1 * 13);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = u;
+  const g = ctx.createLinearGradient(W / 2 - bw / 2, 0, W / 2 + bw / 2, 0); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(0.15, "rgba(0,0,0,.62)"); g.addColorStop(0.85, "rgba(0,0,0,.62)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(W / 2 - bw / 2, y - f1 * 0.95, bw, f1 * 1.9 + f2);
+  ctx.fillStyle = T.c; ctx.fillRect(W / 2 - bw * 0.36, y - f1 * 0.95, bw * 0.72, Math.max(2, 2 * dpr)); ctx.fillRect(W / 2 - bw * 0.36, y + f1 * 0.95 + f2 - 2 * dpr, bw * 0.72, Math.max(2, 2 * dpr));
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `900 ${f1}px system-ui,sans-serif`; { const w = ctx.measureText(T.nom).width; if (w > W * 0.92) ctx.font = `900 ${Math.floor(f1 * W * 0.92 / w)}px system-ui,sans-serif`; } ctx.lineWidth = f1 * 0.14; ctx.strokeStyle = "#000d";
+  const x = W / 2 + (1 - u) * W * 0.08; ctx.strokeText(T.nom, x, y); ctx.fillStyle = T.c; ctx.fillText(T.nom, x, y);
+  ctx.font = `800 ${f2}px system-ui,sans-serif`; ctx.lineWidth = f2 * 0.2; ctx.strokeText(T.sous, x, y + f1 * 0.78); ctx.fillStyle = "#fff"; ctx.fillText(T.sous, x, y + f1 * 0.78);
+  ctx.restore();
+}
 
 </script>
 </body>
