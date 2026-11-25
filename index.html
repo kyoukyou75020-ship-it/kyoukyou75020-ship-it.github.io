@@ -802,6 +802,7 @@ function genererChunk(monde, cx, cy) {
     if (!cache || (monde.masques && monde.masques.has(wty * CONFIG.TAILLE_MONDE + wtx))) continue; // arbre animé à part
     poser(p75Spr(monde, wtx, wty, dec), tx, ty, dec !== DECOR.ROCHER && hash(wtx, wty, G + 63) < 0.5);
   }
+  if (typeof p620Pixels === "function") { try { p620Pixels(monde, cx, cy, out, W, impure); } catch (_) { } }
   return versCanvas(out, W, W);
 }
 function tuileAFalaise(faceK, P, btx, bty, T) {
@@ -39041,7 +39042,7 @@ function p99CheminVille(J) {
 })();
 
 /* ===== v49 : APPLI (PWA) — version, mise à jour, installation ===== */
-const P100 = { V: "61.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
+const P100 = { V: "62.0", err: [], bip: null, nv: null, verif: 0, majEnCours: false };
 function p100Err(w, e) { if (P100.err.length < 12) P100.err.push(w + ": " + (e && e.message || e)); }
 function p100Site() { return /^https?:$/.test(location.protocol); }
 function p100Cmp(a, b) { const A = String(a).split(".").map(Number), B = String(b).split(".").map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return d; } return 0; }
@@ -51786,6 +51787,820 @@ try {
 } catch (e) { p610Err("hero3d init", e); }
 /* changement de héros : le modèle 3D est rafraîchi dès l'image suivante (avant : jusqu'à 0,4 s avec l'ancien modèle) */
 try { const ch = brChoisirHero; brChoisirHero = function () { const r = ch.apply(this, arguments); try { if (typeof E3 !== "undefined" && E3) E3.palT = null; } catch (_) { } return r; }; } catch (e) { p610Err("choix init", e); }
+
+
+/* ===================== v62.0 (lot A) : coupe du bois plus réaliste et plus belle — monde 1 (Terre de Sangoku) =====================
+   La logique de récolte v53.3 (p533 : 3 coups, matériaux, souche → pousse → jeune arbre → arbre, sauvegarde d.p533) est GARDÉE telle quelle ;
+   on ajoute seulement l'image et le son, autour :
+   - le héros se tourne face à l'arbre ; une hache apparaît et frappe au rythme de l'attaque (2D et 3D) ;
+   - chaque coup : « tchac » sourd, copeaux clairs qui volent vers le héros, quelques feuilles qui tombent, l'arbre tremble ;
+   - entaille visible sur le tronc, qui se creuse à chaque coup (côté du héros) ;
+   - coup final : craquement, l'arbre tombe (à l'opposé du héros), choc sourd, poussière, petite secousse de l'écran ;
+   - 3 bûches restent au sol où l'arbre est tombé : on les ramasse en passant dessus (ou elles viennent seules après ~8 s).
+     Le bois est compté tout de suite dans l'inventaire (comme avant) : rien ne peut être perdu, même si on sauvegarde ou quitte.
+   Monde 1 seulement (les autres mondes gardent la coupe d'origine). */
+const P620 = { err: [], st: { coups: 0, chutes: 0, buches: 0, ramasse: 0 }, hache: null, ent: new Map(), buches: [], capt: null, img: new Map(), m3: null, vus: new WeakSet() };
+function p620Err(w, e) { if (P620.err.length < 12) P620.err.push(w + ": " + (e && e.message || e)); try { console.warn("p620", w, e); } catch (_) { } }
+const p620W1 = () => { try { return (AV.monde || 1) === 1 && jeu && jeu.scene === sceneMonde && dansMonde(); } catch (_) { return false; } };
+const p620Now = () => (typeof AV !== "undefined" && AV.temps) || performance.now() / 1000;
+
+/* ---------- sons (synthétisés, aucun fichier) ---------- */
+{
+  const sj = son.jouer;
+  son.jouer = function (nom) {
+    if (nom !== "hache" && nom !== "craque" && nom !== "chute" && nom !== "ramasse") return sj.apply(this, arguments);
+    if (!PARAMS.son || PARAMS.volume <= 0 || PARAMS.fxOff) return;
+    this.init(); if (!this.ctx || this.ctx.state !== "running") return;
+    this.maitre.gain.value = PARAMS.volume * 0.5;
+    try {
+      if (nom === "hache") { this.bruit(0.07, 0.42, 900); this.ton(150, 70, 0.1, "triangle", 0.3); this.ton(620, 420, 0.03, "square", 0.05); }
+      else if (nom === "craque") { [0, 0.07, 0.15, 0.26, 0.34].forEach((t, i) => { this.ton(180 - i * 12, 90, 0.06, "sawtooth", 0.09, t); this.bruit(0.04, 0.12, 1600, t); }); }
+      else if (nom === "chute") { this.bruit(0.7, 0.6, 260); this.ton(70, 32, 0.6, "sine", 0.45); this.bruit(0.35, 0.25, 1200, 0.05); }
+      else if (nom === "ramasse") { this.ton(520, 780, 0.06, "triangle", 0.12); this.bruit(0.04, 0.1, 2400); }
+    } catch (_) { }
+  };
+}
+
+/* ---------- petites images 2D (pixel art, mises en cache) ---------- */
+function p620Img(k) {
+  let c = P620.img.get(k); if (c) return c;
+  if (k === "hache") c = objetSimple(7, 13, P => { P.r(3, 3, 1, 10, "#5a3418"); P.r(3, 3, 1, 9, "#9a6a3c"); P.r(3, 12, 1, 1, "#3c2414"); P.r(0, 0, 5, 5, "#2a2a30"); P.r(1, 1, 3, 3, "#9aa0ac"); P.r(0, 1, 1, 3, "#e8ecf4"); P.r(4, 1, 2, 2, "#6a6a74"); });
+  else if (k === "buche") c = objetSimple(12, 6, P => { P.ell(6, 5, 6, 1.2, "rgba(20,30,10,.35)"); P.r(1, 1, 9, 4, "#3c2414"); P.r(1, 1, 9, 3, "#7a4c28"); P.r(1, 1, 9, 1, "#a8743c"); P.p(4, 2, "#5a3418"); P.p(7, 3, "#5a3418"); P.ell(10, 3, 1.6, 2, "#3c2414"); P.ell(10, 3, 1.1, 1.5, "#e0bc80"); P.p(10, 3, "#a8743c"); });
+  else if (k === "copeaux") c = objetSimple(10, 4, P => { for (const [x, y, col] of [[1, 2, "#e8cc90"], [3, 3, "#d8b070"], [5, 1, "#f4dca8"], [7, 3, "#c09050"], [8, 2, "#e8cc90"], [4, 2, "#a8743c"]]) P.p(x, y, col); });
+  P620.img.set(k, c); return c;
+}
+
+/* ---------- coup de hache ---------- */
+function p620Cible(L) {
+  let best = null, bd = 1e9;
+  for (const h of L || []) { if (!(EST_ARBRE(h.dec) || h.dec === DECOR.ROCHER)) continue; const d = Math.hypot(h.tx * 16 + 8 - perso.x, h.ty * 16 + 12 - perso.y); if (d < bd) { bd = d; best = h; } }
+  return best && EST_ARBRE(best.dec) ? best : null;
+}
+function p620Copeaux(x, y, vers, n) {
+  for (let i = 0; i < n; i++) particules.push({ x: x + (Math.random() - 0.5) * 3, y: y + (Math.random() - 0.5) * 2, z: 3 + Math.random() * 3, vx: vers * (25 + Math.random() * 55) + (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 22, vz: 35 + Math.random() * 45, age: 0, vie: 0.55 + Math.random() * 0.35, col: ["#f4dca8", "#e8cc90", "#d8b070", "#c09050", "#a8743c"][i % 5], g: 230, frein: 2.2, oscille: 0, taille: Math.random() < 0.35 ? 2 : 1 });
+}
+function p620FeuillesTombent(tx, ty, dec, n) {
+  const pal = dec === DECOR.SAPIN ? PAL_PIN : dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE;
+  const cols = [pal.m, pal.l, pal.d].map(q => "#" + [q & 255, (q >> 8) & 255, (q >> 16) & 255].map(v => v.toString(16).padStart(2, "0")).join(""));
+  for (let i = 0; i < n; i++) particules.push({ x: tx * 16 + 3 + Math.random() * 10, y: ty * 16 + 8 + Math.random() * 4, z: 9 + Math.random() * 6, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 6, vz: Math.random() * 8, age: 0, vie: 1.1 + Math.random() * 0.7, col: cols[i % 3], g: 40, frein: 1.5, oscille: Math.random() * 6, taille: 1 });
+}
+function p620Poussiere(x, y, sens, n) {
+  for (let i = 0; i < n; i++) { const d = 4 + Math.random() * 24; particules.push({ x: x + sens * d, y: y + (Math.random() - 0.5) * 6, z: 1, vx: sens * (6 + Math.random() * 18) + (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 12, vz: 10 + Math.random() * 16, age: 0, vie: 0.6 + Math.random() * 0.4, col: i & 1 ? "rgba(214,198,160,0.75)" : "rgba(170,150,110,0.65)", g: 18, frein: 3, oscille: 0, taille: 2, rond: 1.6 }); }
+}
+{
+  const f0 = p533Frapper;
+  p533Frapper = function (L, zone) {
+    if (!p620W1() || !L || !L.length) return f0.apply(this, arguments);
+    let C = null; try { C = p620Cible(L); } catch (_) { }
+    if (!C) return f0.apply(this, arguments);
+    const x = C.tx * 16 + 8, key = p533Cle(C.tx, C.ty), n0 = P533.chutes.length;
+    // face à l'arbre : le côté le plus net
+    try { const dx = x - perso.x, dy = C.ty * 16 + 12 - perso.y; const d = Math.abs(dx) >= Math.abs(dy) * 0.8 ? (dx < 0 ? "gauche" : "droite") : (dy < 0 ? "haut" : "bas"); if (perso.dir !== d && !perso.att) perso.dir = d; } catch (_) { }
+    P620.capt = { n0, x, y: C.ty * 16 + 8, fin: false, logs: 0, tx: C.tx, ty: C.ty };
+    let r; try { r = f0.apply(this, arguments); } finally { const cap = P620.capt; P620.capt = null; try { p620ApresCoup(C, key, n0, cap); } catch (e) { p620Err("apres", e); } }
+    return r;
+  };
+}
+function p620ApresCoup(C, key, n0, cap) {
+  const x = C.tx * 16 + 8, side = perso.x <= x ? -1 : 1, A = P533.pv.get(key), ch = P533.chutes.length > n0 ? P533.chutes[P533.chutes.length - 1] : null;
+  if (!(A && A.tc && performance.now() - A.tc < 50) && !(ch && !ch.roche && ch.tx === C.tx && ch.ty === C.ty)) return;   // rien n'a été frappé
+  P620.st.coups++;
+  try { son.jouer("hache"); } catch (_) { }
+  if (!P620.hache || P620.hache.att !== perso.att) P620.hache = { t0: performance.now() - ATTAQUE.DUREE * ATTAQUE.IMPACT * 1000, dir: perso.dir, att: perso.att, tx: C.tx, ty: C.ty };
+  // copeaux vers le héros, feuilles qui tombent de la cime
+  p620Copeaux(x + side * 2, C.ty * 16 + 13, side, 7); p620FeuillesTombent(C.tx, C.ty, C.dec, 3);
+  jeu.tremble = Math.max(jeu.tremble || 0, 0.025);
+  if (A) { P620.ent.set(key, { tx: C.tx, ty: C.ty, dec: C.dec, side, n: A.n, t: performance.now() }); return; }
+  // coup final : l'arbre tombe
+  P620.ent.delete(key);
+  if (ch && !ch.roche) {
+    P620.st.chutes++; ch.p620 = { side };
+    try { son.jouer("craque"); } catch (_) { }
+    p620FeuillesTombent(C.tx, C.ty, C.dec, 6);
+  }
+}
+/* le bois du coup final devient des bûches au sol (l'inventaire est crédité tout de suite, comme avant) */
+{
+  const g0 = p533Gain;
+  p533Gain = function (k, n, sx, sy) {
+    const C = P620.capt;
+    if (!C || k !== "bois" || !n || P533.chutes.length <= C.n0) return g0.apply(this, arguments);
+    try {
+      if (SU_MAT[k]) suAjout(k, n); else SU.inv[k] = Math.max(0, Math.min(999, (SU.inv[k] | 0) + n));
+      const ch = P533.chutes[P533.chutes.length - 1], sens = ch.sens, Lg = Math.hypot(ch.dx, ch.dz) || 1, ux = ch.dx / Lg, uz = ch.dz / Lg, nb = 3, t0 = performance.now();
+      for (let i = 0; i < nb; i++) {
+        const part = Math.floor(n / nb) + (i < n % nb ? 1 : 0), d = 9 + i * 7 + Math.random() * 2;
+        P620.buches.push({ k, n: part, t0, mk: p533MK(), x2: C.x + sens * d, y2: C.y + 5 + (Math.random() - 0.5) * 4 + (i - 1) * 1.5, x3: C.x + ux * (d + 2), y3: C.y + 4 + uz * (d + 2), a: Math.atan2(uz, ux) + (Math.random() - 0.5) * 0.9, i });
+      }
+      while (P620.buches.length > 30) { const b = P620.buches.shift(); p620Ramasser(b, true); }
+      P620.st.buches += nb;
+    } catch (e) { p620Err("gain", e); return g0.apply(this, arguments); }
+  };
+}
+function p620Ramasser(b, silence) {
+  try {
+    if (b.n > 0 && P533.vols.length < 40) P533.vols.push({ k: b.k, n: b.n, x: p533_3D() ? b.x3 : b.x2, y: p533_3D() ? b.y3 : b.y2, t: 0, d: 0.35 + b.i * 0.06, h: 8 + b.i * 3 });
+    else if (b.n > 0) { P533.tGain = performance.now(); P533.gainK[b.k] = P533.tGain; P533.sigHud = ""; }
+    if (!silence) { try { son.jouer("ramasse"); } catch (_) { } }
+    P620.st.ramasse++;
+  } catch (e) { p620Err("ram", e); }
+}
+function p620Maj(dt) {
+  const now = performance.now();
+  // bûches : ramassées en passant dessus (après la chute), ou toutes seules après ~8 s ; hors monde 1 : rendues aussitôt
+  if (P620.buches.length) {
+    const ok = p620W1(), d3 = ok && p533_3D(), mk = p533MK();
+    for (let i = P620.buches.length - 1; i >= 0; i--) {
+      const b = P620.buches[i], age = (now - b.t0) / 1000;
+      const bx = d3 ? b.x3 : b.x2, by = d3 ? b.y3 : b.y2;
+      if (!ok || b.mk !== mk || age > 8 || (age > 1.1 && Math.hypot(bx - perso.x, by - perso.y) < 15)) { P620.buches.splice(i, 1); p620Ramasser(b, !ok || b.mk !== mk); }
+    }
+  }
+  // chutes : au moment du choc, poussière + secousse + bruit sourd
+  for (const c of P533.chutes) {
+    if (c.roche || !c.p620 || c.p620.poc || c.t <= 0.72) continue; c.p620.poc = 1;
+    try { son.jouer("chute"); } catch (_) { }
+    jeu.tremble = Math.max(jeu.tremble || 0, 0.09);
+    p620Poussiere(c.tx * 16 + 8, c.ty * 16 + 13, c.sens, 14);
+    p620Copeaux(c.tx * 16 + 8 + c.sens * 18, c.ty * 16 + 13, c.sens, 4);
+  }
+  for (const [k, e] of P620.ent) if (!P533.pv.has(k) || now - e.t > 30000) P620.ent.delete(k);
+  if (P620.hache && now - P620.hache.t0 > 600) P620.hache = null;
+}
+
+/* ---------- dessin 2D : entaille, hache, bûches ---------- */
+function p620Dessiner(items, o, e, visible) {
+  if (!p620W1() || p533_3D()) return;
+  const m = jeu.monde, S = 16, px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round((x - o.x) * e), Math.round((y - o.y) * e), Math.max(1, Math.round(w * e)), Math.max(1, Math.round(h * e))); };
+  for (const [k, E] of P620.ent) {
+    if (!visible(E.tx * S + 8, E.ty * S + 12, 20)) continue;
+    const dec = m.decorPose ? m.decorPose(E.tx, E.ty) : m.decor(E.tx, E.ty); if (!EST_ARBRE(dec)) continue;
+    items.push({ y: E.ty * S + PROFONDEUR_DECOR[dec] + 0.25, dessiner: () => {
+      const s = m.secousses.get(k), dx = s ? Math.round(Math.sin(s.t * 55) * 1.6 * (1 - s.t / 0.4)) : 0;
+      const sap = dec === DECOR.SAPIN, bx = E.tx * S + dx + (E.side < 0 ? (sap ? 7 : 6) : (sap ? 8 : 9)), by = E.ty * S + 13, n = Math.min(3, E.n), dir = E.side < 0 ? 1 : -1;
+      // entaille en coin : noir au fond, bois clair autour
+      px(bx, by, 1, 1, "#1a0e06"); if (n >= 2) { px(bx + dir, by, 1, 1, "#2a1608"); px(bx, by - 1, 1, 1, "#f0d098"); px(bx, by + 1, 1, 1, "#d8b070"); }
+      if (n >= 3) { px(bx + 2 * dir, by, 1, 1, "#3a2010"); px(bx + dir, by - 1, 1, 1, "#e8c488"); }
+      else px(bx - dir * 0, by - 1, 1, 1, "#e8c488");
+    } });
+  }
+  // bûches au sol
+  for (const b of P620.buches) {
+    const age = (performance.now() - b.t0) / 1000; if (age < 0.78 || !visible(b.x2, b.y2, 20)) continue;
+    items.push({ y: b.y2, dessiner: () => { const im = p620Img("buche"), sx = b.i === 1 ? -1 : 1; ctx.save(); ctx.translate(Math.round((b.x2 - o.x) * e), Math.round((b.y2 - o.y) * e)); if (sx < 0) ctx.scale(-1, 1); ctx.drawImage(im, Math.round(-6 * e), Math.round(-5 * e), 12 * e, 6 * e); ctx.restore(); } });
+  }
+  // hache dans la main du héros pendant le coup (le héros est dessiné sans son arme pendant ce temps)
+  const H = P620.hache;
+  if (H) {
+    const u = (performance.now() - H.t0) / 1000, ti = ATTAQUE.DUREE * ATTAQUE.IMPACT;
+    if (u < 0.34) {
+      const d = H.dir, s = d === "gauche" ? -1 : 1, hx = perso.x + (d === "gauche" ? -4 : d === "droite" ? 4 : d === "haut" ? 3 : -4), hy = perso.y - (d === "haut" ? 12 : d === "bas" ? 8 : 10);
+      const A0 = d === "bas" ? 0.1 : d === "haut" ? -0.5 : -1.1, A1 = d === "bas" ? 2.6 : d === "haut" ? 0.35 : 2.05, Ar = d === "bas" ? 0.9 : d === "haut" ? 0 : 0.2;
+      let ang; if (u < ti) { const k = u / ti; ang = A0 + (A1 - A0) * k * k; } else if (u < 0.16) ang = A1 + Math.sin((u - ti) * 90) * 0.05 * (1 - (u - ti) / (0.16 - ti)); else ang = A1 + (Ar - A1) * Math.min(1, (u - 0.16) / 0.18);
+      items.push({ y: perso.y + (d === "haut" ? -0.4 : 0.4), dessiner: () => { const im = p620Img("hache"); ctx.save(); ctx.translate(Math.round((hx - o.x) * e), Math.round((hy - o.y) * e)); if (s < 0) ctx.scale(-1, 1); ctx.rotate(ang); ctx.drawImage(im, Math.round(-3.5 * e), Math.round(-12 * e), 7 * e, 13 * e); ctx.restore();
+        if (u >= ti && u < ti + 0.06) { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = Math.max(1, e * 0.7); ctx.beginPath(); ctx.arc(Math.round((hx - o.x) * e), Math.round((hy - o.y) * e), 12 * e, (s < 0 ? Math.PI : 0) - 0.9 * s - (d === "bas" ? -1.2 : 0), (s < 0 ? Math.PI : 0) + 0.15 * s - (d === "bas" ? -1.2 : 0), s < 0); ctx.stroke(); ctx.restore(); } } });
+    }
+  }
+}
+
+/* ---------- 3D : entaille, hache, bûches ---------- */
+function p620M3() {
+  if (P620.m3) return P620.m3;
+  const tr = n3U32(PAL_ARBRE.t), clair = [0.92, 0.78, 0.52], fonce = [0.16, 0.1, 0.05];
+  const ent = [1, 2, 3].map(n => { const g = new G3Geo(); g.box(0, 2.2, 0, 0.9 + n * 0.35, 1.6 + n * 0.25, 0.6 + n * 0.25, fonce); g.box(0, 3.95 + n * 0.12, 0, 0.8 + n * 0.3, 0.25, 0.5 + n * 0.2, clair); g.box(0, 2.0, 0, 0.8 + n * 0.3, 0.2, 0.5 + n * 0.2, clair); return g.build(); });
+  const hache = new G3Geo(); hache.box(0, 0, 0, 0.5, 8, 0.5, [0.55, 0.36, 0.18]); hache.box(0, 6.2, 1.1, 0.35, 2.4, 2.4, [0.62, 0.64, 0.7]); hache.box(0, 6.4, 2.35, 0.3, 2.8, 0.25, [0.92, 0.94, 0.98]);
+  const buche = new G3Geo(); buche.cyl(0, 0, 0, 1.25, 1.25, 7, 6, tr, clair); buche.box(0, 2.5, 0, 0.5, 1.2, 0.5, [0.3, 0.55, 0.22]);
+  return P620.m3 = { ent, hache: hache.build(), buche: buche.build() };
+}
+function p620Dessiner3D(U, Pl) {
+  if (!p620W1() || typeof E3 === "undefined") return;
+  const M = p620M3(), now = performance.now();
+  for (const [k, E] of P620.ent) {
+    const P = p533Pos3(E.tx, E.ty), H = { x: E3.hx != null ? E3.hx : perso.x, z: E3.hz != null ? E3.hz : perso.y }, a = Math.atan2(H.x - P.x, H.z - P.z);
+    const sh = P533.sec3 && P533.sec3.get(k), w = sh ? Math.sin((now - sh.t) / 1000 * 50) * 0.35 * Math.max(0, 1 - (now - sh.t) / 450) : 0;
+    g3Mesh(M.ent[Math.min(3, E.n) - 1], M4.trs(P.x + Math.sin(a) * 1.55 + w, P.h, P.z + Math.cos(a) * 1.55, a));
+  }
+  for (const b of P620.buches) {
+    const age = (now - b.t0) / 1000; if (age < 0.75) continue; const y = e3Sol(b.x3, b.y3);
+    g3Mesh(M.buche, M4.trs(b.x3, y + 1.2, b.y3, -b.a + Math.PI / 2, 0, Math.PI / 2));
+  }
+  const Hh = P620.hache;
+  if (Hh && E3.hx != null && E3.hero && (typeof V41 === "undefined" || V41.off || !P620.h41)) {
+    const u = (now - Hh.t0) / 1000;
+    if (u < 0.32) { const yaw = E3.hero.yaw || 0, sw = u < 0.08 ? 1.35 - u / 0.08 * 0.2 : 1.15 - Math.sin(Math.min(1, (u - 0.08) / 0.24) * Math.PI) * 0.45;
+      g3Mesh(M.hache, M4.trs(E3.hx + Math.sin(yaw) * 3 + Math.cos(yaw) * 2.2, E3.hy + 7, E3.hz + Math.cos(yaw) * 3 - Math.sin(yaw) * 2.2, yaw, sw, 0, 1.05)); }
+  }
+}
+/* 3D (héros articulé v41) : pendant un coup sur un arbre, le héros tient une vraie hache dans la main droite (au lieu de son arme) */
+function p620Hache41() {
+  if (P620.h41m) return P620.h41m;
+  const g = new G3Geo(); g.box(0, -0.35, 3.5, 0.7, 0.7, 12, [0.55, 0.36, 0.18]); g.box(0, -0.4, 13.6, 0.8, 0.8, 0.9, [0.36, 0.22, 0.1]);
+  g.box(0, -3.4, 10.2, 0.45, 3.2, 3, [0.6, 0.62, 0.68]); g.box(0, -4.1, 10.2, 0.4, 0.8, 3.4, [0.92, 0.94, 0.98]); g.box(0, 0.2, 10.6, 0.5, 1.2, 1.8, [0.5, 0.52, 0.58]);
+  return P620.h41m = g.build();
+}
+{
+  try {
+    if (typeof v41Dessin === "function" && typeof e3Hero === "function") {
+      const vd0 = v41Dessin;
+      v41Dessin = function (M, R, J, S, o) {
+        const H = P620.hache;
+        if (P620.dHero && H && perso.att && perso.att === H.att && M && p620W1()) {
+          try { const M2 = Object.assign({}, M, { arme: p620Hache41() }), J2 = Object.assign({}, J, { w: [0, 1.25, 0, 0, 1] }); P620.h41 = 1; return vd0.call(this, M2, R, J2, S, o); } catch (e) { p620Err("h41", e); }
+        }
+        return vd0.apply(this, arguments);
+      };
+      const eh0 = e3Hero;
+      e3Hero = function () { P620.dHero = true; try { return eh0.apply(this, arguments); } finally { P620.dHero = false; } };
+    }
+  } catch (e) { p620Err("h41i", e); }
+}
+/* le coup 3D : plus de copeaux clairs + poussière au choc (en plus de p533) */
+{
+  const c0 = p533Coup3D;
+  p533Coup3D = function (tx, ty, roche) {
+    c0.apply(this, arguments);
+    if (roche || !p620W1()) return;
+    try { if (!p533_3D()) return; const P = p533Pos3(tx, ty), hx = E3.hx != null ? E3.hx : perso.x, hz = E3.hz != null ? E3.hz : perso.y, L = Math.hypot(hx - P.x, hz - P.z) || 1, ux = (hx - P.x) / L, uz = (hz - P.z) / L;
+      for (let i = 0; i < 8; i++) g3Part(P.x + ux * 1.6, P.h + 2.5 + Math.random(), P.z + uz * 1.6, ux * (18 + Math.random() * 30) + (Math.random() - 0.5) * 16, 18 + Math.random() * 24, uz * (18 + Math.random() * 30) + (Math.random() - 0.5) * 16, 0.6, 0.7 + Math.random() * 0.5, i % 3 ? [0.95, 0.84, 0.6, 1] : [0.8, 0.6, 0.34, 1], { add: false, g: 110 });
+      for (let i = 0; i < 3; i++) g3Part(P.x + (Math.random() - 0.5) * 10, P.h + 16 + Math.random() * 8, P.z + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 8, -3, (Math.random() - 0.5) * 8, 1.6, 1, [0.4, 0.68, 0.26, 1], { add: false, g: 6 });
+    } catch (_) { }
+  };
+  const p0 = p533Poussiere3D;
+  p533Poussiere3D = function (c) {
+    p0.apply(this, arguments);
+    if (!p620W1()) return;
+    try { if (!p533_3D()) return; const P = p533Pos3(c.tx, c.ty), L = Math.hypot(c.dx, c.dz) || 1, ux = c.dx / L, uz = c.dz / L;
+      for (let i = 0; i < 12; i++) { const d = 4 + Math.random() * 26; g3Part(P.x + ux * d + (Math.random() - 0.5) * 6, P.h + 1 + Math.random() * 2, P.z + uz * d + (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 22, 6 + Math.random() * 10, (Math.random() - 0.5) * 22, 1.1, 2.4 + Math.random() * 1.6, [0.84, 0.78, 0.64, 0.7], { add: false, g: 4 }); }
+    } catch (_) { }
+  };
+}
+/* ---------- branchements ---------- */
+{
+  const at0 = perso.attaquer;
+  perso.attaquer = function () {
+    const r = at0.apply(this, arguments);
+    try { if (this.att && (!P620.hache || P620.hache.att !== this.att) && p620W1() && !AV.nav) { const C = p620Cible(suCibles(this.att.dir)); if (C) P620.hache = { t0: performance.now(), dir: this.att.dir, att: this.att, tx: C.tx, ty: C.ty }; } } catch (e) { p620Err("att", e); }
+    return r;
+  };
+  const de0 = perso.dessiner;
+  perso.dessiner = function () {
+    const H = P620.hache;
+    if (H && this.att && this.att === H.att && p620W1() && !p533_3D()) { const a = this.att; this.att = null; try { return de0.apply(this, arguments); } finally { this.att = a; } }
+    return de0.apply(this, arguments);
+  };
+}
+{
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) { ea.apply(this, arguments); try { p620Dessiner(items, o, e, visible); } catch (er) { p620Err("dess", er); } };
+  const ma = majAventure;
+  majAventure = function (dt) { ma.apply(this, arguments); try { if (jeu.scene === sceneMonde && !jeu.pause) p620Maj(Math.min(0.1, dt || 0)); } catch (er) { p620Err("maj", er); } };
+  const x3 = e3Extra3D;
+  e3Extra3D = function (U, A, Pl) { x3.apply(this, arguments); try { p620Dessiner3D(U, Pl); } catch (er) { p620Err("3d", er); } };
+}
+
+/* ===================== v62.0 (lot B) : la 2D du monde 1 — forêt, prairie, petits lacs =====================
+   1) Dans les blocs de carte (calculés une fois, comme avant ; rien de plus à chaque image) :
+      - forêt : sol plus sombre à l'ombre des arbres, feuilles mortes, fougères, champignons, brindilles, pierres moussues ;
+      - prairie : grandes fleurs variées (marguerites, coquelicots, bleuets, pissenlits, lavande), trèfles, cailloux ;
+      - sentiers de terre battue entre Ma Ville et les quatre lacs voisins ;
+      - bords des lacs : galets et coquillages sur le sable.
+   2) Animé, seulement sur ce qui est à l'écran (coût limité) :
+      - hautes herbes de prairie qui ondulent sous le vent (rafales qui traversent la prairie) ;
+      - en forêt : rayons de soleil entre les arbres et feuilles qui tombent ;
+      - petits lacs : ronds dans l'eau, ombres de poissons, libellules près des roseaux, reflets des roseaux.
+   Qualité « basse » / éco : seulement la partie 1 (fixe). Monde 1 seulement. */
+const P620B = { touffes: new Map(), img: new Map(), st: { px: 0, ms: 0, msMax: 0, n: 0 }, rides: [], libs: [], rayons: 0, tFeuille: 0, sentiers: null, vent: 0 };
+const p620C = h => { const n = parseInt(h.slice(1), 16); return (0xff000000 | ((n & 255) << 16) | (n & 0xff00) | ((n >> 16) & 255)) >>> 0; };
+const p620Mix = (c, d, a) => { const r = (c & 255) * (1 - a) + (d & 255) * a, g = ((c >> 8) & 255) * (1 - a) + ((d >> 8) & 255) * a, b = ((c >> 16) & 255) * (1 - a) + ((d >> 16) & 255) * a; return (0xff000000 | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r)) >>> 0; };
+// petits motifs en pixels : lignes de texte, « . » = transparent, lettres = couleurs
+const P620_PAL = { a: "#7cc458", b: "#3e8a2e", c: "#24561c", r: "#d83a2a", R: "#a02418", w: "#f8f4e8", y: "#f0d040", Y: "#c89a20", s: "#e8dcc0", o: "#6a4a28", O: "#3c2814", g: "#8a8a92", G: "#c0c0c8", m: "#5a8a3a", p: "#9a7ad8", P: "#6a4aa8", u: "#5a8ae8", U: "#3a5ab8", k: "#e8a0b8", K: "#c07090", l: "#a8743c", L: "#d8b070", e: "#2e6a2a", z: "#1e3e16" };
+const P620_MOTIFS = {
+  fougere: ["...a.....", ".a..a..a.", "..a.b.a..", "a.abbba.a", ".abbcbba.", "..bbcbb..", "...zcz..."],
+  fougere2: ["..a...a..", "a..a.a..a", ".a.abа.a.".replace("а", "b"), "..abcba..", ".abbcbba.", "..zbcbz.."],
+  champi: ["..rr....", ".rwrr...", "rrrrr.rr", "..s..rwr", "..s...s.", ".zss..s."],
+  champi2: [".LL..", "LlLL.", "LLLL.", ".s.LL", ".s..s"],
+  brindille: ["o....", ".o...", "..oO.", "...o.", "....o"],
+  moussu: [".mgg.", "mgGgg", "gggOg", ".gOO."],
+  marguerite: [".w.", "wyw", ".w.", ".b."],
+  coquelicot: ["rr.", "rRr", ".r.", ".b."],
+  bleuet: [".u.", "uUu", ".u.", ".b."],
+  pissenlit: [".y.", "yYy", ".y.", ".b."],
+  lavande: ["p.p", "P.p", "pPP", "b.P", "bbb"],
+  trefle: ["e.e", ".a.", "e.e"],
+  cailloux: [".G..", "gGg.", ".g.G", "..gg"],
+  coquillage: ["k.", "Kw"],
+  galet: [".GG", "Ggg"],
+};
+const P620_MC = {};
+for (const k in P620_MOTIFS) { const L = P620_MOTIFS[k]; P620_MC[k] = { w: L[0].length, h: L.length, px: [] }; L.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== "." && P620_PAL[ch]) P620_MC[k].px.push(i, j, p620C(P620_PAL[ch])); })); }
+function p620Poser(out, W, x0, y0, nom, sable) {
+  const M = P620_MC[nom]; if (!M) return; const P = M.px;
+  if (sable) { for (let q = 0; q < P.length; q += 3) { const x = x0 + P[q], y = y0 + P[q + 1]; if (x < 0 || y < 0 || x >= W || y >= W) continue; const c = out[y * W + x], r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255; if (!(r > 170 && r >= g && g > b + 20)) return; } }
+  for (let q = 0; q < P.length; q += 3) { const x = x0 + P[q], y = y0 + P[q + 1]; if (x >= 0 && y >= 0 && x < W && y < W) out[y * W + x] = P[q + 2]; }
+}
+// sentiers : Ma Ville → Lac du Ponton, Lac Miroir, Lac des Roseaux, Lac Émeraude (points tous les 6 px, avec un tracé sinueux)
+function p620Sentiers() {
+  if (P620B.sentiers) return P620B.sentiers;
+  const S = []; try {
+    if (typeof P96 === "undefined" || !P96.G || !P96.G.lacs) return S;
+    const cx = P96.G.vx * 16 + 8, cy = P96.G.vy * 16 + 8;
+    for (const L of P96.G.lacs) {
+      const lx = L.x * 16 + 8, ly = L.y * 16 + 8, d = Math.hypot(lx - cx, ly - cy); if (d > 4800) continue;
+      const n = Math.ceil(d / 6), px = -(ly - cy) / d, py = (lx - cx) / d, ph = L.x * 0.37;
+      for (let i = 0; i <= n; i++) { const u = i / n, w = Math.sin(u * Math.PI) * (Math.sin(u * 9 + ph) * 26 + Math.sin(u * 23 + ph * 2) * 7); S.push([cx + (lx - cx) * u + px * w, cy + (ly - cy) * u + py * w]); }
+    }
+  } catch (e) { p620Err("sentiers", e); }
+  return P620B.sentiers = S;
+}
+/* appelé à la fin de genererChunk (2D), sur les pixels du bloc, avant la mise en image */
+function p620Pixels(monde, cx, cy, out, W, impure) { const t0 = performance.now(), it = p620PixelsG(monde, cx, cy, out, W, impure); while (!it.next().done); const dt = performance.now() - t0; P620B.st.n++; P620B.st.ms += dt; if (dt > P620B.st.msMax) P620B.st.msMax = dt; }
+function* p620PixelsG(monde, cx, cy, out, W, impure) {
+  if ((AV.monde || 1) !== 1 || P75F || !monde || !monde.FOR || (typeof MondePoke !== "undefined" && monde instanceof MondePoke)) return;
+  const t0 = performance.now(), N = CONFIG.CHUNK, T = CONFIG.TAILLE_MONDE, G = monde.graine | 0, tx0 = cx * N, ty0 = cy * N;
+  // décor et niveau des tuiles (avec une bordure d'une tuile)
+  const D = new Int8Array((N + 2) * (N + 2)), Lv = new Int8Array((N + 2) * (N + 2));
+  for (let j = -1; j <= N; j++) for (let i = -1; i <= N; i++) {
+    const tx = tx0 + i, ty = ty0 + j, q = (j + 1) * (N + 2) + i + 1;
+    if (tx < 0 || ty < 0 || tx >= T || ty >= T) { Lv[q] = -1; continue; }
+    const a = monde.sommet(tx, ty); Lv[q] = (a === monde.sommet(tx + 1, ty) && a === monde.sommet(tx, ty + 1) && a === monde.sommet(tx + 1, ty + 1)) ? a : -1;
+    D[q] = monde.decor(tx, ty);
+  }
+  const S = p620Sentiers(), sp = [];
+  const bx0 = tx0 * 16 - 12, by0 = ty0 * 16 - 12, bx1 = bx0 + W + 24, by1 = by0 + W + 24;
+  for (const p of S) if (p[0] > bx0 && p[0] < bx1 && p[1] > by0 && p[1] < by1) sp.push(p);
+  const terre = [p620C("#b89a64"), p620C("#a68a58"), p620C("#c8ae78"), p620C("#94784a")], ombreF = p620C("#1a3a14");
+  const feuilles = [p620C("#8a5a2a"), p620C("#a8742c"), p620C("#c89a3a"), p620C("#6a4a20"), p620C("#b06a28"), p620C("#4a6a24")];
+  const touffes = [];
+  const lacs = (typeof P96 !== "undefined" && P96.G && P96.G.lacs) || [], enVille = typeof P96 !== "undefined" && P96.G && typeof p96VilleU === "function";
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    if (i === 0 && (j & 3) === 3) yield 0;
+    const q = (j + 1) * (N + 2) + i + 1, l = Lv[q], tx = tx0 + i, ty = ty0 + j, k = ty * T + tx;
+    if (l !== NIV.HERBE && l !== NIV.SABLE) continue;
+    if (D[q] || (impure[j * N + i] && l !== NIV.SABLE)) continue;
+    if (monde.coupes && monde.coupes.has(k)) continue;
+    if (monde.zone && (monde.zone[k] === 1 || monde.zone[k] === 2)) continue;
+    if (enVille && p96VilleU(tx, ty) < 1.15) continue;
+    const x = i * 16, y = j * 16, h = hash(tx, ty, G + 620), h2 = hash(tx, ty, G + 621), h2i = (h2 * 4294967296) >>> 0, f = monde.FOR[k];
+    if (l === NIV.SABLE) {
+      let pres = false; for (const L of lacs) { if (Math.abs(L.x - tx) < L.R * 1.6 + 3 && Math.abs(L.y - ty) < L.R * 1.6 + 3) { pres = true; break; } }
+      if (!pres) continue;
+      if (h < 0.3) p620Poser(out, W, x + 2 + (h2 * 9 | 0), y + 3 + (h * 40 | 0) % 9, "galet", true);
+      if (h2 < 0.2) p620Poser(out, W, x + 3 + (h * 50 | 0) % 10, y + 4 + (h2 * 60 | 0) % 8, "coquillage", true);
+      if (h > 0.8) p620Poser(out, W, x + 1 + (h2 * 11 | 0), y + 2 + (h * 70 | 0) % 11, "galet", true);
+      continue;
+    }
+    let nA = 0; for (const d of [-N - 3, -N - 2, -N - 1, -1, 1, N + 1, N + 2, N + 3]) if (D[q + d] === DECOR.ARBRE || D[q + d] === DECOR.ARBRE2 || D[q + d] === DECOR.SAPIN) nA++;
+    // sentier de terre battue
+    if (sp.length) {
+      let dur = false;
+      for (let yy = 0; yy < 16; yy++) for (let xx = 0; xx < 16; xx++) {
+        const wx = tx * 16 + xx, wy = ty * 16 + yy; let dm = 99;
+        for (const p of sp) { const dx = p[0] - wx, dy = p[1] - wy; if (dx > 9 || dx < -9 || dy > 9 || dy < -9) continue; const d = dx * dx + dy * dy; if (d < dm) dm = d; }
+        if (dm === 99) continue; const d = Math.sqrt(dm), nz = hash(wx, wy, 623);
+        if (d < 3.2 + nz * 1.6) { out[(y + yy) * W + x + xx] = terre[(hash(wx >> 1, wy >> 1, 624) * 4) | 0]; dur = true; }
+        else if (d < 5.5 && nz < 0.45) out[(y + yy) * W + x + xx] = p620Mix(out[(y + yy) * W + x + xx], terre[1], 0.45);
+      }
+      if (dur) { P620B.st.px++; continue; }
+    }
+    if (nA >= 2 || (f > 0.12 && nA >= 1)) {
+      // sol de forêt : ombre douce + feuilles mortes + petite végétation
+      const a = Math.min(0.2, 0.05 + nA * 0.02);
+      for (let yy = 0; yy < 16; yy++) for (let xx = 0; xx < 16; xx++) { const dx = xx - 7.5, dy = yy - 7.5, e2 = 1 - (dx * dx + dy * dy) / 64; if (e2 <= 0) continue; const o = (y + yy) * W + x + xx; out[o] = p620Mix(out[o], ombreF, a * Math.min(1, e2 * 1.6)); }
+      const nf = 3 + nA; for (let n = 0; n < nf; n++) { const hh = (hash(tx * 7 + n, ty * 5 - n, G + 625) * 4294967296) >>> 0, xx = hh & 15, yy = (hh >>> 4) & 15; out[(y + yy) * W + x + xx] = feuilles[(hh >>> 8) % 6]; if ((hh >>> 12) & 1 && xx < 15) out[(y + yy) * W + x + xx + 1] = feuilles[(hh >>> 14) % 6]; }
+      const hv = h;
+      if (hv < 0.34) p620Poser(out, W, x + 3 + ((h2i >>> 0) % 4), y + 6 + ((h2i >>> 3) % 3), (h2i >>> 5) & 1 ? "fougere" : "fougere2");
+      else if (hv < 0.44) p620Poser(out, W, x + 4 + ((h2i >>> 0) % 5), y + 7 + ((h2i >>> 3) % 3), (h2i >>> 5) & 1 ? "champi" : "champi2");
+      else if (hv < 0.52) p620Poser(out, W, x + 3 + ((h2i >>> 0) % 7), y + 6 + ((h2i >>> 3) % 5), "brindille");
+      else if (hv < 0.58) p620Poser(out, W, x + 4 + ((h2i >>> 0) % 6), y + 7 + ((h2i >>> 3) % 4), "moussu");
+    } else if (f < 0.12 && nA === 0) {
+      // prairie : grandes fleurs, trèfle, cailloux ; hautes herbes animées (enregistrées pour l'animation)
+      const hv = h, hv2 = h2;
+      if (hv < 0.2) touffes.push(tx * 16 + 3 + (hv2 * 10 | 0), ty * 16 + 9 + (hv * 30 | 0), (hv2 * 7 | 0));
+      else if (hv < 0.36) { const sorte = ["marguerite", "coquelicot", "bleuet", "pissenlit", "lavande", "marguerite"][(hv2 * 6) | 0]; const n = 1 + ((hv2 * 17 | 0) % 3); for (let m2 = 0; m2 < n; m2++) p620Poser(out, W, x + 2 + ((hv2 * 97 + m2 * 5) | 0) % 11, y + 2 + ((hv * 211 + m2 * 7) | 0) % 10, sorte); }
+      else if (hv < 0.41) p620Poser(out, W, x + 3 + (hv2 * 10 | 0), y + 4 + (hv2 * 70 | 0) % 9, "trefle");
+      else if (hv < 0.43) p620Poser(out, W, x + 4 + (hv2 * 8 | 0), y + 5 + (hv2 * 50 | 0) % 8, "cailloux");
+    }
+  }
+  // racines au pied des arbres visibles (lisière) ; eau des petits lacs : bord peu profond turquoise, centre plus sombre
+  const rac = p620C("#4a2c14"), rac2 = p620C("#6c4426");
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const q = (j + 1) * (N + 2) + i + 1, d = D[q]; if (!(d === DECOR.ARBRE || d === DECOR.ARBRE2 || d === DECOR.SAPIN) || impure[j * N + i]) continue;
+    const dessous = D[q + N + 2]; if (dessous === DECOR.ARBRE || dessous === DECOR.ARBRE2 || dessous === DECOR.SAPIN) continue;
+    if (monde.masques && monde.masques.has((ty0 + j) * T + tx0 + i)) continue;
+    const x = i * 16, y = j * 16, sap = d === DECOR.SAPIN, L0 = sap ? 6 : 5, R0 = sap ? 9 : 10;
+    out[(y + 14) * W + x + L0] = rac; out[(y + 15) * W + x + L0 - 1] = rac2; out[(y + 14) * W + x + R0] = rac; out[(y + 15) * W + x + R0 + 1] = rac2;
+  }
+  const lacsC = lacs.filter(L => (L.x + L.R * 1.3) * 16 > tx0 * 16 && (L.x - L.R * 1.3) * 16 < tx0 * 16 + W && (L.y + L.R * 1.3) * 16 > ty0 * 16 && (L.y - L.R * 1.3) * 16 < ty0 * 16 + W);
+  if (lacsC.length) {
+    const turq = p620C("#5ec8d0"), prof = p620C("#163a78");
+    for (let y = 0; y < W; y += 1) for (let x = 0; x < W; x += 1) {
+      if (x === 0 && (y & 31) === 31) yield 0;
+      const o = y * W + x, c = out[o], r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255; if (!(b > r + 50 && b > g + 10)) continue;
+      const u0 = (tx0 * 16 + x) / 16, v0 = (ty0 * 16 + y) / 16; let u = 9; for (const L of lacsC) { const v = p96LacU(L, u0, v0); if (v < u) u = v; }
+      if (u > 1.3) continue;
+      if (u > 0.74) out[o] = p620Mix(c, turq, Math.min(0.42, (u - 0.74) / 0.3 * 0.42));
+      else if (u < 0.45) out[o] = p620Mix(c, prof, Math.min(0.28, (0.45 - u) / 0.45 * 0.32));
+    }
+  }
+  const key = cx + "," + cy; if (touffes.length) P620B.touffes.set(key, touffes); else P620B.touffes.delete(key);
+  if (P620B.touffes.size > 500) P620B.touffes.delete(P620B.touffes.keys().next().value);
+  P620B.st.g = (P620B.st.g || 0) + 1;
+}
+
+/* ---------- images animées ---------- */
+function p620BImg(k) {
+  let c = P620B.img.get(k); if (c) return c;
+  if (k.startsWith("touffe")) { const [lean, v] = k.slice(6).split("_").map(Number); // lean -2..2, v variante de couleur 0..6
+    const cols = [["#2e6a22", "#4a9a32", "#7cc458"], ["#3a7a26", "#5aaa3a", "#94d064"], ["#5a7a22", "#8aa83a", "#c0d070"], ["#2e6a22", "#4a9a32", "#a8d870"]][v % 4];
+    c = objetSimple(14, 12, P => { for (let b = 0; b < 5; b++) { const bx = 2 + b * 2.2, hgt = 7 + ((b * 3 + v) % 4); for (let s = 0; s < hgt; s++) { const u = s / hgt, xo = Math.round(bx + lean * u * u * 2.2 + (b - 2) * u * 0.6); P.p(xo, 11 - s, cols[s < 2 ? 0 : s < hgt - 2 ? 1 : 2]); } } if (v === 5) { P.p(Math.round(6 + lean * 2), 2, "#f8f4e8"); } if (v === 6) { P.p(Math.round(9 + lean * 2), 3, "#c8a040"); P.p(Math.round(9 + lean * 2), 2, "#e8c860"); } });
+  } else if (k === "libellule0" || k === "libellule1") { const o = k === "libellule1"; c = objetSimple(9, 5, P => { P.r(1, 2, 7, 1, "#2a8ad8"); P.p(7, 2, "#1a4a8a"); P.p(8, 2, "#1a4a8a"); if (o) { P.r(2, 0, 2, 2, "rgba(220,240,255,.8)"); P.r(5, 0, 2, 2, "rgba(220,240,255,.8)"); } else { P.r(2, 3, 2, 2, "rgba(220,240,255,.8)"); P.r(5, 3, 2, 2, "rgba(220,240,255,.8)"); } }); }
+  else if (k === "poisson") c = objetSimple(9, 4, P => { P.ell(4, 2, 3.6, 1.4, "rgba(10,30,50,.32)"); P.r(7, 1, 2, 2, "rgba(10,30,50,.28)"); });
+  P620B.img.set(k, c); return c;
+}
+function p620BVisible() { return p620W1() && !p533_3D(); }
+function p620BMaj(dt) {
+  if (!p620BVisible() || GX.tier < 1) { P620B.rides.length = 0; P620B.libs.length = 0; return; }
+  const t = AV.temps || 0; P620B.vent = t;
+  // en forêt ? (densité d'arbres autour du héros)
+  const m = jeu.monde, tx = Math.floor(perso.x / 16), ty = Math.floor(perso.y / 16); let n = 0;
+  if (((t * 4) | 0) !== P620B.tDens) { P620B.tDens = (t * 4) | 0; for (let dy = -4; dy <= 4; dy += 2) for (let dx = -5; dx <= 5; dx += 2) if (EST_ARBRE(m.decor(tx + dx, ty + dy))) n++; P620B.dens = n / 30; }
+  P620B.rayons += ((P620B.dens > 0.38 ? 1 : 0) - P620B.rayons) * Math.min(1, dt * 1.5);
+  // feuilles qui tombent des arbres proches
+  if (P620B.dens > 0.25 && (P620B.tFeuille -= dt) < 0) {
+    P620B.tFeuille = 0.35 + Math.random() * 0.6;
+    for (let essai = 0; essai < 4; essai++) { const ax = tx + ((Math.random() * 15) | 0) - 7, ay = ty + ((Math.random() * 9) | 0) - 5, d = m.decor(ax, ay); if (EST_ARBRE(d)) { p620FeuillesTombent(ax, ay, d, 1); break; } }
+  }
+  // lacs : ronds dans l'eau, libellules
+  const lacs = (typeof P96 !== "undefined" && P96.G && P96.G.lacs) || [], vw = ecran.width / camera.echelle(), vh = ecran.height / camera.echelle();
+  const vus = lacs.filter(L => Math.abs(L.x * 16 - camera.x) < vw / 2 + L.R * 16 && Math.abs(L.y * 16 - camera.y) < vh / 2 + L.R * 16);
+  for (let i = P620B.rides.length - 1; i >= 0; i--) { const r = P620B.rides[i]; r.t += dt; if (r.t > r.d) P620B.rides.splice(i, 1); }
+  if (vus.length && P620B.rides.length < 6 && Math.random() < dt * 2.2) {
+    const L = vus[(Math.random() * vus.length) | 0], a = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * L.R * 0.75 * 16, x = L.x * 16 + 8 + Math.cos(a) * rr, y = L.y * 16 + 8 + Math.sin(a) * rr * 0.8;
+    try { if (m.niveauPx(x, y) <= NIV.EAU && m.niveauPx(x + 10, y) <= NIV.EAU && m.niveauPx(x - 10, y) <= NIV.EAU) P620B.rides.push({ x, y, t: 0, d: 1.6 + Math.random() * 0.8, poisson: Math.random() < 0.35 ? (Math.random() < 0.5 ? 1 : -1) : 0 }); } catch (_) { }
+  }
+  const ros = vus.length && P96.G.dec ? P96.G.dec : null;
+  if (ros && P620B.libs.length < 3 && Math.random() < dt * 0.6) {
+    const R = ros.filter(d => d.t === "roseau" && Math.abs(d.x - camera.x) < vw / 2 && Math.abs(d.y - camera.y) < vh / 2);
+    if (R.length) { const d = R[(Math.random() * R.length) | 0]; P620B.libs.push({ x: d.x, y: d.y - 14, hx: d.x, hy: d.y - 14, t: 0, vie: 6 + Math.random() * 6, cible: null, pause: 0 }); }
+  }
+  for (let i = P620B.libs.length - 1; i >= 0; i--) {
+    const b = P620B.libs[i]; b.t += dt; if (b.t > b.vie) { P620B.libs.splice(i, 1); continue; }
+    if (b.pause > 0) { b.pause -= dt; continue; }
+    if (!b.cible || Math.hypot(b.cible[0] - b.x, b.cible[1] - b.y) < 2) { b.cible = [b.hx + (Math.random() - 0.5) * 90, b.hy + (Math.random() - 0.5) * 50]; b.pause = Math.random() < 0.5 ? 0.3 + Math.random() * 0.8 : 0; }
+    const dx = b.cible[0] - b.x, dy = b.cible[1] - b.y, d = Math.hypot(dx, dy) || 1, v = Math.min(d, 110 * dt); b.x += dx / d * v; b.y += dy / d * v; b.dir = dx < 0 ? -1 : 1;
+  }
+}
+function p620BDessiner(items, o, e, visible) {
+  if (!p620BVisible() || GX.tier < 1 || e < 1) return;
+  const t = AV.temps || 0, S = 16, vw = ecran.width / e, vh = ecran.height / e;
+  // hautes herbes qui ondulent (rafales qui traversent la prairie)
+  const c0x = Math.floor(o.x / 256), c1x = Math.floor((o.x + vw) / 256), c0y = Math.floor(o.y / 256), c1y = Math.floor((o.y + vh + 16) / 256);
+  let nb = 0; const max = GX.tier >= 2 ? 220 : 120;
+  for (let cy = c0y; cy <= c1y; cy++) for (let cx = c0x; cx <= c1x; cx++) {
+    const L = P620B.touffes.get(cx + "," + cy); if (!L) continue;
+    for (let q = 0; q < L.length && nb < max; q += 3) {
+      const x = L[q], y = L[q + 1]; if (x < o.x - 10 || x > o.x + vw + 10 || y < o.y - 4 || y > o.y + vh + 14) continue;
+      const g = Math.sin(t * 0.9 - x * 0.012 - y * 0.006), w = Math.sin(t * 2.3 + x * 0.05 + y * 0.03) * 0.6 + (g > 0.55 ? (g - 0.55) * 4.4 : 0);
+      const lean = Math.max(-2, Math.min(2, Math.round(w))), im = p620BImg("touffe" + lean + "_" + L[q + 2]); nb++;
+      items.push({ y: y + 1, dessiner: () => ctx.drawImage(im, Math.round((x - 7 - o.x) * e), Math.round((y - 11 - o.y) * e), 14 * e, 12 * e) });
+    }
+  }
+  P620B.st.touffes = nb;
+  // lacs : ronds dans l'eau (et un poisson qui saute de temps en temps), ombres de poissons, reflets des roseaux
+  if (P620B.rides.length) items.push({ y: -1e9 + 6, dessiner: () => {
+    ctx.save(); ctx.lineWidth = Math.max(1, Math.round(e * 0.7));
+    for (const r of P620B.rides) { const u = r.t / r.d; for (let k = 0; k < 2; k++) { const uu = u - k * 0.18; if (uu <= 0) continue; ctx.globalAlpha = Math.max(0, 0.55 * (1 - uu)); ctx.strokeStyle = "#e8f6ff"; ctx.beginPath(); ctx.ellipse(Math.round((r.x - o.x) * e), Math.round((r.y - o.y) * e), (2 + uu * 11) * e, (1 + uu * 4.5) * e, 0, 0, 6.283); ctx.stroke(); }
+      if (r.poisson && u < 0.35) { const k2 = u / 0.35, hh = Math.sin(k2 * Math.PI) * 9; ctx.globalAlpha = 1; ctx.fillStyle = "#c0d0dc"; ctx.fillRect(Math.round((r.x + r.poisson * (k2 * 12 - 6) - 3 - o.x) * e), Math.round((r.y - hh - 1 - o.y) * e), 6 * e, 2 * e); ctx.fillStyle = "#7a8a9a"; ctx.fillRect(Math.round((r.x + r.poisson * (k2 * 12 - 6) - (r.poisson > 0 ? 4 : -3) - o.x) * e), Math.round((r.y - hh - 2 - o.y) * e), 1 * e, 3 * e); } }
+    ctx.restore(); } });
+  const G = typeof P96 !== "undefined" && P96.G;
+  if (G && G.lacs) {
+    for (const L of G.lacs) {
+      if (Math.abs(L.x * 16 - camera.x) > vw / 2 + L.R * 16 || Math.abs(L.y * 16 - camera.y) > vh / 2 + L.R * 16) continue;
+      items.push({ y: -1e9 + 5, dessiner: () => { const im = p620BImg("poisson"); for (let k = 0; k < 3; k++) { const a = t * (0.18 + k * 0.05) * (k & 1 ? -1 : 1) + k * 2.1 + L.ph, rr = L.R * 16 * (0.25 + 0.17 * k), x = L.x * 16 + 8 + Math.cos(a) * rr, y = L.y * 16 + 8 + Math.sin(a) * rr * 0.7; ctx.save(); ctx.translate(Math.round((x - o.x) * e), Math.round((y - o.y) * e)); ctx.rotate(a + (k & 1 ? -1.57 : 1.57)); ctx.drawImage(im, Math.round(-4.5 * e), Math.round(-2 * e), 9 * e, 4 * e); ctx.restore(); } } });
+    }
+    if (G.dec) items.push({ y: -1e9 + 4, dessiner: () => {
+      ctx.save(); ctx.globalAlpha = 0.28;
+      for (const d of G.dec) { if (d.t !== "roseau" || !visible(d.x, d.y, 20)) continue; let eau = false; try { eau = jeu.monde.niveauPx(d.x, d.y + 4) <= NIV.EAU; } catch (_) { } if (!eau) continue;
+        const im = p96Img("roseau" + (Math.floor(t * 1.3 + d.p) & 1)), ow = Math.sin(t * 2 + d.p) * 0.8; ctx.save(); ctx.translate(Math.round((d.x + ow - o.x) * e), Math.round((d.y + 1 - o.y) * e)); ctx.scale(1, -0.7); ctx.drawImage(im, Math.round(-6 * e), Math.round(-im.height * e), im.width * e, im.height * e); ctx.restore(); }
+      ctx.restore(); } });
+  }
+  for (const b of P620B.libs) if (visible(b.x, b.y, 10)) items.push({ y: b.y + 30, dessiner: () => { const im = p620BImg("libellule" + ((t * 30 | 0) & 1)); ctx.save(); ctx.translate(Math.round((b.x - o.x) * e), Math.round((b.y - o.y) * e)); if (b.dir < 0) ctx.scale(-1, 1); ctx.drawImage(im, Math.round(-4.5 * e), Math.round(-2.5 * e), 9 * e, 5 * e); ctx.restore(); ctx.globalAlpha = 0.18; ctx.fillStyle = "#000"; ctx.fillRect(Math.round((b.x - 2 - o.x) * e), Math.round((b.y + 12 - o.y) * e), 4 * e, e); ctx.globalAlpha = 1; } });
+  // rayons de soleil en forêt (le jour)
+  if (P620B.rayons > 0.02 && (GX.nu || 0) < 0.5 && GX.dehors !== false) items.push({ y: 1e9 - 2, dessiner: () => {
+    const W = ecran.width, H = ecran.height, a0 = P620B.rayons * (1 - (GX.nu || 0) * 2) * 0.11;
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    for (let k = 0; k < 4; k++) { const ph = t * 0.05 + k * 1.7, x = ((k * 0.29 + Math.sin(ph) * 0.06 + 0.08) % 1) * W * 1.1 - W * 0.05, w = W * (0.05 + 0.03 * Math.sin(ph * 1.7 + k)), al = a0 * (0.6 + 0.4 * Math.sin(t * 0.4 + k * 2));
+      const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "rgba(255,240,190," + al.toFixed(3) + ")"); gr.addColorStop(1, "rgba(255,240,190,0)"); ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + w, 0); ctx.lineTo(x + w + H * 0.35, H); ctx.lineTo(x + H * 0.35 - w * 0.6, H); ctx.closePath(); ctx.fill(); }
+    ctx.restore(); } });
+}
+{
+  const ea = elementsAventure;
+  elementsAventure = function (items, o, e, visible) { ea.apply(this, arguments); try { p620BDessiner(items, o, e, visible); } catch (er) { p620Err("bdess", er); } };
+  const ma = majAventure;
+  majAventure = function (dt) { ma.apply(this, arguments); try { if (jeu.scene === sceneMonde && !jeu.pause) p620BMaj(Math.min(0.1, dt || 0)); } catch (er) { p620Err("bmaj", er); } };
+  // chemin par étapes (v57) : les détails sont posés en plusieurs petites étapes, jamais d'un bloc
+  try {
+    if (typeof V57C !== "undefined" && V57C.gen) {
+      const src = V57C.gen.toString(), A = 'if (typeof p620Pixels === "function") { try { p620Pixels(monde, cx, cy, out, W, impure); } catch (_) { } }';
+      if (src.split(A).length === 2) { V57C.gen = (0, eval)("(" + src.replace(A, 'yield 0; if (typeof p620PixelsG === "function") { try { yield* p620PixelsG(monde, cx, cy, out, W, impure); } catch (_) { } }') + ")"); P620B.etapes = 1; }
+      else p620Err("v57c", "motif " + src.split(A).length);
+    }
+  } catch (e) { p620Err("v57c", e); }
+  // les blocs déjà prêts au chargement n'ont pas encore les détails : on les refera au fil de l'eau
+  try { if ((AV.monde || 1) === 1 && jeu.chunks && jeu.chunks.m && jeu.chunks.m.size) jeu.chunks.m.clear(); } catch (_) { }
+}
+
+/* ===================== v62.0 (lot C) : la 3D du monde 1 — arbres variés, sous-bois, prairie, bords des lacs =====================
+   Tout est ajouté DANS la géométrie des morceaux de terrain (construite une fois et par étapes, comme en v57) :
+   - arbres : sapins à 4–5 étages (épicéas plus hauts), chênes ronds à plusieurs touffes, feuillus à 3 étages, bouleaux blancs ;
+     tailles variées, tronc évasé avec racines quand on le voit (lisière, clairière), couleurs d'automne conservées ;
+   - sous-bois : fougères, troncs tombés moussus, tapis de feuilles mortes ;
+   - prairie : hautes herbes qui ondulent, fleurs variées (marguerites, coquelicots, bleuets, lavande), cailloux ;
+   - sentiers de terre battue entre Ma Ville et les lacs ;
+   - bords des lacs : roseaux à massettes, galets.
+   À chaque image (peu coûteux) : ronds dans l'eau, poissons qui sautent, libellules au-dessus des lacs proches.
+   L'arbre qui tombe (coupe) et les jeunes arbres qui repoussent ont la même forme que l'arbre du décor. Monde 1 seulement. */
+function p620Couleurs(dec, tx, ty) {
+  const r = p40H(tx * 3, ty * 7), pal = dec === DECOR.SAPIN ? PAL_PIN : dec === DECOR.ARBRE2 ? PAL_ARBRE2 : PAL_ARBRE, kv = 0.86 + r * 0.28;
+  let cm = e3Sombre(n3U32(pal.m), kv), cl = e3Sombre(n3U32(pal.l), kv), cd = e3Sombre(n3U32(pal.d), kv);
+  if (dec !== DECOR.SAPIN) { const hv2 = p40H(tx * 13 + 7, ty * 17 + 3); const TT = hv2 < 0.07 ? [[0.95, 0.62, 0.72], [1, 0.78, 0.85], [0.8, 0.45, 0.58]] : hv2 < 0.15 ? [[0.86, 0.5, 0.18], [0.95, 0.68, 0.26], [0.7, 0.36, 0.14]] : hv2 < 0.28 ? [[0.5, 0.7, 0.24], [0.66, 0.82, 0.32], [0.36, 0.55, 0.18]] : null; if (TT) { cm = e3Sombre(TT[0], kv); cl = e3Sombre(TT[1], kv); cd = e3Sombre(TT[2], kv); } }
+  return { r, pal, cm, cl, cd };
+}
+function p620Arbre3D(g, dec, x, h, z, r, dense, cd, cm, cl, pal, tx, ty, v0, m) {
+  const r3 = p40H(tx * 29 + 3, ty * 31 + 7), s = 0.84 + r3 * 0.34, tr = n3U32(pal.t), trD = e3Sombre(tr, 0.72), trC = e3Sombre(tr, 1.25);
+  const racines = () => { if (!m || EST_ARBRE(m.decor(tx, ty + 1))) return; for (let q = 0; q < 2; q++) { const a = q * 2.2 + r3 * 2 + 0.6; g.box(x + Math.cos(a) * 1.9 * s, h - 0.2, z + Math.sin(a) * 1.9 * s, 2.6 * s, 0.9 * s, 0.9 * s, trD, -a); } };
+  if (dec === DECOR.SAPIN) {
+    const n = 4, Ht = (r3 > 0.6 ? 31 : 26) * s + r * 3, R0 = (r3 > 0.6 ? 8.2 : 9.6) * s;
+    if (!dense) { g.cyl(x, h, z, 2.1 * s, 1.2 * s, 6 * s, 5, trD, tr); racines(); }
+    let y = h + 3.6 * s;
+    for (let i = 0; i < n; i++) { const u = i / (n - 1), rad = R0 * (1 - u * 0.7), hh = Ht / n * 1.75, c0 = i === 0 ? e3Sombre(cd, 0.9) : i % 2 ? cd : cm, c1 = i === n - 1 ? cl : i % 2 ? cm : cl; g.cyl(x + (p40H(tx + i, ty) - 0.5) * 0.8, y, z + (p40H(tx, ty + i) - 0.5) * 0.8, rad, 0, hh, i === 0 ? 6 : 5, c0, c1); y += Ht / n * 0.84; }
+  } else if (dec === DECOR.ARBRE2) {
+    if (!dense) { g.cyl(x, h, z, 2.6 * s, 1.5 * s, 2.4 * s, 5, trD, tr); g.cyl(x, h + 2.4 * s, z, 1.5 * s, 1.15 * s, 8 * s, 4, tr, trC); racines(); }
+    const a = r3 * 6.28, cy = h + 15 * s;
+    g.sph(x, cy, z, 9.4 * s, 8 * s, 9.4 * s, 7, cm, 0.16);
+    g.sph(x + Math.cos(a) * 5 * s, cy + 4.5 * s, z + Math.sin(a) * 4 * s, 6 * s, 5.2 * s, 6 * s, 6, cl, 0.12);
+    if (r3 > 0.45) g.sph(x - Math.cos(a + 0.6) * 5.5 * s, cy - 1.5 * s, z - Math.sin(a + 0.6) * 4.5 * s, 5.6 * s, 4.6 * s, 5.6 * s, 5, cd, 0.12);
+  } else if (r3 < 0.2) { // bouleau : tronc blanc tacheté, feuillage léger
+    const blanc = [0.9, 0.88, 0.82], noir = [0.2, 0.18, 0.16], H = 15 * s;
+    if (!dense) { g.cyl(x, h, z, 1.3 * s, 0.9 * s, H, 5, blanc, blanc); for (let q = 0; q < 3; q++) g.box(x + 0.9 * s, h + 3 + q * 4 * s, z + (q - 1) * 0.3, 0.5, 0.6, 1.2 * s, noir, q); }
+    const jaune = [Math.min(1, cl[0] * 1.08 + 0.04), Math.min(1, cl[1] * 1.05), cl[2] * 0.9];
+    g.sph(x, h + H * 0.92, z, 6.2 * s, 8.5 * s, 6.2 * s, 6, cm, 0.14); g.sph(x + 2.4 * s, h + H * 1.25, z - 1.2 * s, 4.4 * s, 5.4 * s, 4.4 * s, 5, jaune, 0.12);
+  } else { // feuillu à étages
+    if (!dense) { g.cyl(x, h, z, 2.4 * s, 1.3 * s, 2.2 * s, 5, trD, tr); g.cyl(x, h + 2.2 * s, z, 1.3 * s, 1.05 * s, 6 * s, 4, tr, trC); racines(); }
+    g.cyl(x, h + 5 * s, z, 10.5 * s, 6.8 * s, 7 * s, 6, cd, cm); g.cyl(x + 0.4, h + 10.6 * s, z - 0.3, 8.4 * s, 4.4 * s, 6.4 * s, 6, cm, cl); g.cyl(x - 0.3, h + 15.6 * s, z + 0.3, 5.4 * s, 0, 6.4 * s, 5, cl, e3Sombre(cl, 1.12));
+  }
+  if (v0 >= 0) e3Sway(g, v0, h, 34 * s);
+}
+/* remplacement des arbres dans les morceaux de terrain du monde 1 (v57Morceau1 / v57MorceauGen) */
+try {
+  const A = "      if (dec === DECOR.SAPIN) { if (!dense) g.box(cxm, h, czm, 2.6, 6, 2.6, n3U32(pal.t));", B = "      e3Sway(g, v0, h, 34);\n";
+  const remplacer = f => { const s = f.toString(), a = s.indexOf(A), b = s.indexOf(B, a); if (a < 0 || b < 0 || s.indexOf(A, a + 1) >= 0) throw new Error("motif arbre " + a + "/" + b); return (0, eval)("(" + s.slice(0, a) + "      p620Arbre3D(g, dec, cxm, h, czm, r, dense, cd, cm, cl, pal, tx, ty, v0, m);\n" + s.slice(b + B.length) + ")"); };
+  if (typeof v57Morceau1 === "function" && typeof v57MorceauGen === "function") {
+    const m1 = remplacer(v57Morceau1), mg = remplacer(v57MorceauGen);
+    v57Morceau1 = m1; v57MorceauGen = mg; P620.arbres3D = 1;
+    try { if (typeof E3 !== "undefined" && E3.ter && E3.ter.size && (AV.monde || 1) === 1) for (const C of E3.ter.values()) C.cv = -1; } catch (_) { }
+  }
+} catch (e) { p620Err("arbres3D", e); }
+/* arbre qui tombe / jeune arbre : même forme que dans le décor */
+{
+  const a0 = p533ArbreGeo;
+  p533ArbreGeo = function (dec, tx, ty) {
+    if ((AV.monde || 1) !== 1 || !P620.arbres3D) return a0.apply(this, arguments);
+    try { const g = new G3Geo(), C = p620Couleurs(dec, tx, ty); p620Arbre3D(g, dec, 0, 0, 0, C.r, false, C.cd, C.cm, C.cl, C.pal, tx, ty, -1); return g.build(); } catch (e) { p620Err("geo", e); return a0.apply(this, arguments); }
+  };
+}
+/* sous-bois, prairie, sentiers, bords des lacs (s'ajoute aux plantes v57) */
+function p620PresLac(tx, ty) {
+  const G = typeof P96 !== "undefined" && P96.G; if (!G || !G.lacs) return 99; let u = 99;
+  for (const L of G.lacs) { if (Math.abs(L.x - tx) > L.R * 1.8 || Math.abs(L.y - ty) > L.R * 1.8) continue; const v = p96LacU(L, tx, ty); if (v < u) u = v; }
+  return u;
+}
+function p620SurSentier(x, z) {
+  const S = p620Sentiers(); if (!S.length) return false;
+  const P = P620B.grille || (P620B.grille = (() => { const M = new Map(); for (const p of S) { const k = (p[0] >> 6) + "," + (p[1] >> 6); let a = M.get(k); if (!a) M.set(k, a = []); a.push(p); } return M; })());
+  const L = P.get((x >> 6) + "," + (z >> 6)); if (!L) { for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) { const Q = P.get(((x >> 6) + dx) + "," + ((z >> 6) + dz)); if (Q) for (const p of Q) if (Math.abs(p[0] - x) < 7 && Math.abs(p[1] - z) < 7) return true; } return false; }
+  for (const p of L) if (Math.abs(p[0] - x) < 7 && Math.abs(p[1] - z) < 7) return true;
+  for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) { if (!dx && !dz) continue; const Q = P.get(((x >> 6) + dx) + "," + ((z >> 6) + dz)); if (Q) for (const p of Q) if (Math.abs(p[0] - x) < 7 && Math.abs(p[1] - z) < 7) return true; }
+  return false;
+}
+{
+  const p0 = v57Plantes;
+  v57Plantes = function (g, m, l, tx, ty, x, z, h, r, r2, base) {
+    p0.apply(this, arguments);
+    try { p620Plantes(g, m, l, tx, ty, x, z, h, r, r2, base); } catch (e) { p620Err("plantes", e); }
+  };
+}
+function p620Plantes(g, m, l, tx, ty, x, z, h, r, r2, base) {
+  if ((AV.monde || 1) !== 1) return;
+  const r4 = p40H(tx * 17 + 9, ty * 23 + 5), X0 = tx * 16, Z0 = ty * 16;
+  if (m.zone) { const zz = m.zone[ty * CONFIG.TAILLE_MONDE + tx]; if (zz === 1 || zz === 2) return; }
+  try { if (typeof P96 !== "undefined" && P96.G && p96VilleU(tx, ty) < 1.15) return; } catch (_) { }
+  if (l === NIV.HERBE) {
+    // sentier de terre battue
+    if (p620SurSentier(X0 + 8, Z0 + 8)) {
+      const c = e3Sombre([0.66, 0.55, 0.36], 0.92 + r4 * 0.16), y = (px, pz) => e3Vy(px, pz, l) + 0.14;
+      const P = [[X0 + 1, Z0 + 1], [X0 + 15, Z0 + 1], [X0 + 15, Z0 + 15], [X0 + 1, Z0 + 15]].map(([px, pz]) => [px + (p40H(px, pz) - 0.5) * 3, 0, pz + (p40H(pz, px) - 0.5) * 3]); for (const p of P) p[1] = y(p[0], p[2]);
+      g.q(P[3], P[2], P[1], P[0], [0, 1, 0], c); return;
+    }
+    if (r2 < 0.26) return;
+    const pres = EST_ARBRE(m.decor(tx - 1, ty)) || EST_ARBRE(m.decor(tx + 1, ty)) || EST_ARBRE(m.decor(tx, ty - 1)) || EST_ARBRE(m.decor(tx, ty + 1));
+    const lac = p620PresLac(tx, ty);
+    if (lac < 1.16 && r2 < 0.46) { // roseaux à massettes au bord de l'eau
+      const v0 = g.v.length, vert = [0.4, 0.64, 0.3], vert2 = [0.52, 0.74, 0.34], brun = [0.5, 0.32, 0.18];
+      for (let q = 0; q < 4; q++) { const a = q * 1.57 + r4 * 6, d = 1 + (q % 3) * 1.3, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, hh = 7 + ((q * 5 + tx) % 5); g.cyl(px, h, pz, 0.35, 0.2, hh, 3, q & 1 ? vert : vert2); if (q % 2 === 0) g.cyl(px, h + hh - 0.4, pz, 0.6, 0.55, 2.2, 4, brun, brun); }
+      e3Sway(g, v0, h, 10); return;
+    }
+    if (pres) {
+      if (r2 < 0.42) { // fougère : frondes en éventail
+        const v0 = g.v.length, c1 = [0.24, 0.5, 0.2], c2 = [0.4, 0.68, 0.28];
+        for (let q = 0; q < 5; q++) { const a = q * 1.257 + r4 * 3, ca = Math.cos(a), sa = Math.sin(a), L = 5 + (q % 3) * 0.8, w = 1.3;
+          g.t([x, h + 0.3, z], [x + ca * L * 0.55 - sa * w, h + 3.2, z + sa * L * 0.55 + ca * w], [x + ca * L, h + 1.6, z + sa * L], [0, 1, 0], q & 1 ? c1 : c2);
+          g.t([x, h + 0.3, z], [x + ca * L, h + 1.6, z + sa * L], [x + ca * L * 0.55 + sa * w, h + 3.2, z + sa * L * 0.55 - ca * w], [0, 1, 0], q & 1 ? c2 : c1); }
+        e3Sway(g, v0, h, 3); return;
+      }
+      if (r2 < 0.445) { // tronc tombé, moussu
+        const a = r4 * 3.14, c = [0.4, 0.27, 0.16]; g.box(x, h, z, 10, 2.2, 2.2, c, a); g.box(x, h + 2.1, z, 7, 0.5, 1.6, [0.34, 0.56, 0.22], a); g.box(x + Math.cos(a) * 5, h, z - Math.sin(a) * 5, 0.4, 2.2, 2.2, [0.8, 0.66, 0.44], a); return;
+      }
+      if (r2 < 0.6) { // tapis de feuilles mortes
+        const cols = [[0.62, 0.4, 0.18], [0.72, 0.52, 0.2], [0.5, 0.32, 0.14], [0.58, 0.5, 0.2]];
+        for (let q = 0; q < 3; q++) { const a = q * 2.1 + r4 * 6, px = x + Math.cos(a) * 3, pz = z + Math.sin(a) * 3, s = 1.3 + q * 0.3, yy = h + 0.12 + q * 0.01; g.t([px - s, yy, pz], [px, yy, pz + s], [px + s, yy, pz - s * 0.4], [0, 1, 0], cols[(q + (r4 * 4 | 0)) & 3]); }
+        return;
+      }
+      return;
+    }
+    const f = m.FOR ? m.FOR[ty * CONFIG.TAILLE_MONDE + tx] : 0;
+    if (f < 0.12) {
+      if (r2 < 0.40) { // hautes herbes qui ondulent
+        const v0 = g.v.length, c1 = e3Sombre(base, 1.08), c2 = e3Sombre(base, 1.38), c3 = [Math.min(1, base[0] * 1.3 + 0.08), Math.min(1, base[1] * 1.25), base[2] * 0.9];
+        for (let q = 0; q < 3; q++) { const a = q * 2.09 + r4 * 6, d = 0.8 + (q % 2) * 1.6, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d; g.cyl(px, h, pz, 1.1, 0.05, 8 + ((q * 3 + tx) % 4) * 1.2, 3, c1, q % 2 ? c2 : c3); }
+        e3Sway(g, v0, h, 11); return;
+      }
+      if (r2 < 0.445) { // fleurs variées
+        const v0 = g.v.length, sorte = (r4 * 4) | 0, tige = [0.28, 0.55, 0.22];
+        for (let q = 0; q < 3; q++) { const a = q * 2.09 + r4 * 5, px = x + Math.cos(a) * 3, pz = z + Math.sin(a) * 2.6, hh = 3 + ((q + ty) % 3) * 0.8;
+          if (sorte === 3) { g.cyl(px, h, pz, 0.25, 0.2, hh, 3, tige); g.cyl(px, h + hh, pz, 0.55, 0.15, 2.4, 4, [0.6, 0.45, 0.85]); continue; }
+          g.cyl(px, h, pz, 0.25, 0.2, hh, 3, tige);
+          if (sorte === 0) { g.sph(px, h + hh + 0.2, pz, 1.3, 0.35, 1.3, 5, [0.98, 0.98, 0.94]); g.box(px, h + hh + 0.35, pz, 0.7, 0.4, 0.7, [1, 0.82, 0.2]); }
+          else g.sph(px, h + hh + 0.3, pz, 1, 0.7, 1, 4, sorte === 1 ? [0.92, 0.18, 0.12] : [0.35, 0.5, 0.95]);
+        }
+        e3Sway(g, v0, h, 4); return;
+      }
+      if (r2 < 0.46) { g.box(x, h, z, 2.4, 1.2, 2, [0.58, 0.58, 0.6], r4 * 5); g.box(x + 2, h, z + 1.4, 1.4, 0.8, 1.2, [0.66, 0.66, 0.68], r4 * 3); }
+    }
+  } else if (l === NIV.SABLE && r2 >= 0.09 && r2 < 0.2 && p620PresLac(tx, ty) < 1.9) {
+    g.box(x, h, z, 2, 0.9, 1.6, [0.62, 0.6, 0.58], r4 * 6); g.box(x + 2.2, h, z - 1, 1.4, 0.7, 1.2, [0.72, 0.7, 0.66], r4 * 4);
+  }
+}
+/* ---------- à chaque image : vie des lacs en 3D ---------- */
+const P620L = { rides: [], sauts: [], libs: [], m: null };
+function p620LM() {
+  if (P620L.m) return P620L.m;
+  const ring = new G3Geo(), w = [1, 1, 1]; for (let i = 0; i < 16; i++) { const a0 = i / 16 * 6.2832, a1 = (i + 1) / 16 * 6.2832; ring.q([Math.cos(a0), 0, Math.sin(a0)], [Math.cos(a1), 0, Math.sin(a1)], [Math.cos(a1) * 0.82, 0, Math.sin(a1) * 0.82], [Math.cos(a0) * 0.82, 0, Math.sin(a0) * 0.82], [0, 1, 0], w); }
+  const poisson = new G3Geo(); poisson.sph(0, 0, 0, 2.2, 0.9, 0.8, 6, [0.72, 0.76, 0.8]); poisson.box(-2.6, -0.6, 0, 1.4, 1.2, 0.2, [0.55, 0.6, 0.66]);
+  const lib = new G3Geo(); lib.box(0, 0, 0, 3.4, 0.4, 0.4, [0.16, 0.5, 0.86]); lib.box(0.2, 0.3, 0, 0.6, 0.06, 4.4, [0.85, 0.93, 1]); lib.box(-0.6, 0.3, 0, 0.5, 0.06, 3.6, [0.85, 0.93, 1]);
+  return P620L.m = { ring: ring.build(), poisson: poisson.build(), lib: lib.build() };
+}
+function p620Lacs3D(dt) {
+  const G = typeof P96 !== "undefined" && P96.G; if (!G || !G.lacs || E3.hx == null) return;
+  if (PARAMS.eco || PARAMS.effets === "aucun") return;
+  const M = p620LM(), hx = E3.hx, hz = E3.hz, m = jeu.monde;
+  const vus = G.lacs.filter(L => Math.abs(L.x * 16 - hx) < 330 + L.R * 16 && Math.abs(L.y * 16 - hz) < 300 + L.R * 16);
+  if (vus.length && P620L.rides.length < 7 && Math.random() < dt * 2.4) {
+    const L = vus[(Math.random() * vus.length) | 0], a = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * L.R * 0.75 * 16, x = L.x * 16 + 8 + Math.cos(a) * rr, z = L.y * 16 + 8 + Math.sin(a) * rr;
+    try { if (m.niveauPx(x, z) <= NIV.EAU && m.niveauPx(x + 10, z) <= NIV.EAU && m.niveauPx(x, z + 10) <= NIV.EAU) { P620L.rides.push({ x, z, t: 0, d: 1.8 + Math.random() * 0.8 }); if (Math.random() < 0.3) P620L.sauts.push({ x, z, t: 0, a: Math.random() * 6.28 }); } } catch (_) { }
+  }
+  for (let i = P620L.rides.length - 1; i >= 0; i--) { const q = P620L.rides[i]; q.t += dt; if (q.t > q.d) { P620L.rides.splice(i, 1); continue; } const u = q.t / q.d;
+    for (let k = 0; k < 2; k++) { const uu = u - k * 0.2; if (uu <= 0) continue; const s = 1.5 + uu * 12; g3Mesh(M.ring, M4.trs(q.x, 1.15, q.z, 0, 0, 0, s, 1, s), { tint: [0.92, 0.98, 1, 1], e: 0.5, a: Math.max(0, 0.5 * (1 - uu)) }); } }
+  for (let i = P620L.sauts.length - 1; i >= 0; i--) { const q = P620L.sauts[i]; q.t += dt; if (q.t > 0.7) { P620L.sauts.splice(i, 1); continue; } const u = q.t / 0.7, y = 0.6 + Math.sin(u * Math.PI) * 9, d = (u - 0.5) * 14;
+    g3Mesh(M.poisson, M4.trs(q.x + Math.cos(q.a) * d, y, q.z + Math.sin(q.a) * d, -q.a, 0, (0.5 - u) * 2.4));
+    if (u > 0.92 && !q.pl) { q.pl = 1; for (let k = 0; k < 6; k++) g3Part(q.x + Math.cos(q.a) * 7, 1.5, q.z + Math.sin(q.a) * 7, (Math.random() - 0.5) * 20, 14 + Math.random() * 14, (Math.random() - 0.5) * 20, 0.45, 0.9, [0.9, 0.96, 1, 1], { add: false, g: 70 }); } }
+  // libellules près des roseaux
+  if (vus.length && P620L.libs.length < 3 && Math.random() < dt * 0.7) { const R = (G.dec || []).filter(d => d.t === "roseau" && Math.abs(d.x - hx) < 260 && Math.abs(d.y - hz) < 220); if (R.length) { const d = R[(Math.random() * R.length) | 0]; P620L.libs.push({ x: d.x, z: d.y, hx: d.x, hz: d.y, t: 0, vie: 6 + Math.random() * 6, c: null, p: 0, a: 0 }); } }
+  for (let i = P620L.libs.length - 1; i >= 0; i--) { const b = P620L.libs[i]; b.t += dt; if (b.t > b.vie || !vus.length) { P620L.libs.splice(i, 1); continue; }
+    if (b.p > 0) b.p -= dt; else { if (!b.c || Math.hypot(b.c[0] - b.x, b.c[1] - b.z) < 2) { b.c = [b.hx + (Math.random() - 0.5) * 80, b.hz + (Math.random() - 0.5) * 60]; b.p = Math.random() < 0.5 ? 0.3 + Math.random() * 0.7 : 0; } const dx = b.c[0] - b.x, dz = b.c[1] - b.z, d = Math.hypot(dx, dz) || 1, v = Math.min(d, 100 * dt); b.x += dx / d * v; b.z += dz / d * v; b.a = Math.atan2(-dz, dx); }
+    g3Mesh(M.lib, M4.trs(b.x, e3Sol(b.x, b.z) + 9 + Math.sin(b.t * 3) * 1.2, b.z, b.a, 0, 0, 1, 1, 1 + Math.sin(b.t * 60) * 0.25)); }
+}
+{
+  const x3 = e3Extra3D;
+  let tP = 0;
+  e3Extra3D = function (U, A, Pl, I, TR, gy, now, dt) {
+    x3.apply(this, arguments);
+    try { if ((AV.monde || 1) === 1 && jeu.scene === sceneMonde && dansMonde()) { const t = performance.now(), d = tP ? Math.min(0.1, (t - tP) / 1000) : 0.016; tP = t; p620Lacs3D(d); } } catch (er) { p620Err("lacs3d", er); }
+  };
+}
+
+/* ===================== v62.0 (lot D) : nénuphars sur les petits lacs et papillons dans la prairie — monde 1 =====================
+   - nénuphars : feuilles rondes encochées (quelques-unes avec une fleur rose ou blanche), posées une fois pour toutes
+     près des rives de chaque lac (même place en 2D et en 3D, rien à recalculer) ; elles bercent doucement en 2D ;
+   - papillons : 2 à 4 autour du héros quand il est dans la prairie (pas en forêt, pas la nuit), qui volettent de fleur en fleur.
+   Coût : 1 dessin par lac visible + 1 par papillon. Qualité basse / éco : rien. */
+const P620D = { pads: new Map(), pap: [], pap3: [], m3: null, img: new Map(), st: { pads: 0, pap: 0 } };
+function p620DPads(L, i) {
+  let P = P620D.pads.get(i); if (P) return P; P = [];
+  const m = jeu.monde, n = Math.max(5, Math.round(L.R * 1.6));
+  for (let k = 0, essai = 0; k < n && essai < n * 8; essai++) {
+    const h1 = p40H(i * 31 + essai * 7, essai * 13 + 5), h2 = p40H(essai * 19 + 3, i * 17 + essai), a = h1 * 6.2832, u = 0.52 + h2 * 0.3;
+    // rayon effectif du lac dans cette direction (même formule que p96LacU)
+    const R = L.R * (1 + 0.14 * Math.sin(3 * a + L.ph) + 0.08 * Math.sin(5 * a + 2 * L.ph)), x = (L.x + Math.cos(a) * R * u) * 16 + 8, y = (L.y + Math.sin(a) * R * u) * 16 + 8;
+    let ok = true; try { for (const [dx, dy] of [[0, 0], [9, 0], [-9, 0], [0, 9], [0, -9]]) if (m.niveauPx(x + dx, y + dy) > NIV.EAU) ok = false; } catch (_) { ok = false; }
+    if (!ok || P.some(p => Math.hypot(p.x - x, p.y - y) < 9)) continue;
+    const h3 = p40H(essai * 5 + i, i * 3 + essai * 11);
+    // petit groupe : une grande feuille et parfois 1-2 petites à côté
+    P.push({ x, y, s: 1 + h3 * 0.35, a: h3 * 6.28, f: h3 < 0.3 ? 1 : h3 < 0.42 ? 2 : 0, ph: h1 * 6 });
+    if (h2 > 0.4) P.push({ x: x + Math.cos(a + 1.3) * 7, y: y + Math.sin(a + 1.3) * 5, s: 0.65, a: h2 * 6.28, f: 0, ph: h2 * 6 });
+    if (h2 > 0.75) P.push({ x: x - Math.cos(a + 0.6) * 6, y: y - Math.sin(a + 0.6) * 5, s: 0.55, a: h1 * 3, f: 0, ph: h3 * 6 });
+    k++;
+  }
+  P620D.pads.set(i, P); return P;
+}
+function p620DLacsVus(vw, vh, cx, cy) { const G = typeof P96 !== "undefined" && P96.G; if (!G || !G.lacs) return []; const r = []; G.lacs.forEach((L, i) => { if (Math.abs(L.x * 16 - cx) < vw / 2 + L.R * 16 + 20 && Math.abs(L.y * 16 - cy) < vh / 2 + L.R * 16 + 20) r.push([L, i]); }); return r; }
+function p620DImg(k) {
+  let c = P620D.img.get(k); if (c) return c;
+  if (k === "pad") c = objetSimple(12, 8, (P, C) => { P.ell(6, 4, 5.6, 3.4, "#2e7a34"); P.ell(6, 3.6, 4.6, 2.6, "#48a046"); P.ell(4.6, 3, 1.8, 0.9, "#6cc060"); P.r(6, 3, 1, 1, "#2a6a2e"); C.clearRect(7, 3, 1, 1); C.clearRect(8, 2, 2, 1); C.clearRect(9, 1, 3, 1); C.clearRect(10, 0, 2, 1); });
+  else if (k === "fleur1" || k === "fleur2") { const [a, b, cc] = k === "fleur1" ? ["#f4a6c8", "#e070a0", "#fff0f6"] : ["#fbfbf2", "#d8d8cc", "#ffffff"]; c = objetSimple(7, 6, P => { P.r(0, 3, 7, 2, b); P.r(1, 2, 5, 2, a); P.r(2, 0, 3, 3, a); P.p(3, 0, cc); P.p(1, 1, cc); P.p(5, 1, cc); P.r(3, 2, 1, 1, "#f0d040"); }); }
+  else if (k.startsWith("pap")) { const [v, o] = k.slice(3).split("_").map(Number); const C = [["#f0a020", "#2a1a10"], ["#f8f4e8", "#8a8a92"], ["#5a8ae8", "#1a2a6a"], ["#f0d040", "#3a2a10"]][v];
+    c = objetSimple(9, 7, P => { if (o === 0) { P.r(0, 0, 4, 3, C[0]); P.r(5, 0, 4, 3, C[0]); P.r(1, 3, 3, 2, C[0]); P.r(5, 3, 3, 2, C[0]); P.p(0, 0, C[1]); P.p(8, 0, C[1]); P.p(1, 1, C[1]); P.p(7, 1, C[1]); } else { P.r(2, 0, 2, 4, C[0]); P.r(5, 0, 2, 4, C[0]); P.p(2, 0, C[1]); P.p(6, 0, C[1]); } P.r(4, 1, 1, 5, "#2a1a10"); }); }
+  P620D.img.set(k, c); return c;
+}
+function p620DPrairie(m, x, y) { const tx = Math.floor(x / 16), ty = Math.floor(y / 16); try { if (m.niveauPx(x, y) !== NIV.HERBE) return false; if (m.zone) { const z = m.zone[ty * CONFIG.TAILLE_MONDE + tx]; if (z === 1 || z === 2) return false; } if (m.FOR && m.FOR[ty * CONFIG.TAILLE_MONDE + tx] >= 0.12) return false; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (EST_ARBRE(m.decor(tx + dx, ty + dy))) return false; return true; } catch (_) { return false; } }
+function p620DPapMaj(L, dt, hx, hy, d3) {
+  const m = jeu.monde, nuit = (GX.nu || 0) > 0.45, max = GX.tier >= 2 ? 4 : 2;
+  if (!nuit && L.length < max && Math.random() < dt * 0.8) {
+    const a = Math.random() * 6.283, d = 50 + Math.random() * 90, x = hx + Math.cos(a) * d, y = hy + Math.sin(a) * d * 0.7;
+    if (p620DPrairie(m, x, y)) L.push({ x, y, hx: x, hy: y, t: 0, vie: 8 + Math.random() * 8, c: null, p: 0, v: (Math.random() * 4) | 0, dir: 1, ph: Math.random() * 6 });
+  }
+  for (let i = L.length - 1; i >= 0; i--) { const b = L[i]; b.t += dt;
+    if (b.t > b.vie || nuit || Math.hypot(b.x - hx, b.y - hy) > 420) { L.splice(i, 1); continue; }
+    if (b.p > 0) { b.p -= dt; continue; } // posé sur une fleur
+    if (!b.c || Math.hypot(b.c[0] - b.x, b.c[1] - b.y) < 2) { b.c = [b.hx + (Math.random() - 0.5) * 70, b.hy + (Math.random() - 0.5) * 50]; b.p = Math.random() < 0.35 ? 0.6 + Math.random() * 1.4 : 0; }
+    const dx = b.c[0] - b.x, dy = b.c[1] - b.y, d = Math.hypot(dx, dy) || 1, v = Math.min(d, 34 * dt); b.x += dx / d * v + Math.sin(b.t * 7 + b.ph) * 10 * dt; b.y += dy / d * v + Math.cos(b.t * 5 + b.ph) * 8 * dt; b.dir = dx < 0 ? -1 : 1;
+  }
+  P620D.st.pap = L.length;
+}
+/* ---------- 2D ---------- */
+{
+  const mj = p620BMaj;
+  p620BMaj = function (dt) {
+    mj.apply(this, arguments);
+    try { if (!p620BVisible() || GX.tier < 1) { P620D.pap.length = 0; return; } p620DPapMaj(P620D.pap, dt, perso.x, perso.y, false); } catch (er) { p620Err("dmaj", er); }
+  };
+  const ds = p620BDessiner;
+  p620BDessiner = function (items, o, e, visible) {
+    ds.apply(this, arguments);
+    try {
+      if (!p620BVisible() || GX.tier < 1 || e < 1) return;
+      const t = AV.temps || 0, vw = ecran.width / e, vh = ecran.height / e; let n = 0;
+      for (const [L, i] of p620DLacsVus(vw, vh, o.x + vw / 2, o.y + vh / 2)) {
+        const P = p620DPads(L, i); if (!P.length) continue; n += P.length;
+        items.push({ y: -1e9 + 5.5, dessiner: () => { const pad = p620DImg("pad");
+          for (const p of P) { if (!visible(p.x, p.y, 12)) continue; const bx = p.x + Math.sin(t * 0.8 + p.ph) * 0.6, by = p.y + Math.cos(t * 0.6 + p.ph) * 0.4, w = 12 * p.s, h = 8 * p.s;
+            ctx.save(); ctx.translate(Math.round((bx - o.x) * e), Math.round((by - o.y) * e)); if (p.a > 3.14) ctx.scale(-1, 1);
+            ctx.globalAlpha = 0.25; ctx.fillStyle = "#0a2a3a"; ctx.fillRect(Math.round(-w / 2 * e + e), Math.round(-h / 2 * e + 2 * e), Math.round(w * e), Math.round(h * 0.6 * e)); ctx.globalAlpha = 1;
+            ctx.drawImage(pad, Math.round(-w / 2 * e), Math.round(-h / 2 * e), Math.round(w * e), Math.round(h * e));
+            if (p.f) { const f = p620DImg("fleur" + p.f); ctx.drawImage(f, Math.round(-3.5 * e), Math.round(-h / 2 * e - 2 * e), 7 * e, 6 * e); }
+            ctx.restore(); } } });
+      }
+      P620D.st.pads = n;
+      for (const b of P620D.pap) if (visible(b.x, b.y, 10)) { const vol = b.p > 0 ? 0 : 6, hh = vol + Math.abs(Math.sin(b.t * 4 + b.ph)) * (vol ? 5 : 0), ouv = b.p > 0 ? ((b.t * 2 | 0) & 1) : ((b.t * 16 + b.ph) | 0) & 1;
+        items.push({ y: b.y + 20, dessiner: () => { const im = p620DImg("pap" + b.v + "_" + ouv); ctx.globalAlpha = 0.18; ctx.fillStyle = "#000"; ctx.fillRect(Math.round((b.x - 2 - o.x) * e), Math.round((b.y + 1 - o.y) * e), 4 * e, e); ctx.globalAlpha = 1;
+          ctx.save(); ctx.translate(Math.round((b.x - o.x) * e), Math.round((b.y - hh - o.y) * e)); if (b.dir < 0) ctx.scale(-1, 1); ctx.drawImage(im, Math.round(-6.5 * e), Math.round(-5 * e), 13 * e, 10 * e); ctx.restore(); } }); }
+    } catch (er) { p620Err("ddess", er); }
+  };
+}
+/* ---------- 3D ---------- */
+function p620DM3() {
+  if (P620D.m3) return P620D.m3;
+  const pad = new G3Geo(), v1 = [0.2, 0.5, 0.22], v2 = [0.3, 0.62, 0.28], N = 12;
+  for (let i = 0; i < N; i++) { if (i === 0) continue; const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832; pad.t([0, 0, 0], [Math.cos(a0) * 5, 0, Math.sin(a0) * 5], [Math.cos(a1) * 5, 0, Math.sin(a1) * 5], [0, 1, 0], i & 1 ? v1 : v2); }
+  pad.box(0.3, 0.02, 0, 3.6, 0.04, 0.25, [0.16, 0.4, 0.18]);
+  const mk = (c1, c2) => { const f = new G3Geo(); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.2832; f.box(Math.cos(a) * 1.1, 0.25, Math.sin(a) * 1.1, 1.6, 0.6, 0.9, k & 1 ? c1 : c2, -a); } for (let k = 0; k < 5; k++) { const a = k / 5 * 6.2832 + 0.6; f.box(Math.cos(a) * 0.5, 0.7, Math.sin(a) * 0.5, 0.9, 0.9, 0.6, c1, -a); } f.box(0, 0.9, 0, 0.6, 0.4, 0.6, [1, 0.85, 0.25]); return f.build(); };
+  const ail = new G3Geo(); ail.box(0.5, 0, 2.4, 3.8, 0.1, 4.6, [1, 1, 1]); ail.box(-1.4, 0, 1.8, 2.4, 0.1, 3.2, [0.8, 0.8, 0.8]);
+  const corps = new G3Geo(); corps.box(0, 0, 0, 3.4, 0.6, 0.6, [0.18, 0.12, 0.08]);
+  return P620D.m3 = { pad: pad.build(), rose: mk([0.96, 0.62, 0.78], [0.9, 0.45, 0.66]), blanc: mk([0.98, 0.98, 0.94], [0.86, 0.86, 0.82]), ail: ail.build(), corps: corps.build() };
+}
+const P620D_COL = [[0.95, 0.6, 0.15, 1], [0.97, 0.96, 0.9, 1], [0.35, 0.55, 0.95, 1], [0.96, 0.84, 0.25, 1]];
+function p620D3D(dt) {
+  if (PARAMS.eco || PARAMS.effets === "aucun" || E3.hx == null) { P620D.pap3.length = 0; return; }
+  const M = p620DM3(), hx = E3.hx, hz = E3.hz, t = performance.now() / 1000; let n = 0;
+  for (const [L, i] of p620DLacsVus(660, 600, hx, hz)) for (const p of p620DPads(L, i)) {
+    if (Math.abs(p.x - hx) > 360 || Math.abs(p.y - hz) > 330) continue; n++;
+    const y = 1.2 + Math.sin(t * 0.9 + p.ph) * 0.08;
+    g3Mesh(M.pad, M4.trs(p.x, y, p.y, p.a + Math.sin(t * 0.3 + p.ph) * 0.05, 0, 0, p.s, 1, p.s));
+    if (p.f) g3Mesh(p.f === 1 ? M.rose : M.blanc, M4.trs(p.x, y + 0.05, p.y, p.a, 0, 0, p.s, p.s, p.s));
+  }
+  P620D.st.pads3 = n;
+  p620DPapMaj(P620D.pap3, dt, hx, hz, true);
+  for (const b of P620D.pap3) { const vol = b.p <= 0, y = e3Sol(b.x, b.y) + (vol ? 7 + Math.abs(Math.sin(b.t * 4 + b.ph)) * 5 : 3.6), bat = vol ? Math.sin(t * 22 + b.ph) * 1.1 : 0.25 + Math.sin(t * 3 + b.ph) * 0.25, ry = b.dir < 0 ? Math.PI : 0, col = { tint: P620D_COL[b.v] };
+    g3Mesh(M.corps, M4.trs(b.x, y, b.y, ry)); g3Mesh(M.ail, M4.trs(b.x, y, b.y, ry, bat, 0), col); g3Mesh(M.ail, M4.trs(b.x, y, b.y, ry, Math.PI - bat, 0), col); }
+}
+{
+  const x3 = e3Extra3D; let tP = 0;
+  e3Extra3D = function (U, A, Pl, I, TR, gy, now, dt) {
+    x3.apply(this, arguments);
+    try { if ((AV.monde || 1) === 1 && jeu.scene === sceneMonde && dansMonde()) { const tt = performance.now(), d = tP ? Math.min(0.1, (tt - tP) / 1000) : 0.016; tP = tt; p620D3D(d); } } catch (er) { p620Err("d3d", er); }
+  };
+}
 
 </script>
 </body>
